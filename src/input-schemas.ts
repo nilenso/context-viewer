@@ -45,7 +45,7 @@ export type CompletionMessage = z.infer<typeof CompletionMessageSchema>;
 export type ToolCall = z.infer<typeof ToolCallSchema>;
 
 // ============================================================================
-// Anthropic Responses Format Schema
+// OpenAI Responses Format Schema
 // ============================================================================
 
 const ContentItemSchema = z.object({

@@ -32,7 +32,7 @@ Milestone 2: show components
 - Break down the messages to components
 - Count tokens per component
 - No relevance tags
-- Render chips per component, create the anthropic visualisation
+- Render chips per component, create the responses visualisation
 
 Milestone 3: time-travel view
 - Build a slider that lets one visualise the context growth chronologically

@@ -12,7 +12,7 @@ import {
 } from "../input-schemas";
 
 /**
- * Parser for Anthropic API responses format
+ * Parser for OpenAI Responses API format
  * Example: sample-logs/responses/1.json
  *
  * Maps to Vercel AI SDK message structure:
