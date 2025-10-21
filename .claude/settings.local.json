@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun init:*)",
+      "Bash(curl:*)",
+      "Bash(bash)",
+      "Bash(export PATH=\"$HOME/.bun/bin:$PATH\")",
+      "Bash(bun --version:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Read(//private/tmp/**)",
+      "Read(//tmp/**)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash($HOME/.bun/bin/bun run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
