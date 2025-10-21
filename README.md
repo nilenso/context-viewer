@@ -23,7 +23,9 @@ Clone and run `command run`. It will open up a browser with the following UI.
 Conversation data is private. Your data should stay with you. However,
 the breakdown and classification is done by an LLM, so you'll need to
 provide an API key. It could be an API key to the same provider as the
-conversation, so the data stays in one place.
+conversation, so the data stays in one place. This tool doesn't have a
+server component which would require sending conversations to another
+host apart from your model.
 
 Input conversations should support a few formats, since this space is
 evolving, still. To begin with, it will support the completions and
