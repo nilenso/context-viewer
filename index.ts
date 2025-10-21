@@ -3,6 +3,7 @@
 import { readFile } from "fs/promises";
 import { parserRegistry } from "./src/parser";
 import "./src/parsers"; // Register all parsers
+import { summarizeConversation } from "./src/conversation-summary";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -30,40 +31,22 @@ async function main() {
 
     // Print summary statistics
     console.error("\n=== Summary ===");
-    console.error(`Total messages: ${conversation.messages.length}`);
+    const summary = summarizeConversation(conversation);
+    console.error(`Total messages: ${summary.totalMessages}`);
 
     console.error("\nMessages by role:");
-    const roleCount = conversation.messages.reduce((acc, m) => {
-      acc[m.role] = (acc[m.role] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    for (const [role, count] of Object.entries(roleCount)) {
+    for (const [role, count] of Object.entries(summary.messagesByRole)) {
       console.error(`  ${role}: ${count}`);
     }
 
     // Count content types
     console.error("\nContent structure:");
-    let stringContent = 0;
-    let multipartContent = 0;
-    const partTypes: Record<string, number> = {};
+    console.error(`  String content: ${summary.stringContentCount}`);
+    console.error(`  Multipart content: ${summary.multipartContentCount}`);
 
-    for (const msg of conversation.messages) {
-      if (typeof msg.content === "string") {
-        stringContent++;
-      } else {
-        multipartContent++;
-        for (const part of msg.content) {
-          partTypes[part.type] = (partTypes[part.type] || 0) + 1;
-        }
-      }
-    }
-
-    console.error(`  String content: ${stringContent}`);
-    console.error(`  Multipart content: ${multipartContent}`);
-
-    if (Object.keys(partTypes).length > 0) {
+    if (Object.keys(summary.partCounts).length > 0) {
       console.error("\nParts by type:");
-      for (const [type, count] of Object.entries(partTypes)) {
+      for (const [type, count] of Object.entries(summary.partCounts)) {
         console.error(`  ${type}: ${count}`);
       }
     }
