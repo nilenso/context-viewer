@@ -3,6 +3,7 @@
 ## Core
 - [React](https://react.dev)
 - [Vite](https://vite.dev)
+- [Bun](https://bun.com/docs)
 
 ## Linting, Formatting, Testing
 - [ESLint](https://eslint.org/docs/latest/)
@@ -25,3 +26,6 @@
 
 ## State management
 - [useState](https://react.dev/reference/react/useState)
+
+## UI Components
+- [shadcn/ui](https://ui.shadcn.com/docs)
