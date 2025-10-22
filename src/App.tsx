@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { parserRegistry } from "./parser";
 import "./parsers";
@@ -13,121 +13,160 @@ import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
 import { Card } from "./components/ui/card";
+import { Clock, Loader2, AlertCircle } from "lucide-react";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Math.random().toString(16).slice(2)}`;
 
+type ConversationStatus = "pending" | "processing" | "success" | "failed";
+type ProcessingStep = "parsing" | "counting-tokens" | "summarizing";
+
 interface ParsedConversation {
   id: string;
   filename: string;
-  conversation: Conversation;
-  summary: ConversationSummary;
-}
-
-interface FailedParse {
-  id: string;
-  filename: string;
-  error: string;
+  status: ConversationStatus;
+  step?: ProcessingStep;
+  conversation?: Conversation;
+  summary?: ConversationSummary;
+  error?: string;
 }
 
 interface ParseResult {
-  success: ParsedConversation[];
-  failed: FailedParse[];
-}
-
-interface ParseProgress {
-  currentFile: number;
-  totalFiles: number;
-  filename: string;
-  step: "parsing" | "counting-tokens" | "summarizing";
+  conversations: ParsedConversation[];
 }
 
 async function parseFiles(
   files: File[],
-  onProgress?: (progress: ParseProgress) => void
+  fileIds: Map<number, string>, // Map of file index to id
+  onStepUpdate?: (id: string, step: ProcessingStep) => void,
+  onFileComplete?: (conversation: ParsedConversation) => void
 ): Promise<ParseResult> {
-  const success: ParsedConversation[] = [];
-  const failed: FailedParse[] = [];
+  const conversations: ParsedConversation[] = [];
+
+  console.log(`🔄 parseFiles: Starting to process ${files.length} files`);
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!file) continue;
 
+    const id = fileIds.get(i) || generateId();
+    console.log(`📄 Processing file ${i + 1}/${files.length}: ${file.name} (id: ${id})`);
+
     try {
-      onProgress?.({
-        currentFile: i + 1,
-        totalFiles: files.length,
-        filename: file.name,
-        step: "parsing",
-      });
+      // Step 1: Parsing
+      console.log(`  ⚙️  Step 1: Parsing ${file.name}`);
+      onStepUpdate?.(id, "parsing");
 
       const text = await file.text();
       const data = JSON.parse(text);
       const parsedConversation = parserRegistry.parse(data);
 
-      onProgress?.({
-        currentFile: i + 1,
-        totalFiles: files.length,
-        filename: file.name,
-        step: "counting-tokens",
-      });
-
+      // Step 2: Counting tokens
+      console.log(`  ⚙️  Step 2: Counting tokens for ${file.name}`);
+      onStepUpdate?.(id, "counting-tokens");
       const conversationWithTokens = await addTokenCounts(parsedConversation);
 
-      onProgress?.({
-        currentFile: i + 1,
-        totalFiles: files.length,
-        filename: file.name,
-        step: "summarizing",
-      });
-
+      // Step 3: Summarizing
+      console.log(`  ⚙️  Step 3: Summarizing ${file.name}`);
+      onStepUpdate?.(id, "summarizing");
       const summary = summarizeConversation(conversationWithTokens);
-      success.push({
-        id: generateId(),
+
+      const completed: ParsedConversation = {
+        id,
         filename: file.name,
+        status: "success",
         conversation: conversationWithTokens,
         summary,
-      });
+      };
+
+      conversations.push(completed);
+      onFileComplete?.(completed);
+      console.log(`  ✅ Completed ${file.name}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown parsing error";
-      failed.push({
-        id: generateId(),
+      const failed: ParsedConversation = {
+        id,
         filename: file.name,
+        status: "failed",
         error: message,
-      });
+      };
+
+      conversations.push(failed);
+      onFileComplete?.(failed);
+      console.log(`  ❌ Failed ${file.name}: ${message}`);
     }
   }
 
-  return { success, failed };
+  console.log(`✅ parseFiles: Completed processing all ${files.length} files`);
+  return { conversations };
 }
 
 export default function App() {
   const [parsedConversations, setParsedConversations] = useState<
     ParsedConversation[]
   >([]);
-  const [failedParses, setFailedParses] = useState<FailedParse[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [progress, setProgress] = useState<ParseProgress | null>(null);
+  const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   const parseMutation = useMutation({
-    mutationFn: (files: File[]) => parseFiles(files, setProgress),
-    onSuccess: ({ success, failed }) => {
-      setParsedConversations((prev) => [...prev, ...success]);
-      setFailedParses((prev) => [...prev, ...failed]);
-      setProgress(null);
-
-      if (success.length > 0) {
-        const [firstSuccess] = success;
-        if (firstSuccess) {
-          setSelectedId((prev) => prev ?? firstSuccess.id);
+    mutationFn: (files: File[]) => {
+      console.log(`🚀 Mutation started with ${files.length} files`);
+      return parseFiles(
+        files,
+        fileIdsRef.current,
+        (id, step) => {
+          // Update step (and set status to processing)
+          console.log(`  🔄 Step update: ${id} → ${step}`);
+          setParsedConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === id
+                ? { ...conv, status: "processing" as const, step }
+                : conv
+            )
+          );
+        },
+        (completed) => {
+          // Update the conversation in place as each file completes
+          console.log(`  ✅ File complete: ${completed.filename} (${completed.status})`);
+          setParsedConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === completed.id ? completed : conv
+            )
+          );
         }
+      );
+    },
+    onMutate: (files: File[]) => {
+      console.log(`📥 onMutate: Creating placeholders for ${files.length} files`);
+      // Create placeholder entries immediately
+      const fileIds = new Map<number, string>();
+      const placeholders: ParsedConversation[] = files.map((file, index) => {
+        const id = generateId();
+        fileIds.set(index, id);
+        console.log(`  📝 Placeholder [${index}]: ${file.name} → ${id}`);
+        return {
+          id,
+          filename: file.name,
+          status: "pending",
+        };
+      });
+
+      fileIdsRef.current = fileIds;
+      setParsedConversations((prev) => [...prev, ...placeholders]);
+
+      // Auto-select first file if nothing selected
+      if (!selectedId && placeholders[0]) {
+        setSelectedId(placeholders[0].id);
       }
     },
+    onSuccess: () => {
+      fileIdsRef.current = new Map();
+    },
     onError: () => {
-      setProgress(null);
+      fileIdsRef.current = new Map();
     },
   });
 
@@ -163,13 +202,13 @@ export default function App() {
 
   // Debug: Expose current conversation to window for console exploration
   useEffect(() => {
-    if (import.meta.env.DEV && selectedConversation) {
+    if (import.meta.env.DEV && selectedConversation?.conversation) {
       (window as any).__debug = {
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
-        msg: (index: number) => selectedConversation.conversation.messages[index],
+        msg: (index: number) => selectedConversation.conversation!.messages[index],
         part: (msgIndex: number, partIndex: number) =>
-          selectedConversation.conversation.messages[msgIndex]?.content[partIndex],
+          selectedConversation.conversation!.messages[msgIndex]?.content[partIndex],
       };
       console.log("🔍 Debug mode: Access conversation via window.__debug");
       console.log("  - window.__debug.conversation (full conversation)");
@@ -196,23 +235,6 @@ export default function App() {
           isUploading={parseMutation.isPending}
         />
 
-        {/* Error Panel */}
-        {failedParses.length > 0 && (
-          <Card className="bg-red-50 border-red-200 p-4">
-            <h2 className="text-lg font-semibold text-red-900 mb-2">
-              Failed to parse
-            </h2>
-            <ul className="space-y-1">
-              {failedParses.map((failure) => (
-                <li key={failure.id} className="text-sm text-red-800">
-                  <span className="font-medium">{failure.filename}</span>:{" "}
-                  {failure.error}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
         {/* Main Content */}
         <div className="grid grid-cols-[280px_minmax(800px,800px)_320px] gap-6">
           {/* Sidebar: Conversation List */}
@@ -221,14 +243,57 @@ export default function App() {
               conversations={parsedConversations}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              progress={progress}
             />
           </aside>
 
           {/* Main Panel: Conversation View */}
           <main>
             {selectedConversation ? (
-              <ConversationView conversation={selectedConversation.conversation} />
+              selectedConversation.status === "success" &&
+              selectedConversation.conversation ? (
+                <ConversationView
+                  conversation={selectedConversation.conversation}
+                />
+              ) : selectedConversation.status === "pending" ? (
+                <Card className="p-12 text-center">
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h2 className="text-xl font-semibold text-muted-foreground mb-2">
+                    Waiting to process
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedConversation.filename} will be processed soon
+                  </p>
+                </Card>
+              ) : selectedConversation.status === "processing" ? (
+                <Card className="p-12 text-center">
+                  <Loader2 className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-spin" />
+                  <h2 className="text-xl font-semibold text-muted-foreground mb-2">
+                    {selectedConversation.step === "parsing"
+                      ? "Parsing..."
+                      : selectedConversation.step === "counting-tokens"
+                      ? "Counting tokens..."
+                      : selectedConversation.step === "summarizing"
+                      ? "Summarizing..."
+                      : "Processing..."}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedConversation.filename}
+                  </p>
+                </Card>
+              ) : selectedConversation.status === "failed" ? (
+                <Card className="p-12 text-center border-red-200 bg-red-50">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-600" />
+                  <h2 className="text-xl font-semibold text-red-900 mb-2">
+                    Failed to parse
+                  </h2>
+                  <p className="text-sm text-red-800 mb-4">
+                    {selectedConversation.filename}
+                  </p>
+                  <p className="text-sm text-red-700 font-mono bg-red-100 p-4 rounded">
+                    {selectedConversation.error || "Unknown error"}
+                  </p>
+                </Card>
+              ) : null
             ) : (
               <Card className="p-12 text-center">
                 <h2 className="text-xl font-semibold text-muted-foreground mb-2">
@@ -243,9 +308,11 @@ export default function App() {
 
           {/* Right Sidebar: Summary */}
           <aside>
-            {selectedConversation && (
-              <SummaryView summary={selectedConversation.summary} />
-            )}
+            {selectedConversation &&
+              selectedConversation.status === "success" &&
+              selectedConversation.summary && (
+                <SummaryView summary={selectedConversation.summary} />
+              )}
           </aside>
         </div>
       </div>

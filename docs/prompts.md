@@ -35,10 +35,10 @@ Define the tech stack
 
 
 [TODO] Milestone 2: show components
+- Count tokens per component
 - Get api-key
 - Show spinner when calling AI
 - Break down the messages to components
-- Count tokens per component
 - No relevance tags
 - Render chips per component, create the responses visualisation
 
@@ -130,5 +130,16 @@ Use react components as appropriate, don't just keep it all in one big component
   - the above two views must collapse on click, showing only the label + token-count, not the entire contents. perhaps put the label and token count on the same line.
   - add a collapse-all/expand-all toggle on top of the conversation view that lets me see the structure of the conversation
 - conversation-summary
-### break down
+### bugfix on parsing reasoning
+checkout sample-logs/responses/1.json, and see the reasoning message. it has multiple elements in the array of summary.
+ however, when parsed into our format in schema, it only has one reasoning part. it should parse multiple array elements
+each into one reasoning part, which together will be inside the same assistant message.
+
+### UX improvement: immediate feedback on drag-drop
+- when I upload 2 files, I want to see them appear immediately in the conversation list, so that i know the drag-drop
+- operation has succeeded, and that the system is processing. currently there's a delay.
+### bug fix: empty text part in assistant messages
+when parsing assistant messages, there seems to be an empty text part before the tool calls? why is that?
+
+### add annotation
 - for each partb
