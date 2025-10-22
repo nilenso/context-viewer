@@ -19,9 +19,22 @@ function countTokens(text: string): number {
  * @param conversation The parsed conversation without token counts
  * @returns The same conversation with token counts added to all parts
  */
-export function addTokenCounts(conversation: Conversation): Conversation {
+export async function addTokenCounts(
+  conversation: Conversation
+): Promise<Conversation> {
+  const messages: Message[] = [];
+
+  // Process messages one at a time, yielding to event loop between each
+  for (const msg of conversation.messages) {
+    messages.push(addTokenCountsToMessage(msg));
+    // Yield to event loop every 10 messages to keep UI responsive
+    if (messages.length % 10 === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   return {
-    messages: conversation.messages.map((msg) => addTokenCountsToMessage(msg)),
+    messages,
   };
 }
 

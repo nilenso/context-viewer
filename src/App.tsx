@@ -34,16 +34,52 @@ interface ParseResult {
   failed: FailedParse[];
 }
 
-async function parseFiles(files: File[]): Promise<ParseResult> {
+interface ParseProgress {
+  currentFile: number;
+  totalFiles: number;
+  filename: string;
+  step: "parsing" | "counting-tokens" | "summarizing";
+}
+
+async function parseFiles(
+  files: File[],
+  onProgress?: (progress: ParseProgress) => void
+): Promise<ParseResult> {
   const success: ParsedConversation[] = [];
   const failed: FailedParse[] = [];
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file) continue;
+
     try {
+      onProgress?.({
+        currentFile: i + 1,
+        totalFiles: files.length,
+        filename: file.name,
+        step: "parsing",
+      });
+
       const text = await file.text();
       const data = JSON.parse(text);
       const parsedConversation = parserRegistry.parse(data);
-      const conversationWithTokens = addTokenCounts(parsedConversation);
+
+      onProgress?.({
+        currentFile: i + 1,
+        totalFiles: files.length,
+        filename: file.name,
+        step: "counting-tokens",
+      });
+
+      const conversationWithTokens = await addTokenCounts(parsedConversation);
+
+      onProgress?.({
+        currentFile: i + 1,
+        totalFiles: files.length,
+        filename: file.name,
+        step: "summarizing",
+      });
+
       const summary = summarizeConversation(conversationWithTokens);
       success.push({
         id: generateId(),
@@ -178,12 +214,14 @@ export default function App() {
   >([]);
   const [failedParses, setFailedParses] = useState<FailedParse[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ParseProgress | null>(null);
 
   const parseMutation = useMutation({
-    mutationFn: parseFiles,
+    mutationFn: (files: File[]) => parseFiles(files, setProgress),
     onSuccess: ({ success, failed }) => {
       setParsedConversations((prev) => [...prev, ...success]);
       setFailedParses((prev) => [...prev, ...failed]);
+      setProgress(null);
 
       if (success.length > 0) {
         const [firstSuccess] = success;
@@ -191,6 +229,9 @@ export default function App() {
           setSelectedId((prev) => prev ?? firstSuccess.id);
         }
       }
+    },
+    onError: () => {
+      setProgress(null);
     },
   });
 
@@ -276,8 +317,20 @@ export default function App() {
         </div>
       </section>
 
-      {parseMutation.isPending ? (
-        <div className="status-banner">Parsing conversations…</div>
+      {parseMutation.isPending && progress ? (
+        <div className="status-banner">
+          <div className="status-banner-main">
+            Processing file {progress.currentFile} of {progress.totalFiles}:{" "}
+            <strong>{progress.filename}</strong>
+          </div>
+          <div className="status-banner-step">
+            {progress.step === "parsing" && "📄 Parsing JSON..."}
+            {progress.step === "counting-tokens" && "🔢 Counting tokens..."}
+            {progress.step === "summarizing" && "📊 Generating summary..."}
+          </div>
+        </div>
+      ) : parseMutation.isPending ? (
+        <div className="status-banner">Starting...</div>
       ) : null}
 
       {failedParses.length > 0 ? (
