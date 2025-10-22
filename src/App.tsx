@@ -233,6 +233,26 @@ export default function App() {
     }
   }, [parsedConversations, selectedId]);
 
+  // Debug: Expose current conversation to window for console exploration
+  useEffect(() => {
+    if (import.meta.env.DEV && selectedConversation) {
+      (window as any).__debug = {
+        conversation: selectedConversation.conversation,
+        summary: selectedConversation.summary,
+        // Helper to pretty-print a message
+        msg: (index: number) => selectedConversation.conversation.messages[index],
+        // Helper to pretty-print a part
+        part: (msgIndex: number, partIndex: number) =>
+          selectedConversation.conversation.messages[msgIndex]?.content[partIndex],
+      };
+      console.log("🔍 Debug mode: Access conversation via window.__debug");
+      console.log("  - window.__debug.conversation (full conversation)");
+      console.log("  - window.__debug.summary (conversation summary)");
+      console.log("  - window.__debug.msg(0) (get message by index)");
+      console.log("  - window.__debug.part(0, 0) (get part by message/part index)");
+    }
+  }, [selectedConversation]);
+
   return (
     <div className="app-shell">
       <header className="app-header">
