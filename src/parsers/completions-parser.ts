@@ -13,7 +13,7 @@ import {
 
 // Simple ID generator
 let idCounter = 0;
-const generateId = () => `id-${++idCounter}`;
+const generateId = () => `${++idCounter}`;
 
 /**
  * Parser for OpenAI-style completions format
@@ -62,7 +62,7 @@ export class CompletionsParser implements Parser {
         return {
           id: generateId(),
           role: "system",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "text",
@@ -75,7 +75,7 @@ export class CompletionsParser implements Parser {
         return {
           id: generateId(),
           role: "user",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "text",
@@ -130,7 +130,7 @@ export class CompletionsParser implements Parser {
         return {
           id: generateId(),
           role: "assistant",
-          content: parts,
+          parts: parts,
         };
       }
 
@@ -138,7 +138,7 @@ export class CompletionsParser implements Parser {
         return {
           id: generateId(),
           role: "tool",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "tool-result",

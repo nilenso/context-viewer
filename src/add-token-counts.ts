@@ -39,7 +39,7 @@ export async function addTokenCounts(
 }
 
 function addTokenCountsToMessage(message: Message): Message {
-  const contentWithCounts = message.content.map((part) => {
+  const contentWithCounts = message.parts.map((part) => {
     switch (part.type) {
       case "text":
         return {
@@ -83,6 +83,6 @@ function addTokenCountsToMessage(message: Message): Message {
 
   return {
     ...message,
-    content: contentWithCounts as Message["content"],
+    parts: contentWithCounts as Message["parts"],
   };
 }

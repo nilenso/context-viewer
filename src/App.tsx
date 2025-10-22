@@ -233,7 +233,7 @@ export default function App() {
         summary: selectedConversation.summary,
         msg: (index: number) => selectedConversation.conversation!.messages[index],
         part: (msgIndex: number, partIndex: number) =>
-          selectedConversation.conversation!.messages[msgIndex]?.content[partIndex],
+          selectedConversation.conversation!.messages[msgIndex]?.parts[partIndex],
       };
     }
   }, [selectedConversation]);

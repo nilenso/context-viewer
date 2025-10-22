@@ -23,7 +23,7 @@ export function summarizeConversation(
     summary.messagesByRole[message.role] =
       (summary.messagesByRole[message.role] || 0) + 1;
 
-    const parts = message.content;
+    const parts = message.parts;
 
     if (parts.length === 1) {
       const singlePart = parts[0];

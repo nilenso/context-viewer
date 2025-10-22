@@ -55,7 +55,7 @@ export function MessageView({ message, index, isExpanded = false }: MessageViewP
   };
 
   const getTotalTokens = () => {
-    return message.content.reduce((sum, part) => {
+    return message.parts.reduce((sum, part) => {
       if ("token_count" in part && part.token_count !== undefined) {
         return sum + part.token_count;
       }
@@ -89,7 +89,7 @@ export function MessageView({ message, index, isExpanded = false }: MessageViewP
       </CollapsibleTrigger>
       <CollapsibleContent className="p-3 pt-0">
         <div className="space-y-2 mt-2">
-          {message.content.map((part, partIndex) => (
+          {message.parts.map((part, partIndex) => (
             <MessagePartView key={partIndex} part={part} isExpanded={isOpen} />
           ))}
         </div>

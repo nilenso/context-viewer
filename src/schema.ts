@@ -68,13 +68,13 @@ export const ToolResultPartSchema = z.object({
 export const SystemMessageSchema = z.object({
   id: z.string(),
   role: z.literal("system"),
-  content: z.array(TextPartSchema).nonempty(),
+  parts: z.array(TextPartSchema).nonempty(),
 });
 
 export const UserMessageSchema = z.object({
   id: z.string(),
   role: z.literal("user"),
-  content: z
+  parts: z
     .array(
       z.discriminatedUnion("type", [
         TextPartSchema,
@@ -88,7 +88,7 @@ export const UserMessageSchema = z.object({
 export const AssistantMessageSchema = z.object({
   id: z.string(),
   role: z.literal("assistant"),
-  content: z
+  parts: z
     .array(
       z.discriminatedUnion("type", [
         TextPartSchema,
@@ -103,7 +103,7 @@ export const AssistantMessageSchema = z.object({
 export const ToolMessageSchema = z.object({
   id: z.string(),
   role: z.literal("tool"),
-  content: z.array(ToolResultPartSchema),
+  parts: z.array(ToolResultPartSchema),
 });
 
 // Discriminated union of all message types

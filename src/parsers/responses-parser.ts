@@ -13,7 +13,7 @@ import {
 
 // Simple ID generator
 let idCounter = 0;
-const generateId = () => `id-${++idCounter}`;
+const generateId = () => `${++idCounter}`;
 
 /**
  * Parser for OpenAI Responses API format
@@ -67,7 +67,7 @@ export class ResponsesParser implements Parser {
           return {
             id: generateId(),
             role: "system",
-            content: textParts,
+            parts: textParts,
           };
         }
 
@@ -75,7 +75,7 @@ export class ResponsesParser implements Parser {
           return {
             id: generateId(),
             role: "user",
-            content: textParts,
+            parts: textParts,
           };
         }
 
@@ -83,7 +83,7 @@ export class ResponsesParser implements Parser {
         return {
           id: generateId(),
           role: "assistant",
-          content: textParts,
+          parts: textParts,
         };
       }
 
@@ -107,7 +107,7 @@ export class ResponsesParser implements Parser {
         return {
           id: generateId(),
           role: "assistant",
-          content: reasoningParts,
+          parts: reasoningParts,
         };
       }
 
@@ -116,7 +116,7 @@ export class ResponsesParser implements Parser {
         return {
           id: generateId(),
           role: "assistant",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "tool-call",
@@ -133,7 +133,7 @@ export class ResponsesParser implements Parser {
         return {
           id: generateId(),
           role: "tool",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "tool-result",
@@ -150,7 +150,7 @@ export class ResponsesParser implements Parser {
         return {
           id: generateId(),
           role: "assistant",
-          content: [
+          parts: [
             {
               id: generateId(),
               type: "text",
