@@ -8,7 +8,6 @@ import {
   type ConversationSummary,
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
-import { FileUploader } from "./components/FileUploader";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
@@ -250,12 +249,6 @@ export default function App() {
           </p>
         </header>
 
-        {/* File Uploader */}
-        <FileUploader
-          onFilesSelected={(files) => parseMutation.mutate(files)}
-          isUploading={parseMutation.isPending}
-        />
-
         {/* Main Content */}
         <div className="grid grid-cols-[280px_minmax(800px,800px)_320px] gap-6">
           {/* Sidebar: Conversation List */}
@@ -264,6 +257,8 @@ export default function App() {
               conversations={parsedConversations}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onFilesSelected={(files) => parseMutation.mutate(files)}
+              isUploading={parseMutation.isPending}
             />
           </aside>
 

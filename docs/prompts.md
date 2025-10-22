@@ -140,6 +140,8 @@ each into one reasoning part, which together will be inside the same assistant m
 - operation has succeeded, and that the system is processing. currently there's a delay.
 - after parsing is done, render the ui with the messages. let the counting of tokens happen with the progress indicator
 in the conversation list. when the counting of tokens is done, show it the token counts on the component.
+- make the conversation list the drag-drop area, and remove the top-banner. show the dotted border line around the
+conversation list instead. and also show the drop files ehre to select text, etc in the conversaiton list.
 ### bug fix: empty text part in assistant messages
 when parsing assistant messages, there seems to be an empty text part before the tool calls? why is that?
 
