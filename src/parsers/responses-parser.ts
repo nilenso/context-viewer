@@ -81,18 +81,23 @@ export class ResponsesParser implements Parser {
       }
 
       case "reasoning": {
-        // Reasoning becomes an assistant message with reasoning part
-        const reasoningText =
-          item.summary?.map((s) => s.text).join("\n") || "";
+        // Each summary item becomes a separate reasoning part
+        const reasoningParts = item.summary?.map((s) => ({
+          type: "reasoning" as const,
+          text: s.text,
+        })) || [];
+
+        // Ensure at least one reasoning part (schema requires nonempty content)
+        if (reasoningParts.length === 0) {
+          reasoningParts.push({
+            type: "reasoning" as const,
+            text: "",
+          });
+        }
 
         return {
           role: "assistant",
-          content: [
-            {
-              type: "reasoning",
-              text: reasoningText,
-            },
-          ],
+          content: reasoningParts,
         };
       }
 
