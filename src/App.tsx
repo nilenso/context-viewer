@@ -210,11 +210,6 @@ export default function App() {
         part: (msgIndex: number, partIndex: number) =>
           selectedConversation.conversation!.messages[msgIndex]?.content[partIndex],
       };
-      console.log("🔍 Debug mode: Access conversation via window.__debug");
-      console.log("  - window.__debug.conversation (full conversation)");
-      console.log("  - window.__debug.summary (conversation summary)");
-      console.log("  - window.__debug.msg(0) (get message by index)");
-      console.log("  - window.__debug.part(0, 0) (get part by message/part index)");
     }
   }, [selectedConversation]);
 
