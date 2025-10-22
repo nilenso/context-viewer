@@ -35,7 +35,11 @@ export class ResponsesParser implements Parser {
     } catch (error) {
       if (error instanceof ZodError) {
         throw new Error(
-          `Invalid responses format: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+          `Invalid responses format: ${error.issues
+            .map(
+              (issue) => `${issue.path.join(".")}: ${issue.message}`
+            )
+            .join(", ")}`
         );
       }
       throw error;
@@ -53,26 +57,26 @@ export class ResponsesParser implements Parser {
     switch (item.type) {
       case "message": {
         const role = item.role || "assistant";
-        const textContent = this.extractTextFromContent(item.content);
+        const textParts = this.extractTextParts(item.content);
 
         if (role === "system") {
           return {
             role: "system",
-            content: textContent,
+            content: textParts,
           };
         }
 
         if (role === "user") {
           return {
             role: "user",
-            content: textContent,
+            content: textParts,
           };
         }
 
         // Assistant message
         return {
           role: "assistant",
-          content: textContent,
+          content: textParts,
         };
       }
 
@@ -126,20 +130,39 @@ export class ResponsesParser implements Parser {
         // Default to assistant message with text content
         return {
           role: "assistant",
-          content: "",
+          content: [
+            {
+              type: "text",
+              text: "",
+            },
+          ],
         };
       }
     }
   }
 
-  private extractTextFromContent(
+  private extractTextParts(
     content: ResponseDataItem["content"]
-  ): string {
-    if (!content || content.length === 0) return "";
+  ): Array<{ type: "text"; text: string }> {
+    if (!content || content.length === 0) {
+      return [
+        {
+          type: "text",
+          text: "",
+        },
+      ];
+    }
 
-    return content
+    const textContent = content
       .filter((c) => c.type === "input_text" || c.type === "output_text")
       .map((c) => c.text || "")
       .join("\n");
+
+    return [
+      {
+        type: "text",
+        text: textContent,
+      },
+    ];
   }
 }

@@ -57,36 +57,34 @@ export const ToolResultPartSchema = z.object({
 
 export const SystemMessageSchema = z.object({
   role: z.literal("system"),
-  content: z.string(),
+  content: z.array(TextPartSchema).nonempty(),
 });
 
 export const UserMessageSchema = z.object({
   role: z.literal("user"),
-  content: z.union([
-    z.string(),
-    z.array(
+  content: z
+    .array(
       z.discriminatedUnion("type", [
         TextPartSchema,
         ImagePartSchema,
         FilePartSchema,
       ])
-    ),
-  ]),
+    )
+    .nonempty(),
 });
 
 export const AssistantMessageSchema = z.object({
   role: z.literal("assistant"),
-  content: z.union([
-    z.string(),
-    z.array(
+  content: z
+    .array(
       z.discriminatedUnion("type", [
         TextPartSchema,
         FilePartSchema,
         ReasoningPartSchema,
         ToolCallPartSchema,
       ])
-    ),
-  ]),
+    )
+    .nonempty(),
 });
 
 export const ToolMessageSchema = z.object({

@@ -64,13 +64,18 @@ async function parseFiles(files: File[]): Promise<ParseResult> {
 }
 
 function renderMessageContent(message: Message) {
-  if (typeof message.content === "string") {
-    return <p className="message-text">{message.content}</p>;
+  const parts = message.content;
+
+  if (parts.length === 1) {
+    const singlePart = parts[0];
+    if (singlePart && singlePart.type === "text") {
+      return <p className="message-text">{singlePart.text}</p>;
+    }
   }
 
   return (
     <div className="message-parts">
-      {message.content.map((part, index) => {
+      {parts.map((part, index) => {
         switch (part.type) {
           case "text":
             return (
@@ -150,7 +155,10 @@ export default function App() {
       setFailedParses((prev) => [...prev, ...failed]);
 
       if (success.length > 0) {
-        setSelectedId((prev) => prev ?? success[0].id);
+        const [firstSuccess] = success;
+        if (firstSuccess) {
+          setSelectedId((prev) => prev ?? firstSuccess.id);
+        }
       }
     },
   });
@@ -178,13 +186,19 @@ export default function App() {
       return;
     }
 
+    const [firstConversation] = parsedConversations;
+    if (!firstConversation) {
+      setSelectedId(null);
+      return;
+    }
+
     if (!selectedId) {
-      setSelectedId(parsedConversations[0].id);
+      setSelectedId(firstConversation.id);
       return;
     }
 
     if (!parsedConversations.some((conv) => conv.id === selectedId)) {
-      setSelectedId(parsedConversations[0].id);
+      setSelectedId(firstConversation.id);
     }
   }, [parsedConversations, selectedId]);
 
@@ -303,15 +317,18 @@ export default function App() {
                     <h3>Content structure</h3>
                     <ul>
                       <li>
-                        <span className="summary-role">String</span>
+                        <span className="summary-role">Text-only</span>
                         <span>
-                          {selectedConversation.summary.stringContentCount}
+                          {selectedConversation.summary.textOnlyMessageCount}
                         </span>
                       </li>
                       <li>
-                        <span className="summary-role">Multipart</span>
+                        <span className="summary-role">Structured</span>
                         <span>
-                          {selectedConversation.summary.multipartContentCount}
+                          {
+                            selectedConversation.summary
+                              .structuredContentMessageCount
+                          }
                         </span>
                       </li>
                     </ul>

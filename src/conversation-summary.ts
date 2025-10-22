@@ -3,8 +3,8 @@ import type { Conversation } from "./schema";
 export interface ConversationSummary {
   totalMessages: number;
   messagesByRole: Record<string, number>;
-  stringContentCount: number;
-  multipartContentCount: number;
+  textOnlyMessageCount: number;
+  structuredContentMessageCount: number;
   partCounts: Record<string, number>;
 }
 
@@ -14,8 +14,8 @@ export function summarizeConversation(
   const summary: ConversationSummary = {
     totalMessages: conversation.messages.length,
     messagesByRole: {},
-    stringContentCount: 0,
-    multipartContentCount: 0,
+    textOnlyMessageCount: 0,
+    structuredContentMessageCount: 0,
     partCounts: {},
   };
 
@@ -23,13 +23,20 @@ export function summarizeConversation(
     summary.messagesByRole[message.role] =
       (summary.messagesByRole[message.role] || 0) + 1;
 
-    if (typeof message.content === "string") {
-      summary.stringContentCount += 1;
-      continue;
+    const parts = message.content;
+
+    if (parts.length === 1) {
+      const singlePart = parts[0];
+      if (singlePart && singlePart.type === "text") {
+        summary.textOnlyMessageCount += 1;
+      } else {
+        summary.structuredContentMessageCount += 1;
+      }
+    } else {
+      summary.structuredContentMessageCount += 1;
     }
 
-    summary.multipartContentCount += 1;
-    for (const part of message.content) {
+    for (const part of parts) {
       summary.partCounts[part.type] = (summary.partCounts[part.type] || 0) + 1;
     }
   }

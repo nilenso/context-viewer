@@ -12,7 +12,11 @@
       "Read(//tmp/**)",
       "Bash(cat:*)",
       "Bash(tree:*)",
-      "Bash($HOME/.bun/bin/bun run:*)"
+      "Bash($HOME/.bun/bin/bun run:*)",
+      "Bash(git worktree:*)",
+      "Read(//Users/srihari/work/nilenso/context-viewer-explore/**)",
+      "Bash(bun install)",
+      "Bash($HOME/.bun/bin/bun install)"
     ],
     "deny": [],
     "ask": []

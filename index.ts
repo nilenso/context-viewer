@@ -16,7 +16,7 @@ async function main() {
     process.exit(1);
   }
 
-  const filePath = args[0];
+  const filePath = args[0]!;
 
   try {
     // Read the file
@@ -41,8 +41,10 @@ async function main() {
 
     // Count content types
     console.error("\nContent structure:");
-    console.error(`  String content: ${summary.stringContentCount}`);
-    console.error(`  Multipart content: ${summary.multipartContentCount}`);
+    console.error(`  Text-only messages: ${summary.textOnlyMessageCount}`);
+    console.error(
+      `  Structured content messages: ${summary.structuredContentMessageCount}`
+    );
 
     if (Object.keys(summary.partCounts).length > 0) {
       console.error("\nParts by type:");

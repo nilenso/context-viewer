@@ -67,7 +67,7 @@ const ResponseDataItemSchema = z.object({
   content: z.array(ContentItemSchema).optional(),
   summary: z.array(SummaryItemSchema).optional(),
   created_by: z.string().optional(),
-  role: z.enum(["user", "assistant"]).optional(),
+  role: z.enum(["system", "user", "assistant"]).optional(),
   name: z.string().optional(),
   arguments: z.string().optional(),
   output: z.unknown().optional(),

@@ -35,7 +35,11 @@ export class CompletionsParser implements Parser {
     } catch (error) {
       if (error instanceof ZodError) {
         throw new Error(
-          `Invalid completions format: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+          `Invalid completions format: ${error.issues
+            .map(
+              (issue) => `${issue.path.join(".")}: ${issue.message}`
+            )
+            .join(", ")}`
         );
       }
       throw error;
@@ -53,13 +57,23 @@ export class CompletionsParser implements Parser {
       case "system":
         return {
           role: "system",
-          content: msg.content || "",
+          content: [
+            {
+              type: "text",
+              text: msg.content ?? "",
+            },
+          ],
         };
 
       case "user":
         return {
           role: "user",
-          content: msg.content || "",
+          content: [
+            {
+              type: "text",
+              text: msg.content ?? "",
+            },
+          ],
         };
 
       case "assistant": {
@@ -75,7 +89,7 @@ export class CompletionsParser implements Parser {
         > = [];
 
         // Add text content if present
-        if (msg.content) {
+        if (msg.content !== null && msg.content !== undefined) {
           parts.push({
             type: "text",
             text: msg.content,
@@ -94,12 +108,11 @@ export class CompletionsParser implements Parser {
           }
         }
 
-        // Return string if only text, array if multiple parts
-        if (parts.length === 1 && parts[0].type === "text") {
-          return {
-            role: "assistant",
-            content: parts[0].text,
-          };
+        if (parts.length === 0) {
+          parts.push({
+            type: "text",
+            text: "",
+          });
         }
 
         return {
@@ -116,7 +129,7 @@ export class CompletionsParser implements Parser {
               type: "tool-result",
               toolCallId: msg.tool_call_id || "",
               toolName: "", // Not available in this format
-              output: msg.content || "",
+              output: msg.content ?? "",
             },
           ],
         };
