@@ -13,6 +13,7 @@ import { z } from "zod";
 export const TextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
+  token_count: z.number().optional(),
 });
 
 export const FilePartSchema = z.object({
@@ -33,6 +34,7 @@ export const ImagePartSchema = z.object({
 export const ReasoningPartSchema = z.object({
   type: z.literal("reasoning"),
   text: z.string(),
+  token_count: z.number().optional(),
 });
 
 export const ToolCallPartSchema = z.object({
@@ -40,6 +42,7 @@ export const ToolCallPartSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
   input: z.unknown(),
+  token_count: z.number().optional(),
 });
 
 // Tool message parts
@@ -49,6 +52,7 @@ export const ToolResultPartSchema = z.object({
   toolName: z.string(),
   output: z.unknown(),
   isError: z.boolean().optional(),
+  token_count: z.number().optional(),
 });
 
 // ============================================================================

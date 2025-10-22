@@ -269,6 +269,21 @@
   margin-bottom: 0.25rem;
 }
 
+.token-count {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #059669;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.token-count-inline {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #059669;
+  margin-bottom: 0.5rem;
+}
+
 .part-code {
   background-color: #0f172a;
   color: #f8fafc;

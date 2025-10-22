@@ -8,6 +8,7 @@ import {
   summarizeConversation,
   type ConversationSummary,
 } from "./conversation-summary";
+import { addTokenCounts } from "./add-token-counts";
 import "./App.css";
 
 const generateId = () =>
@@ -41,12 +42,13 @@ async function parseFiles(files: File[]): Promise<ParseResult> {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      const conversation = parserRegistry.parse(data);
-      const summary = summarizeConversation(conversation);
+      const parsedConversation = parserRegistry.parse(data);
+      const conversationWithTokens = addTokenCounts(parsedConversation);
+      const summary = summarizeConversation(conversationWithTokens);
       success.push({
         id: generateId(),
         filename: file.name,
-        conversation,
+        conversation: conversationWithTokens,
         summary,
       });
     } catch (error) {
@@ -69,7 +71,16 @@ function renderMessageContent(message: Message) {
   if (parts.length === 1) {
     const singlePart = parts[0];
     if (singlePart && singlePart.type === "text") {
-      return <p className="message-text">{singlePart.text}</p>;
+      return (
+        <div>
+          {singlePart.token_count !== undefined && (
+            <div className="token-count-inline">
+              {singlePart.token_count} tokens
+            </div>
+          )}
+          <p className="message-text">{singlePart.text}</p>
+        </div>
+      );
     }
   }
 
@@ -80,7 +91,12 @@ function renderMessageContent(message: Message) {
           case "text":
             return (
               <div key={index} className="part part-text">
-                <div className="part-label">Text</div>
+                <div className="part-label">
+                  Text
+                  {part.token_count !== undefined && (
+                    <span className="token-count"> ({part.token_count} tokens)</span>
+                  )}
+                </div>
                 <div>{part.text}</div>
               </div>
             );
@@ -102,14 +118,24 @@ function renderMessageContent(message: Message) {
           case "reasoning":
             return (
               <div key={index} className="part part-reasoning">
-                <div className="part-label">Reasoning</div>
+                <div className="part-label">
+                  Reasoning
+                  {part.token_count !== undefined && (
+                    <span className="token-count"> ({part.token_count} tokens)</span>
+                  )}
+                </div>
                 <div>{part.text}</div>
               </div>
             );
           case "tool-call":
             return (
               <div key={index} className="part part-tool">
-                <div className="part-label">Tool Call</div>
+                <div className="part-label">
+                  Tool Call
+                  {part.token_count !== undefined && (
+                    <span className="token-count"> ({part.token_count} tokens)</span>
+                  )}
+                </div>
                 <div>ID: {part.toolCallId}</div>
                 <div>Tool: {part.toolName}</div>
                 <pre className="part-code">
@@ -120,7 +146,12 @@ function renderMessageContent(message: Message) {
           case "tool-result":
             return (
               <div key={index} className="part part-tool">
-                <div className="part-label">Tool Result</div>
+                <div className="part-label">
+                  Tool Result
+                  {part.token_count !== undefined && (
+                    <span className="token-count"> ({part.token_count} tokens)</span>
+                  )}
+                </div>
                 <div>ID: {part.toolCallId}</div>
                 <div>Tool: {part.toolName}</div>
                 <pre className="part-code">

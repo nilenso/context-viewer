@@ -16,7 +16,8 @@
       "Bash(git worktree:*)",
       "Read(//Users/srihari/work/nilenso/context-viewer-explore/**)",
       "Bash(bun install)",
-      "Bash($HOME/.bun/bin/bun install)"
+      "Bash($HOME/.bun/bin/bun install)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
