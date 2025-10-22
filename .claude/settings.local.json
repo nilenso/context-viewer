@@ -17,7 +17,9 @@
       "Read(//Users/srihari/work/nilenso/context-viewer-explore/**)",
       "Bash(bun install)",
       "Bash($HOME/.bun/bin/bun install)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(bun x shadcn@latest add:*)",
+      "Bash(bun remove:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useDropzone } from "react-dropzone";
 import { parserRegistry } from "./parser";
 import "./parsers";
-import type { Conversation, Message } from "./schema";
+import type { Conversation } from "./schema";
 import {
   summarizeConversation,
   type ConversationSummary,
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
-import "./App.css";
+import { FileUploader } from "./components/FileUploader";
+import { ConversationList } from "./components/ConversationList";
+import { ConversationView } from "./components/ConversationView";
+import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
+import { Card } from "./components/ui/card";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -101,113 +104,6 @@ async function parseFiles(
   return { success, failed };
 }
 
-function renderMessageContent(message: Message) {
-  const parts = message.content;
-
-  if (parts.length === 1) {
-    const singlePart = parts[0];
-    if (singlePart && singlePart.type === "text") {
-      return (
-        <div>
-          {singlePart.token_count !== undefined && (
-            <div className="token-count-inline">
-              {singlePart.token_count} tokens
-            </div>
-          )}
-          <p className="message-text">{singlePart.text}</p>
-        </div>
-      );
-    }
-  }
-
-  return (
-    <div className="message-parts">
-      {parts.map((part, index) => {
-        switch (part.type) {
-          case "text":
-            return (
-              <div key={index} className="part part-text">
-                <div className="part-label">
-                  Text
-                  {part.token_count !== undefined && (
-                    <span className="token-count"> ({part.token_count} tokens)</span>
-                  )}
-                </div>
-                <div>{part.text}</div>
-              </div>
-            );
-          case "file":
-            return (
-              <div key={index} className="part part-file">
-                <div className="part-label">File</div>
-                <div>Media type: {part.mediaType}</div>
-                <div>Data: {part.data.slice(0, 120)}</div>
-              </div>
-            );
-          case "image":
-            return (
-              <div key={index} className="part part-image">
-                <div className="part-label">Image</div>
-                <div>Media type: {part.mediaType ?? "unknown"}</div>
-              </div>
-            );
-          case "reasoning":
-            return (
-              <div key={index} className="part part-reasoning">
-                <div className="part-label">
-                  Reasoning
-                  {part.token_count !== undefined && (
-                    <span className="token-count"> ({part.token_count} tokens)</span>
-                  )}
-                </div>
-                <div>{part.text}</div>
-              </div>
-            );
-          case "tool-call":
-            return (
-              <div key={index} className="part part-tool">
-                <div className="part-label">
-                  Tool Call
-                  {part.token_count !== undefined && (
-                    <span className="token-count"> ({part.token_count} tokens)</span>
-                  )}
-                </div>
-                <div>ID: {part.toolCallId}</div>
-                <div>Tool: {part.toolName}</div>
-                <pre className="part-code">
-                  {JSON.stringify(part.input, null, 2)}
-                </pre>
-              </div>
-            );
-          case "tool-result":
-            return (
-              <div key={index} className="part part-tool">
-                <div className="part-label">
-                  Tool Result
-                  {part.token_count !== undefined && (
-                    <span className="token-count"> ({part.token_count} tokens)</span>
-                  )}
-                </div>
-                <div>ID: {part.toolCallId}</div>
-                <div>Tool: {part.toolName}</div>
-                <pre className="part-code">
-                  {JSON.stringify(part.output, null, 2)}
-                </pre>
-                {part.isError ? <div className="part-error">Error</div> : null}
-              </div>
-            );
-          default:
-            return (
-              <div key={index} className="part">
-                <div className="part-label">Unknown part</div>
-              </div>
-            );
-        }
-      })}
-    </div>
-  );
-}
-
 export default function App() {
   const [parsedConversations, setParsedConversations] = useState<
     ParsedConversation[]
@@ -233,15 +129,6 @@ export default function App() {
     onError: () => {
       setProgress(null);
     },
-  });
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => parseMutation.mutate(acceptedFiles),
-    accept: {
-      "text/plain": [".txt"],
-      "application/json": [".json"],
-    },
-    multiple: true,
   });
 
   const selectedConversation = useMemo(() => {
@@ -280,9 +167,7 @@ export default function App() {
       (window as any).__debug = {
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
-        // Helper to pretty-print a message
         msg: (index: number) => selectedConversation.conversation.messages[index],
-        // Helper to pretty-print a part
         part: (msgIndex: number, partIndex: number) =>
           selectedConversation.conversation.messages[msgIndex]?.content[partIndex],
       };
@@ -295,174 +180,74 @@ export default function App() {
   }, [selectedConversation]);
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <h1>Context Viewer</h1>
-        <p className="app-subtitle">
-          Upload one or more conversation logs in JSON or text format. Each file
-          will be parsed into the standard conversation structure.
-        </p>
-      </header>
+    <div className="min-h-screen bg-background p-6">
+      <div className="w-[1440px] space-y-6">
+        {/* Header */}
+        <header>
+          <h1 className="text-3xl font-bold">Context Viewer</h1>
+          <p className="text-muted-foreground mt-1">
+            Upload conversation logs to analyze their structure and token usage
+          </p>
+        </header>
 
-      <section
-        className={`dropzone ${isDragActive ? "dropzone-active" : ""}`}
-        {...getRootProps()}
-      >
-        <input {...getInputProps()} />
-        <div>
-          <strong>Drop files here</strong> or click to select files.
-          <div className="dropzone-hint">
-            Accepts .json and .txt files. Multiple uploads supported.
-          </div>
+        {/* File Uploader */}
+        <FileUploader
+          onFilesSelected={(files) => parseMutation.mutate(files)}
+          isUploading={parseMutation.isPending}
+        />
+
+        {/* Error Panel */}
+        {failedParses.length > 0 && (
+          <Card className="bg-red-50 border-red-200 p-4">
+            <h2 className="text-lg font-semibold text-red-900 mb-2">
+              Failed to parse
+            </h2>
+            <ul className="space-y-1">
+              {failedParses.map((failure) => (
+                <li key={failure.id} className="text-sm text-red-800">
+                  <span className="font-medium">{failure.filename}</span>:{" "}
+                  {failure.error}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* Main Content */}
+        <div className="grid grid-cols-[280px_minmax(800px,800px)_320px] gap-6">
+          {/* Sidebar: Conversation List */}
+          <aside className="space-y-4">
+            <ConversationList
+              conversations={parsedConversations}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              progress={progress}
+            />
+          </aside>
+
+          {/* Main Panel: Conversation View */}
+          <main>
+            {selectedConversation ? (
+              <ConversationView conversation={selectedConversation.conversation} />
+            ) : (
+              <Card className="p-12 text-center">
+                <h2 className="text-xl font-semibold text-muted-foreground mb-2">
+                  No conversation selected
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Upload files to see their parsed conversations
+                </p>
+              </Card>
+            )}
+          </main>
+
+          {/* Right Sidebar: Summary */}
+          <aside>
+            {selectedConversation && (
+              <SummaryView summary={selectedConversation.summary} />
+            )}
+          </aside>
         </div>
-      </section>
-
-      {parseMutation.isPending && progress ? (
-        <div className="status-banner">
-          <div className="status-banner-main">
-            Processing file {progress.currentFile} of {progress.totalFiles}:{" "}
-            <strong>{progress.filename}</strong>
-          </div>
-          <div className="status-banner-step">
-            {progress.step === "parsing" && "📄 Parsing JSON..."}
-            {progress.step === "counting-tokens" && "🔢 Counting tokens..."}
-            {progress.step === "summarizing" && "📊 Generating summary..."}
-          </div>
-        </div>
-      ) : parseMutation.isPending ? (
-        <div className="status-banner">Starting...</div>
-      ) : null}
-
-      {failedParses.length > 0 ? (
-        <div className="error-panel">
-          <h2>Failed to parse</h2>
-          <ul>
-            {failedParses.map((failure) => (
-              <li key={failure.id}>
-                <span className="error-filename">{failure.filename}</span>:{" "}
-                {failure.error}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="content">
-        <aside className="sidebar">
-          <h2>Uploaded Conversations</h2>
-          <ul className="conversation-list">
-            {parsedConversations.map((conversation) => (
-              <li key={conversation.id}>
-                <button
-                  type="button"
-                  className={`conversation-item ${
-                    conversation.id === selectedConversation?.id
-                      ? "conversation-item-active"
-                      : ""
-                  }`}
-                  onClick={() => setSelectedId(conversation.id)}
-                >
-                  <div className="conversation-name">
-                    {conversation.filename}
-                  </div>
-                  <div className="conversation-meta">
-                    {conversation.summary.totalMessages} messages
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        <main className="main-panel">
-          {selectedConversation ? (
-            <div className="conversation-view">
-              <div className="conversation-column">
-                <h2>Conversation</h2>
-                <div className="messages-scroll">
-                  {selectedConversation.conversation.messages.map(
-                    (message, index) => (
-                      <article key={index} className={`message ${message.role}`}>
-                        <header className="message-header">
-                          <span className="message-role">{message.role}</span>
-                          <span className="message-index">
-                            #{index + 1}
-                          </span>
-                        </header>
-                        {renderMessageContent(message)}
-                      </article>
-                    )
-                  )}
-                </div>
-              </div>
-              <div className="summary-column">
-                <h2>Summary</h2>
-                <div className="summary-section">
-                  <div className="summary-stat">
-                    <span className="summary-label">Total messages</span>
-                    <span className="summary-value">
-                      {selectedConversation.summary.totalMessages}
-                    </span>
-                  </div>
-                  <div className="summary-group">
-                    <h3>Messages by role</h3>
-                    <ul>
-                      {Object.entries(
-                        selectedConversation.summary.messagesByRole
-                      ).map(([role, count]) => (
-                        <li key={role}>
-                          <span className="summary-role">{role}</span>
-                          <span>{count}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="summary-group">
-                    <h3>Content structure</h3>
-                    <ul>
-                      <li>
-                        <span className="summary-role">Text-only</span>
-                        <span>
-                          {selectedConversation.summary.textOnlyMessageCount}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="summary-role">Structured</span>
-                        <span>
-                          {
-                            selectedConversation.summary
-                              .structuredContentMessageCount
-                          }
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                  {Object.keys(selectedConversation.summary.partCounts).length >
-                  0 ? (
-                    <div className="summary-group">
-                      <h3>Parts by type</h3>
-                      <ul>
-                        {Object.entries(
-                          selectedConversation.summary.partCounts
-                        ).map(([type, count]) => (
-                          <li key={type}>
-                            <span className="summary-role">{type}</span>
-                            <span>{count}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <h2>No conversations yet</h2>
-              <p>Upload files to see their parsed conversations and summaries.</p>
-            </div>
-          )}
-        </main>
       </div>
     </div>
   );
