@@ -11,6 +11,10 @@ import {
   type CompletionMessage,
 } from "../input-schemas";
 
+// Simple ID generator
+let idCounter = 0;
+const generateId = () => `id-${++idCounter}`;
+
 /**
  * Parser for OpenAI-style completions format
  * Example: sample-logs/completions/1.json
@@ -56,9 +60,11 @@ export class CompletionsParser implements Parser {
     switch (msg.role) {
       case "system":
         return {
+          id: generateId(),
           role: "system",
           content: [
             {
+              id: generateId(),
               type: "text",
               text: msg.content ?? "",
             },
@@ -67,9 +73,11 @@ export class CompletionsParser implements Parser {
 
       case "user":
         return {
+          id: generateId(),
           role: "user",
           content: [
             {
+              id: generateId(),
               type: "text",
               text: msg.content ?? "",
             },
@@ -79,8 +87,9 @@ export class CompletionsParser implements Parser {
       case "assistant": {
         // Assistant can have text content and/or tool calls
         const parts: Array<
-          | { type: "text"; text: string }
+          | { id: string; type: "text"; text: string }
           | {
+              id: string;
               type: "tool-call";
               toolCallId: string;
               toolName: string;
@@ -91,6 +100,7 @@ export class CompletionsParser implements Parser {
         // Add text content if present and non-empty
         if (msg.content !== null && msg.content !== undefined && msg.content !== "") {
           parts.push({
+            id: generateId(),
             type: "text",
             text: msg.content,
           });
@@ -100,6 +110,7 @@ export class CompletionsParser implements Parser {
         if (msg.tool_calls) {
           for (const toolCall of msg.tool_calls) {
             parts.push({
+              id: generateId(),
               type: "tool-call",
               toolCallId: toolCall.id,
               toolName: toolCall.function.name,
@@ -110,12 +121,14 @@ export class CompletionsParser implements Parser {
 
         if (parts.length === 0) {
           parts.push({
+            id: generateId(),
             type: "text",
             text: "",
           });
         }
 
         return {
+          id: generateId(),
           role: "assistant",
           content: parts,
         };
@@ -123,9 +136,11 @@ export class CompletionsParser implements Parser {
 
       case "tool":
         return {
+          id: generateId(),
           role: "tool",
           content: [
             {
+              id: generateId(),
               type: "tool-result",
               toolCallId: msg.tool_call_id || "",
               toolName: "", // Not available in this format

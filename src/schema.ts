@@ -11,12 +11,14 @@ import { z } from "zod";
 
 // Common parts
 export const TextPartSchema = z.object({
+  id: z.string(),
   type: z.literal("text"),
   text: z.string(),
   token_count: z.number().optional(),
 });
 
 export const FilePartSchema = z.object({
+  id: z.string(),
   type: z.literal("file"),
   data: z.string(),
   mediaType: z.string(),
@@ -25,6 +27,7 @@ export const FilePartSchema = z.object({
 
 // User message parts
 export const ImagePartSchema = z.object({
+  id: z.string(),
   type: z.literal("image"),
   image: z.string(),
   mediaType: z.string().optional(),
@@ -32,12 +35,14 @@ export const ImagePartSchema = z.object({
 
 // Assistant message parts
 export const ReasoningPartSchema = z.object({
+  id: z.string(),
   type: z.literal("reasoning"),
   text: z.string(),
   token_count: z.number().optional(),
 });
 
 export const ToolCallPartSchema = z.object({
+  id: z.string(),
   type: z.literal("tool-call"),
   toolCallId: z.string(),
   toolName: z.string(),
@@ -47,6 +52,7 @@ export const ToolCallPartSchema = z.object({
 
 // Tool message parts
 export const ToolResultPartSchema = z.object({
+  id: z.string(),
   type: z.literal("tool-result"),
   toolCallId: z.string(),
   toolName: z.string(),
@@ -60,11 +66,13 @@ export const ToolResultPartSchema = z.object({
 // ============================================================================
 
 export const SystemMessageSchema = z.object({
+  id: z.string(),
   role: z.literal("system"),
   content: z.array(TextPartSchema).nonempty(),
 });
 
 export const UserMessageSchema = z.object({
+  id: z.string(),
   role: z.literal("user"),
   content: z
     .array(
@@ -78,6 +86,7 @@ export const UserMessageSchema = z.object({
 });
 
 export const AssistantMessageSchema = z.object({
+  id: z.string(),
   role: z.literal("assistant"),
   content: z
     .array(
@@ -92,6 +101,7 @@ export const AssistantMessageSchema = z.object({
 });
 
 export const ToolMessageSchema = z.object({
+  id: z.string(),
   role: z.literal("tool"),
   content: z.array(ToolResultPartSchema),
 });

@@ -11,6 +11,10 @@ import {
   type ResponseDataItem,
 } from "../input-schemas";
 
+// Simple ID generator
+let idCounter = 0;
+const generateId = () => `id-${++idCounter}`;
+
 /**
  * Parser for OpenAI Responses API format
  * Example: sample-logs/responses/1.json
@@ -61,6 +65,7 @@ export class ResponsesParser implements Parser {
 
         if (role === "system") {
           return {
+            id: generateId(),
             role: "system",
             content: textParts,
           };
@@ -68,6 +73,7 @@ export class ResponsesParser implements Parser {
 
         if (role === "user") {
           return {
+            id: generateId(),
             role: "user",
             content: textParts,
           };
@@ -75,6 +81,7 @@ export class ResponsesParser implements Parser {
 
         // Assistant message
         return {
+          id: generateId(),
           role: "assistant",
           content: textParts,
         };
@@ -83,6 +90,7 @@ export class ResponsesParser implements Parser {
       case "reasoning": {
         // Each summary item becomes a separate reasoning part
         const reasoningParts = item.summary?.map((s) => ({
+          id: generateId(),
           type: "reasoning" as const,
           text: s.text,
         })) || [];
@@ -90,12 +98,14 @@ export class ResponsesParser implements Parser {
         // Ensure at least one reasoning part (schema requires nonempty content)
         if (reasoningParts.length === 0) {
           reasoningParts.push({
+            id: generateId(),
             type: "reasoning" as const,
             text: "",
           });
         }
 
         return {
+          id: generateId(),
           role: "assistant",
           content: reasoningParts,
         };
@@ -104,9 +114,11 @@ export class ResponsesParser implements Parser {
       case "function_call": {
         // Function call becomes an assistant message with tool-call part
         return {
+          id: generateId(),
           role: "assistant",
           content: [
             {
+              id: generateId(),
               type: "tool-call",
               toolCallId: item.id,
               toolName: item.name || "",
@@ -119,9 +131,11 @@ export class ResponsesParser implements Parser {
       case "function_call_output": {
         // Function call output becomes a tool message with tool-result part
         return {
+          id: generateId(),
           role: "tool",
           content: [
             {
+              id: generateId(),
               type: "tool-result",
               toolCallId: item.id,
               toolName: "", // Not available in this format
@@ -134,9 +148,11 @@ export class ResponsesParser implements Parser {
       default: {
         // Default to assistant message with text content
         return {
+          id: generateId(),
           role: "assistant",
           content: [
             {
+              id: generateId(),
               type: "text",
               text: "",
             },
@@ -148,10 +164,11 @@ export class ResponsesParser implements Parser {
 
   private extractTextParts(
     content: ResponseDataItem["content"]
-  ): Array<{ type: "text"; text: string }> {
+  ): Array<{ id: string; type: "text"; text: string }> {
     if (!content || content.length === 0) {
       return [
         {
+          id: generateId(),
           type: "text",
           text: "",
         },
@@ -165,6 +182,7 @@ export class ResponsesParser implements Parser {
 
     return [
       {
+        id: generateId(),
         type: "text",
         text: textContent,
       },
