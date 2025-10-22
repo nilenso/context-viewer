@@ -88,8 +88,8 @@ export class CompletionsParser implements Parser {
             }
         > = [];
 
-        // Add text content if present
-        if (msg.content !== null && msg.content !== undefined) {
+        // Add text content if present and non-empty
+        if (msg.content !== null && msg.content !== undefined && msg.content !== "") {
           parts.push({
             type: "text",
             text: msg.content,
