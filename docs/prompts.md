@@ -148,5 +148,10 @@ when parsing assistant messages, there seems to be an empty text part before the
 ### add annotation
 - for each partb
 
+### give ids to message parts and messages
+when parsing give each message and message part a small and unique id, keep the implementation really simple. add the
+id to schema too.
+
 ## Things I've put a pin on
 - spinner is not smooth
+- parsing the tool definition
