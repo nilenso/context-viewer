@@ -59,70 +59,75 @@ export function ConversationList({
       <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
       <ScrollArea className="h-[calc(100vh-12rem)]">
         <div className="space-y-2 pr-4">
-          {conversations.map((conversation) => (
-            <Button
-              key={conversation.id}
-              variant="ghost"
-              className={cn(
-                "w-full justify-start text-left h-auto py-3 px-3",
-                selectedId === conversation.id &&
-                  "bg-accent text-accent-foreground",
-                conversation.status === "failed" &&
-                  "border border-red-200 bg-red-50"
-              )}
-              onClick={() => onSelect(conversation.id)}
-            >
-              <div className="flex flex-col gap-1 w-full">
-                <div className="flex items-center gap-2">
+          {conversations.map((conversation) => {
+            // Show as processing if there's a step (even if status is success)
+            const isStillProcessing = conversation.step && conversation.status === "success";
+
+            return (
+              <Button
+                key={conversation.id}
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start text-left h-auto py-3 px-3",
+                  selectedId === conversation.id &&
+                    "bg-accent text-accent-foreground",
+                  conversation.status === "failed" &&
+                    "border border-red-200 bg-red-50"
+                )}
+                onClick={() => onSelect(conversation.id)}
+              >
+                <div className="flex flex-col gap-1 w-full">
+                  <div className="flex items-center gap-2">
+                    {conversation.status === "pending" && (
+                      <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    {(conversation.status === "processing" || isStillProcessing) && (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
+                    )}
+                    {conversation.status === "success" && !isStillProcessing && (
+                      <FileText className="h-4 w-4 shrink-0" />
+                    )}
+                    {conversation.status === "failed" && (
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                    )}
+                    <span className="font-medium text-sm truncate">
+                      {conversation.filename}
+                    </span>
+                  </div>
+
                   {conversation.status === "pending" && (
-                    <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Badge variant="secondary" className="self-start text-xs">
+                      Waiting...
+                    </Badge>
                   )}
-                  {conversation.status === "processing" && (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
+
+                  {(conversation.status === "processing" || isStillProcessing) && (
+                    <Badge
+                      variant="secondary"
+                      className="self-start text-xs text-blue-700"
+                    >
+                      {getStepLabel(conversation.step)}
+                    </Badge>
                   )}
-                  {conversation.status === "success" && (
-                    <FileText className="h-4 w-4 shrink-0" />
+
+                  {conversation.status === "success" && !isStillProcessing && conversation.summary && (
+                    <Badge variant="secondary" className="self-start text-xs">
+                      {conversation.summary.totalMessages} messages
+                    </Badge>
                   )}
+
                   {conversation.status === "failed" && (
-                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                    <Badge
+                      variant="destructive"
+                      className="self-start text-xs"
+                    >
+                      Failed
+                    </Badge>
                   )}
-                  <span className="font-medium text-sm truncate">
-                    {conversation.filename}
-                  </span>
                 </div>
-
-                {conversation.status === "pending" && (
-                  <Badge variant="secondary" className="self-start text-xs">
-                    Waiting...
-                  </Badge>
-                )}
-
-                {conversation.status === "processing" && (
-                  <Badge
-                    variant="secondary"
-                    className="self-start text-xs text-blue-700"
-                  >
-                    {getStepLabel(conversation.step)}
-                  </Badge>
-                )}
-
-                {conversation.status === "success" && conversation.summary && (
-                  <Badge variant="secondary" className="self-start text-xs">
-                    {conversation.summary.totalMessages} messages
-                  </Badge>
-                )}
-
-                {conversation.status === "failed" && (
-                  <Badge
-                    variant="destructive"
-                    className="self-start text-xs"
-                  >
-                    Failed
-                  </Badge>
-                )}
-              </div>
-            </Button>
-          ))}
+              </Button>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>

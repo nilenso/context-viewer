@@ -135,11 +135,16 @@ checkout sample-logs/responses/1.json, and see the reasoning message. it has mul
  however, when parsed into our format in schema, it only has one reasoning part. it should parse multiple array elements
 each into one reasoning part, which together will be inside the same assistant message.
 
-### UX improvement: immediate feedback on drag-drop
+### UX improvement: immediate feedback on drag-drop, and others
 - when I upload 2 files, I want to see them appear immediately in the conversation list, so that i know the drag-drop
 - operation has succeeded, and that the system is processing. currently there's a delay.
+- after parsing is done, render the ui with the messages. let the counting of tokens happen with the progress indicator
+in the conversation list. when the counting of tokens is done, show it the token counts on the component.
 ### bug fix: empty text part in assistant messages
 when parsing assistant messages, there seems to be an empty text part before the tool calls? why is that?
 
 ### add annotation
 - for each partb
+
+## Things I've put a pin on
+- spinner is not smooth

@@ -45,6 +45,9 @@ async function parseFiles(
 ): Promise<ParseResult> {
   const conversations: ParsedConversation[] = [];
 
+  // Give React a chance to render the placeholders before we start processing
+  await new Promise(resolve => setTimeout(resolve, 0));
+
   console.log(`🔄 parseFiles: Starting to process ${files.length} files`);
 
   for (let i = 0; i < files.length; i++) {
@@ -63,16 +66,39 @@ async function parseFiles(
       const data = JSON.parse(text);
       const parsedConversation = parserRegistry.parse(data);
 
-      // Step 2: Counting tokens
+      // Show the conversation immediately after parsing!
+      const afterParsing: ParsedConversation = {
+        id,
+        filename: file.name,
+        status: "success",
+        conversation: parsedConversation,
+        step: "counting-tokens", // Still processing in background
+      };
+      onFileComplete?.(afterParsing);
+      console.log(`  ✅ Parsing complete, rendering UI for ${file.name}`);
+
+      // Step 2: Counting tokens (in background from user's perspective)
       console.log(`  ⚙️  Step 2: Counting tokens for ${file.name}`);
       onStepUpdate?.(id, "counting-tokens");
       const conversationWithTokens = await addTokenCounts(parsedConversation);
+
+      // Update with token counts
+      const afterTokens: ParsedConversation = {
+        id,
+        filename: file.name,
+        status: "success",
+        conversation: conversationWithTokens,
+        step: "summarizing", // Still processing summary
+      };
+      onFileComplete?.(afterTokens);
+      console.log(`  ✅ Token counting complete for ${file.name}`);
 
       // Step 3: Summarizing
       console.log(`  ⚙️  Step 3: Summarizing ${file.name}`);
       onStepUpdate?.(id, "summarizing");
       const summary = summarizeConversation(conversationWithTokens);
 
+      // Final update with everything
       const completed: ParsedConversation = {
         id,
         filename: file.name,
@@ -244,8 +270,8 @@ export default function App() {
           {/* Main Panel: Conversation View */}
           <main>
             {selectedConversation ? (
-              selectedConversation.status === "success" &&
               selectedConversation.conversation ? (
+                // Show conversation as soon as it's available (even if still processing tokens/summary)
                 <ConversationView
                   conversation={selectedConversation.conversation}
                 />
@@ -263,13 +289,7 @@ export default function App() {
                 <Card className="p-12 text-center">
                   <Loader2 className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-spin" />
                   <h2 className="text-xl font-semibold text-muted-foreground mb-2">
-                    {selectedConversation.step === "parsing"
-                      ? "Parsing..."
-                      : selectedConversation.step === "counting-tokens"
-                      ? "Counting tokens..."
-                      : selectedConversation.step === "summarizing"
-                      ? "Summarizing..."
-                      : "Processing..."}
+                    Parsing...
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     {selectedConversation.filename}
@@ -303,11 +323,9 @@ export default function App() {
 
           {/* Right Sidebar: Summary */}
           <aside>
-            {selectedConversation &&
-              selectedConversation.status === "success" &&
-              selectedConversation.summary && (
-                <SummaryView summary={selectedConversation.summary} />
-              )}
+            {selectedConversation && selectedConversation.summary && (
+              <SummaryView summary={selectedConversation.summary} />
+            )}
           </aside>
         </div>
       </div>
