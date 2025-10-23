@@ -144,9 +144,49 @@ in the conversation list. when the counting of tokens is done, show it the token
 conversation list instead. and also show the drop files ehre to select text, etc in the conversaiton list.
 ### bug fix: empty text part in assistant messages
 when parsing assistant messages, there seems to be an empty text part before the tool calls? why is that?
+### break down messages
+use vercel's ai sdk: - [Vercel AI SDK (“ai”)](https://ai-sdk.dev/docs/introduction)
+- i want to take an api key and model as env-vars when starting the program
+- after the token count, identify message parts that account for more than 10% of the total token count.
+- this is a new stage int eh conversation, so you can count it into the status as "segmenting"
+- for each of these message parts that are large, break them down further using the following mechanism
+  - send the message part's text and the following prompt to ai using the ai-sdk
+  - get back structured json response, that's just an array of substrings
+  - use those substrings to split the text, and create new parts with new ids and replace this message part with them
+  - re-render the component if necessary to pick up the new components
+- process all the large message parts in parallel because the call to ai is slow and i want to show results on the ui as and when the parts are updated
+- add all semgentation code in segmentation.ts or equivalent
 
-### add annotation
-- for each partb
+here's the prompt to use:
+```
+Given the following text, tell me where all you would apply a break.
+The purpose is semantic segmentation in way that's suitable for hierarchical categorization.
+Only give me the top level sections.
+Return an array of substrings which I can use to run string split on in javascript, and return nothing else.
+```
+
+### components
+- after segmentation, call ai with the full json of the conversation, and this prompt:
+---
+given this conversation, give me a list of all its components
+just give me a list in a json array
+<conversation>{conversation}</conversation>
+---
+
+- then, with the result of components in a json array, make another call with this promopt:
+---
+given this conversation and the list of components, give me a mapping
+of id in the conversation, to a component from the list, for all the messages
+just give me a simple json object {id: component}
+
+<conversation>{conversation}</conversation>
+<components>{components}</components>
+---
+- the conversation's status should say "Finding components"
+- make middle "Conversation" section a part of a tab group
+- add a tab for "Components", and in there, show the result mapping as ids (for now, we'll improve on this)
+- create a componentisation.ts and write all relevant code there
+
 
 ### give ids to message parts and messages
 when parsing give each message and message part a small and unique id, keep the implementation really simple. add the

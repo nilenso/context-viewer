@@ -9,6 +9,7 @@ import {
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
 import { segmentConversation } from "./segmentation";
+import { componentiseConversation } from "./componentisation";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
@@ -21,7 +22,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "summarizing";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components";
 
 interface ParsedConversation {
   id: string;
@@ -30,6 +31,8 @@ interface ParsedConversation {
   step?: ProcessingStep;
   conversation?: Conversation;
   summary?: ConversationSummary;
+  components?: string[];
+  componentMapping?: Record<string, string>;
   error?: string;
 }
 
@@ -100,6 +103,23 @@ async function parseFiles(
       // Re-count tokens after segmentation
       const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
 
+      // Update with segmented conversation
+      const afterSegmentation: ParsedConversation = {
+        id,
+        filename: file.name,
+        status: "success",
+        conversation: conversationAfterSegmentation,
+        summary,
+        step: "finding-components",
+      };
+      onFileComplete?.(afterSegmentation);
+
+      // Step 4: Finding components
+      onStepUpdate?.(id, "finding-components");
+      const { components, mapping } = await componentiseConversation(
+        conversationAfterSegmentation
+      );
+
       // Final update
       const completed: ParsedConversation = {
         id,
@@ -107,6 +127,8 @@ async function parseFiles(
         status: "success",
         conversation: conversationAfterSegmentation,
         summary,
+        components,
+        componentMapping: mapping,
       };
 
       conversations.push(completed);
@@ -264,6 +286,7 @@ export default function App() {
                 // Show conversation as soon as it's available (even if still processing tokens/summary)
                 <ConversationView
                   conversation={selectedConversation.conversation}
+                  componentMapping={selectedConversation.componentMapping}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

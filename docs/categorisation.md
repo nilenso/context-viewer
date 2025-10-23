@@ -76,3 +76,10 @@ Return a **JSON array** of top-level categories.
     "message_parts": ["mp_30", "mp_31"]
   }
 ]
+
+## Simpler starter prompt
+given this conversation, give me a list of all its components
+just give me a list in a json array
+
+given this conversation and the list of components, give me a mapping
+of all ids in conversation, to the component
