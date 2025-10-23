@@ -18,7 +18,6 @@ export function getSegmentationConfig(): SegmentationConfig | null {
   const model = import.meta.env.VITE_AI_MODEL || "gpt-4o-mini";
 
   if (!apiKey) {
-    console.warn("VITE_AI_API_KEY not set, segmentation will be skipped");
     return null;
   }
 
@@ -89,26 +88,22 @@ ${text}
     const result = await generateText({
       model: openai(config.model),
       prompt,
-      temperature: 0,
     });
 
     // Parse the JSON response
     const jsonMatch = result.text.match(/\[.*\]/s);
     if (!jsonMatch) {
-      console.error("No JSON array found in response:", result.text);
       return [];
     }
 
     const substrings = JSON.parse(jsonMatch[0]);
 
     if (!Array.isArray(substrings)) {
-      console.error("Parsed result is not an array:", substrings);
       return [];
     }
 
     return substrings;
   } catch (error) {
-    console.error("Failed to segment text with AI:", error);
     return [];
   }
 }
@@ -125,7 +120,6 @@ function splitTextBySubstrings(text: string, substrings: string[]): string[] {
 
   try {
     // Combine all patterns into a single regex with alternation
-    // This handles positive lookahead patterns correctly
     const combinedPattern = substrings.join('|');
     const regex = new RegExp(combinedPattern);
 
@@ -137,9 +131,6 @@ function splitTextBySubstrings(text: string, substrings: string[]): string[] {
       .map(part => part.trim())
       .filter(part => part.length > 0);
   } catch (error) {
-    console.error("Failed to split text with regex patterns:", error);
-    console.error("Patterns:", substrings);
-
     // Fallback: return the original text if regex fails
     return [text];
   }
@@ -168,14 +159,12 @@ async function segmentMessagePart(
   const substrings = await segmentTextWithAI(text, config);
 
   if (substrings.length === 0) {
-    console.warn(`No segments found for part ${part.id}`);
     return null;
   }
 
   const segments = splitTextBySubstrings(text, substrings);
 
   if (segments.length <= 1) {
-    console.warn(`Could not split part ${part.id} into multiple segments`);
     return null;
   }
 
@@ -202,18 +191,14 @@ export async function segmentConversation(
   const config = getSegmentationConfig();
 
   if (!config) {
-    console.log("Skipping segmentation: no API key configured");
     return conversation;
   }
 
   const largeParts = identifyLargeParts(conversation);
 
   if (largeParts.length === 0) {
-    console.log("No large parts found, skipping segmentation");
     return conversation;
   }
-
-  console.log(`Found ${largeParts.length} large parts to segment`);
 
   // Process all large parts in parallel
   const segmentationPromises = largeParts.map(

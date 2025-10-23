@@ -48,18 +48,14 @@ async function parseFiles(
   // Give React a chance to render the placeholders before we start processing
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  console.log(`🔄 parseFiles: Starting to process ${files.length} files`);
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (!file) continue;
 
     const id = fileIds.get(i) || generateId();
-    console.log(`📄 Processing file ${i + 1}/${files.length}: ${file.name} (id: ${id})`);
 
     try {
       // Step 1: Parsing
-      console.log(`  ⚙️  Step 1: Parsing ${file.name}`);
       onStepUpdate?.(id, "parsing");
 
       const text = await file.text();
@@ -69,49 +65,42 @@ async function parseFiles(
       // Generate summary immediately after parsing
       const summary = summarizeConversation(parsedConversation);
 
-      // Show the conversation and summary immediately after parsing!
+      // Show the conversation and summary immediately after parsing
       const afterParsing: ParsedConversation = {
         id,
         filename: file.name,
         status: "success",
         conversation: parsedConversation,
         summary,
-        step: "counting-tokens", // Still processing in background
+        step: "counting-tokens",
       };
       onFileComplete?.(afterParsing);
-      console.log(`  ✅ Parsing complete, rendering UI for ${file.name}`);
 
-      // Step 2: Counting tokens (in background from user's perspective)
-      console.log(`  ⚙️  Step 2: Counting tokens for ${file.name}`);
+      // Step 2: Counting tokens
       onStepUpdate?.(id, "counting-tokens");
       const conversationWithTokens = await addTokenCounts(parsedConversation);
 
-      // Update with token counts (keep existing summary)
+      // Update with token counts
       const afterTokens: ParsedConversation = {
         id,
         filename: file.name,
         status: "success",
         conversation: conversationWithTokens,
         summary,
-        step: "segmenting", // Still processing segmentation
+        step: "segmenting",
       };
       onFileComplete?.(afterTokens);
-      console.log(`  ✅ Token counting complete for ${file.name}`);
 
       // Step 3: Segmenting large parts
-      console.log(`  ⚙️  Step 3: Segmenting large parts for ${file.name}`);
       onStepUpdate?.(id, "segmenting");
       const segmentedConversation = await segmentConversation(
-        conversationWithTokens,
-        (processed, total) => {
-          console.log(`    📊 Segmentation progress: ${processed}/${total}`);
-        }
+        conversationWithTokens
       );
 
-      // Re-count tokens after segmentation (new parts need token counts)
+      // Re-count tokens after segmentation
       const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
 
-      // Final update with segmented conversation (keep existing summary)
+      // Final update
       const completed: ParsedConversation = {
         id,
         filename: file.name,
@@ -122,7 +111,6 @@ async function parseFiles(
 
       conversations.push(completed);
       onFileComplete?.(completed);
-      console.log(`  ✅ Completed ${file.name}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown parsing error";
@@ -135,11 +123,9 @@ async function parseFiles(
 
       conversations.push(failed);
       onFileComplete?.(failed);
-      console.log(`  ❌ Failed ${file.name}: ${message}`);
     }
   }
 
-  console.log(`✅ parseFiles: Completed processing all ${files.length} files`);
   return { conversations };
 }
 
@@ -152,13 +138,11 @@ export default function App() {
 
   const parseMutation = useMutation({
     mutationFn: (files: File[]) => {
-      console.log(`🚀 Mutation started with ${files.length} files`);
       return parseFiles(
         files,
         fileIdsRef.current,
         (id, step) => {
-          // Update step (and set status to processing)
-          console.log(`  🔄 Step update: ${id} → ${step}`);
+          // Update step
           setParsedConversations((prev) =>
             prev.map((conv) =>
               conv.id === id
@@ -169,7 +153,6 @@ export default function App() {
         },
         (completed) => {
           // Update the conversation in place as each file completes
-          console.log(`  ✅ File complete: ${completed.filename} (${completed.status})`);
           setParsedConversations((prev) =>
             prev.map((conv) =>
               conv.id === completed.id ? completed : conv
@@ -179,13 +162,11 @@ export default function App() {
       );
     },
     onMutate: (files: File[]) => {
-      console.log(`📥 onMutate: Creating placeholders for ${files.length} files`);
       // Create placeholder entries immediately
       const fileIds = new Map<number, string>();
       const placeholders: ParsedConversation[] = files.map((file, index) => {
         const id = generateId();
         fileIds.set(index, id);
-        console.log(`  📝 Placeholder [${index}]: ${file.name} → ${id}`);
         return {
           id,
           filename: file.name,
