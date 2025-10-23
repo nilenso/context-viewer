@@ -42,9 +42,10 @@ export async function identifyComponents(
 
   console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})`);
 
-  const prompt = `given this conversation, give me a list of all its components
+    const prompt = `given this conversation, give me a list of all its components for a summary view
+each component can be 3 to 4 words in length
 just give me a list in a json array like this example:
-["abc_document", "xyz_structure", "foo_context", "task", "sources", "breakdown", "reflection", "a_tool_name tool call", "xyz blocks", "pqr list"]
+["abc_document", "xyz_structure", "foo_context", "task", "sources", "breakdown", "reflection", "files_about_bar", "files_about_baz", "tool_calls_about_quix", "xyz blocks", "pqr list"]
 
 
 <conversation>${conversationJson}</conversation>`;

@@ -59,7 +59,7 @@ export function ConversationView({ conversation, componentMapping }: Conversatio
 
       <TabsContent value="components" className="flex-1 mt-0">
         <div className="border rounded-lg bg-white h-full">
-          <ComponentsView componentMapping={componentMapping} />
+          <ComponentsView componentMapping={componentMapping} conversation={conversation} />
         </div>
       </TabsContent>
     </Tabs>
