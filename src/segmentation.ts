@@ -164,13 +164,20 @@ async function segmentMessagePart(
   part: Message["parts"][number],
   config: SegmentationConfig
 ): Promise<Message["parts"] | null> {
-  // Only segment text and reasoning parts
-  if (part.type !== "text" && part.type !== "reasoning") {
+  // Get text content from different part types
+  let text: string;
+
+  if (part.type === "text" || part.type === "reasoning") {
+    text = part.text;
+  } else if (part.type === "tool-result") {
+    // For tool results, use the output as text
+    text = typeof part.output === "string" ? part.output : JSON.stringify(part.output);
+  } else {
     console.log(`[Segmentation] Skipping part ${part.id}, type: ${part.type}`);
     return null;
   }
 
-  const text = part.text;
+  console.log(`[Segmentation] Processing part ${part.id}, type: ${part.type}, text length: ${text.length}`);
   const substrings = await segmentTextWithAI(text, config);
 
   if (substrings.length === 0) {
@@ -188,13 +195,28 @@ async function segmentMessagePart(
   console.log(`[Segmentation] Successfully split part ${part.id} into ${segments.length} segments`);
 
   // Create new parts with child IDs
-  const newParts = segments.map((segment, index) => ({
-    ...part,
-    id: generateChildId(part.id, index + 1),
-    text: segment,
-    // Token count will need to be recalculated
-    token_count: undefined,
-  }));
+  const newParts = segments.map((segment, index) => {
+    const basePart = {
+      ...part,
+      id: generateChildId(part.id, index + 1),
+      token_count: undefined, // Will be recalculated
+    };
+
+    // Handle different part types
+    if (part.type === "text" || part.type === "reasoning") {
+      return {
+        ...basePart,
+        text: segment,
+      };
+    } else if (part.type === "tool-result") {
+      return {
+        ...basePart,
+        output: segment, // Put segmented text back into output
+      };
+    }
+
+    return basePart;
+  });
 
   return newParts as Message["parts"];
 }
