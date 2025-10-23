@@ -9,7 +9,7 @@ import {
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
 import { segmentConversation } from "./segmentation";
-import { componentiseConversation } from "./componentisation";
+import { componentiseConversation, type ComponentTimelineSnapshot } from "./componentisation";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
@@ -33,6 +33,7 @@ interface ParsedConversation {
   summary?: ConversationSummary;
   components?: string[];
   componentMapping?: Record<string, string>;
+  componentTimeline?: ComponentTimelineSnapshot[];
   error?: string;
 }
 
@@ -116,7 +117,7 @@ async function parseFiles(
 
       // Step 4: Finding components
       onStepUpdate?.(id, "finding-components");
-      const { components, mapping } = await componentiseConversation(
+      const { components, mapping, timeline } = await componentiseConversation(
         conversationAfterSegmentation
       );
 
@@ -129,6 +130,7 @@ async function parseFiles(
         summary,
         components,
         componentMapping: mapping,
+        componentTimeline: timeline,
       };
 
       conversations.push(completed);
@@ -287,6 +289,7 @@ export default function App() {
                 <ConversationView
                   conversation={selectedConversation.conversation}
                   componentMapping={selectedConversation.componentMapping}
+                  componentTimeline={selectedConversation.componentTimeline}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

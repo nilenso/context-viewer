@@ -6,13 +6,15 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import type { Conversation } from "@/schema";
+import type { ComponentTimelineSnapshot } from "@/componentisation";
 
 interface ConversationViewProps {
   conversation: Conversation;
   componentMapping?: Record<string, string>;
+  componentTimeline?: ComponentTimelineSnapshot[];
 }
 
-export function ConversationView({ conversation, componentMapping }: ConversationViewProps) {
+export function ConversationView({ conversation, componentMapping, componentTimeline }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
 
   return (
@@ -59,7 +61,11 @@ export function ConversationView({ conversation, componentMapping }: Conversatio
 
       <TabsContent value="components" className="flex-1 mt-0">
         <div className="border rounded-lg bg-white h-full">
-          <ComponentsView componentMapping={componentMapping} conversation={conversation} />
+          <ComponentsView
+            componentMapping={componentMapping}
+            conversation={conversation}
+            componentTimeline={componentTimeline}
+          />
         </div>
       </TabsContent>
     </Tabs>

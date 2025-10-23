@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import type { Conversation } from "@/schema";
+import type { ComponentTimelineSnapshot } from "@/componentisation";
 
 interface ComponentsViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
+  componentTimeline?: ComponentTimelineSnapshot[];
 }
 
 // Color schemes for different component types
@@ -47,7 +51,12 @@ const getComponentColor = (component: string): string => {
   return "bg-gray-100 text-gray-700 border-gray-300";
 };
 
-export function ComponentsView({ componentMapping, conversation }: ComponentsViewProps) {
+export function ComponentsView({ componentMapping, conversation, componentTimeline }: ComponentsViewProps) {
+  // Initialize slider to the last message
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(
+    conversation.messages.length - 1
+  );
+
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -59,7 +68,7 @@ export function ComponentsView({ componentMapping, conversation }: ComponentsVie
     );
   }
 
-  // Build a map of part ID to token count
+  // Build a map of part ID to token count (for detailed mapping section)
   const partTokenCounts = new Map<string, number>();
   conversation.messages.forEach((message) => {
     message.parts.forEach((part) => {
@@ -68,7 +77,37 @@ export function ComponentsView({ componentMapping, conversation }: ComponentsVie
     });
   });
 
-  // Group by component and calculate token counts
+  // Get component data for the current message from timeline (for overview)
+  let componentTokensForOverview: Record<string, number> = {};
+  let totalTokensAtMessage = 0;
+
+  if (componentTimeline && componentTimeline[currentMessageIndex]) {
+    const snapshot = componentTimeline[currentMessageIndex];
+    componentTokensForOverview = snapshot.componentTokens;
+    totalTokensAtMessage = snapshot.totalTokens;
+  } else {
+    // Fallback: calculate on the fly if timeline not available
+    conversation.messages.forEach((message, msgIndex) => {
+      if (msgIndex <= currentMessageIndex) {
+        message.parts.forEach((part) => {
+          const component = componentMapping[part.id];
+          if (component) {
+            const tokenCount = ("token_count" in part && part.token_count) || 0;
+            componentTokensForOverview[component] =
+              (componentTokensForOverview[component] || 0) + tokenCount;
+            totalTokensAtMessage += tokenCount;
+          }
+        });
+      }
+    });
+  }
+
+  // Sort components for overview by token count at current message (descending)
+  const componentsForOverview = Object.keys(componentTokensForOverview)
+    .filter(component => (componentTokensForOverview[component] || 0) > 0)
+    .sort((a, b) => (componentTokensForOverview[b] || 0) - (componentTokensForOverview[a] || 0));
+
+  // Group by component for detailed mapping (full conversation)
   const componentGroups = Object.entries(componentMapping).reduce(
     (acc, [id, component]) => {
       if (!acc[component]) {
@@ -81,20 +120,36 @@ export function ComponentsView({ componentMapping, conversation }: ComponentsVie
     {} as Record<string, { ids: string[]; totalTokens: number }>
   );
 
-  // Sort components by total token count (descending)
-  const components = Object.keys(componentGroups).sort(
-    (a, b) => (componentGroups[b]?.totalTokens || 0) - (componentGroups[a]?.totalTokens || 0)
-  );
-
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
         {/* Component Visualization */}
         <div>
           <h3 className="text-lg font-semibold mb-3">Component Overview</h3>
+
+          {/* Timeline Slider */}
+          <div className="mb-4 px-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Message {currentMessageIndex + 1} of {conversation.messages.length}
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {totalTokensAtMessage.toLocaleString()} tokens
+              </span>
+            </div>
+            <Slider
+              value={[currentMessageIndex]}
+              onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
+              min={0}
+              max={conversation.messages.length - 1}
+              step={1}
+              className="w-full"
+            />
+          </div>
+
           <Card className="p-6 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-300">
             <div className="flex flex-wrap gap-3">
-              {components.map((component) => (
+              {componentsForOverview.map((component) => (
                 <div
                   key={component}
                   className={cn(
@@ -105,7 +160,7 @@ export function ComponentsView({ componentMapping, conversation }: ComponentsVie
                   <div className="flex items-center gap-2">
                     <span>{component}</span>
                     <Badge variant="secondary" className="bg-white/80 text-xs font-semibold">
-                      {(componentGroups[component]?.totalTokens || 0).toLocaleString()} tokens
+                      {(componentTokensForOverview[component] || 0).toLocaleString()} tokens
                     </Badge>
                   </div>
                 </div>
@@ -118,7 +173,7 @@ export function ComponentsView({ componentMapping, conversation }: ComponentsVie
         <div>
           <h3 className="text-lg font-semibold mb-3">Component Mapping</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {components.length} components mapped to {Object.keys(componentMapping).length} message parts
+            {Object.keys(componentGroups).length} components mapped to {Object.keys(componentMapping).length} message parts
           </p>
 
           <div className="space-y-3">

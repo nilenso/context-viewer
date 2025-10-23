@@ -33,7 +33,6 @@ Define the tech stack
 4. Command to run program
 5. Render HTML that allows a file to be drag-dropped
 
-
 [TODO] Milestone 2: show components
 - Count tokens per component
 - Get api-key
@@ -187,10 +186,26 @@ just give me a simple json object {id: component}
 - add a tab for "Components", and in there, show the result mapping as ids (for now, we'll improve on this)
 - create a componentisation.ts and write all relevant code there
 
+### component visualisation
+now, in the components tab, above the mapping display, create a visualisation that shows the list of categories as
+chips/boxes like this diagram. [Image #1] (anthropic context viz)
+
+### component part token counting
+now, after component-mapping the message parts to the components, based on the ids, and the token counts of the message
+parts, create total counts per component, and display them in the components overview as a badge, isntead of the number
+of parts
 
 ### give ids to message parts and messages
 when parsing give each message and message part a small and unique id, keep the implementation really simple. add the
 id to schema too.
+
+### time slider
+i want a slider that I can control on top of the conversation overview diagram.
+every step on the slider represents a "message" (not a message part) in the conversation
+the conversation overview diagram needs to represent the contents of the conversation until that message
+the components, token counts, everything should reflect the conversat until that message
+as i move that forward and backward, the overview should change to reflect the composition of the covnersation until that point
+do all the computation in advance, along with the componentisation, so that the slider works smoothly
 
 ## Things I've put a pin on
 - spinner is not smooth
