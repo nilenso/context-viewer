@@ -81,8 +81,27 @@ function addTokenCountsToMessage(message: Message): Message {
     }
   });
 
-  return {
-    ...message,
-    parts: contentWithCounts as Message["parts"],
-  };
+  // Preserve the message type by returning the correct structure
+  if (message.role === "system") {
+    return {
+      ...message,
+      parts: contentWithCounts as typeof message.parts,
+    };
+  } else if (message.role === "user") {
+    return {
+      ...message,
+      parts: contentWithCounts as typeof message.parts,
+    };
+  } else if (message.role === "assistant") {
+    return {
+      ...message,
+      parts: contentWithCounts as typeof message.parts,
+    };
+  } else {
+    // tool message
+    return {
+      ...message,
+      parts: contentWithCounts as typeof message.parts,
+    };
+  }
 }

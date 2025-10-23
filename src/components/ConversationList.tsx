@@ -7,7 +7,7 @@ import { FileText, Loader2, AlertCircle, Clock, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "summarizing";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "summarizing";
 
 interface ParsedConversation {
   id: string;
@@ -52,6 +52,8 @@ export function ConversationList({
         return "Parsing...";
       case "counting-tokens":
         return "Counting tokens...";
+      case "segmenting":
+        return "Segmenting...";
       case "summarizing":
         return "Summarizing...";
       default:

@@ -8,6 +8,7 @@ import {
   type ConversationSummary,
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
+import { segmentConversation } from "./segmentation";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
@@ -20,7 +21,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "summarizing";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "summarizing";
 
 interface ParsedConversation {
   id: string;
@@ -65,12 +66,16 @@ async function parseFiles(
       const data = JSON.parse(text);
       const parsedConversation = parserRegistry.parse(data);
 
-      // Show the conversation immediately after parsing!
+      // Generate summary immediately after parsing
+      const summary = summarizeConversation(parsedConversation);
+
+      // Show the conversation and summary immediately after parsing!
       const afterParsing: ParsedConversation = {
         id,
         filename: file.name,
         status: "success",
         conversation: parsedConversation,
+        summary,
         step: "counting-tokens", // Still processing in background
       };
       onFileComplete?.(afterParsing);
@@ -81,28 +86,37 @@ async function parseFiles(
       onStepUpdate?.(id, "counting-tokens");
       const conversationWithTokens = await addTokenCounts(parsedConversation);
 
-      // Update with token counts
+      // Update with token counts (keep existing summary)
       const afterTokens: ParsedConversation = {
         id,
         filename: file.name,
         status: "success",
         conversation: conversationWithTokens,
-        step: "summarizing", // Still processing summary
+        summary,
+        step: "segmenting", // Still processing segmentation
       };
       onFileComplete?.(afterTokens);
       console.log(`  ✅ Token counting complete for ${file.name}`);
 
-      // Step 3: Summarizing
-      console.log(`  ⚙️  Step 3: Summarizing ${file.name}`);
-      onStepUpdate?.(id, "summarizing");
-      const summary = summarizeConversation(conversationWithTokens);
+      // Step 3: Segmenting large parts
+      console.log(`  ⚙️  Step 3: Segmenting large parts for ${file.name}`);
+      onStepUpdate?.(id, "segmenting");
+      const segmentedConversation = await segmentConversation(
+        conversationWithTokens,
+        (processed, total) => {
+          console.log(`    📊 Segmentation progress: ${processed}/${total}`);
+        }
+      );
 
-      // Final update with everything
+      // Re-count tokens after segmentation (new parts need token counts)
+      const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
+
+      // Final update with segmented conversation (keep existing summary)
       const completed: ParsedConversation = {
         id,
         filename: file.name,
         status: "success",
-        conversation: conversationWithTokens,
+        conversation: conversationAfterSegmentation,
         summary,
       };
 

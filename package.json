@@ -30,10 +30,12 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.53",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.59.13",
+    "ai": "^5.0.76",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.546.0",

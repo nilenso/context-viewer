@@ -19,7 +19,8 @@
       "Bash($HOME/.bun/bin/bun install)",
       "WebFetch(domain:github.com)",
       "Bash(bun x shadcn@latest add:*)",
-      "Bash(bun remove:*)"
+      "Bash(bun remove:*)",
+      "Bash(bun x tsc:*)"
     ],
     "deny": [],
     "ask": []
