@@ -136,8 +136,9 @@ export function ConversationList({
                 return (
                   <div
                     key={conversation.id}
+                    onClick={() => onSelect(conversation.id)}
                     className={cn(
-                      "rounded-md border border-gray-200",
+                      "rounded-md border border-gray-200 cursor-pointer",
                       selectedId === conversation.id && "border-blue-400 bg-blue-50/50",
                       conversation.status === "failed" && "border-red-200 bg-red-50"
                     )}
