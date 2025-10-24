@@ -261,6 +261,13 @@ or after something later. debug it, and if you find it fix it
 
 ### [TODO] create a button to optionally meta-analyse ai conversations from the context-viewer itself
 
+### ux: show progress better
+Rather than showing statuses one after another in the same place that vanish,
+create a small section under the file name in conversations list
+create a list of checkboxes there for showing progress. update those line items to show which item is in progress, and mark them done.
+have a simple > to expand/collapse that section
+keep it expanded by default
+
 ## Things I've put a pin on
 - spinner is not smooth
 - parsing the tool definition
