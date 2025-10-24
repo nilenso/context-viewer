@@ -148,13 +148,18 @@ function generateChildId(parentId: string, index: number): string {
   return `${parentId}.${index}`;
 }
 
+type SegmentResult =
+  | { success: true; parts: Message["parts"] }
+  | { success: false; skipped: true }
+  | { success: false; error: true };
+
 /**
  * Segment a single large message part
  */
 async function segmentMessagePart(
   part: Message["parts"][number],
   config: SegmentationConfig
-): Promise<Message["parts"] | null> {
+): Promise<SegmentResult> {
   // Get text content from different part types
   let text: string;
 
@@ -165,7 +170,7 @@ async function segmentMessagePart(
     text = typeof part.output === "string" ? part.output : JSON.stringify(part.output);
   } else {
     console.log(`[Segmentation] Skipping part ${part.id}, type: ${part.type}`);
-    return null;
+    return { success: false, skipped: true };
   }
 
   console.log(`[Segmentation] Processing part ${part.id}, type: ${part.type}, text length: ${text.length}`);
@@ -173,14 +178,14 @@ async function segmentMessagePart(
 
   if (substrings.length === 0) {
     console.log(`[Segmentation] No substrings returned for part ${part.id}`);
-    return null;
+    return { success: false, error: true };
   }
 
   const segments = splitTextBySubstrings(text, substrings);
 
   if (segments.length <= 1) {
     console.log(`[Segmentation] Split resulted in ${segments.length} segment(s), not segmenting`);
-    return null;
+    return { success: false, skipped: true };
   }
 
   console.log(`[Segmentation] Successfully split part ${part.id} into ${segments.length} segments`);
@@ -209,7 +214,7 @@ async function segmentMessagePart(
     return basePart;
   });
 
-  return newParts as Message["parts"];
+  return { success: true, parts: newParts as Message["parts"] };
 }
 
 /**
@@ -239,39 +244,43 @@ export async function segmentConversation(
   // Process all large parts in parallel
   const segmentationPromises = largeParts.map(
     async ({ messageIndex, partIndex, part }) => {
-      const segments = await segmentMessagePart(part, config);
-      return { messageIndex, partIndex, segments };
+      const result = await segmentMessagePart(part, config);
+      return { messageIndex, partIndex, result };
     }
   );
 
-  // Track progress and collect failures
+  // Track progress and collect actual failures (not skips)
   let completed = 0;
-  let failedCount = 0;
+  let errorCount = 0;
+  let processedCount = 0;
   const results = await Promise.all(
     segmentationPromises.map(async (promise) => {
-      const result = await promise;
-      if (!result.segments) {
-        failedCount++;
+      const { messageIndex, partIndex, result } = await promise;
+      if (!result.success && 'error' in result && result.error) {
+        errorCount++;
+      }
+      if (result.success) {
+        processedCount++;
       }
       completed++;
       onProgress?.(completed, largeParts.length);
-      return result;
+      return { messageIndex, partIndex, result };
     })
   );
 
   // Build a map of replacements
   const replacements = new Map<string, Array<{ partIndex: number; segments: Message["parts"] }>>();
 
-  for (const result of results) {
-    if (!result.segments) continue;
+  for (const { messageIndex, partIndex, result } of results) {
+    if (!result.success) continue;
 
-    const key = result.messageIndex.toString();
+    const key = messageIndex.toString();
     if (!replacements.has(key)) {
       replacements.set(key, []);
     }
     replacements.get(key)!.push({
-      partIndex: result.partIndex,
-      segments: result.segments,
+      partIndex,
+      segments: result.parts,
     });
   }
 
@@ -324,11 +333,11 @@ export async function segmentConversation(
     messages: newMessages as Message[],
   };
 
-  // Return with error info if any segmentations failed
-  if (failedCount > 0) {
+  // Return with error info if any segmentations had actual errors (not skips)
+  if (errorCount > 0) {
     return {
       conversation: newConversation,
-      error: `Segmentation: Failed to segment ${failedCount} of ${largeParts.length} large parts (API error)`
+      error: `Segmentation: Failed to segment ${errorCount} of ${processedCount} parts (API error)`
     };
   }
 

@@ -39,7 +39,7 @@ export function ConversationView({ conversation, componentMapping, componentTime
                 ))}
               </ul>
               <p className="text-xs text-yellow-700 mt-2">
-                The conversation was parsed successfully, but AI-powered features require a valid API key.
+                Check the browser console for detailed error information.
               </p>
             </div>
             <Button
