@@ -410,7 +410,6 @@ export default function App() {
       "application/json": [".json"],
     },
     multiple: true,
-    disabled: parseMutation.isPending,
     noClick: parsedConversations.length > 0, // Only enable click when empty
   });
 
@@ -466,7 +465,6 @@ export default function App() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               onFilesSelected={(files) => parseMutation.mutate(files)}
-              isUploading={parseMutation.isPending}
             />
           </aside>
 

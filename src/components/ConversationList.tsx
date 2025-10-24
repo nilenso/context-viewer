@@ -27,7 +27,6 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
-  isUploading?: boolean;
 }
 
 export function ConversationList({
@@ -35,7 +34,6 @@ export function ConversationList({
   selectedId,
   onSelect,
   onFilesSelected,
-  isUploading = false,
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(new Set());
@@ -47,7 +45,6 @@ export function ConversationList({
       "application/json": [".json"],
     },
     multiple: true,
-    disabled: isUploading,
     noClick: conversations.length > 0, // Disable click when there are conversations
   });
 
@@ -98,8 +95,7 @@ export function ConversationList({
           {...getRootProps()}
           className={cn(
             "p-6 border-2 border-dashed cursor-pointer transition-colors",
-            isDragActive && "border-primary bg-primary/5",
-            isUploading && "opacity-50 cursor-not-allowed"
+            isDragActive && "border-primary bg-primary/5"
           )}
         >
           <input {...getInputProps()} />
