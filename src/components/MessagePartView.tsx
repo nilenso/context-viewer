@@ -6,6 +6,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
+import { getComponentColorClasses } from "@/lib/component-colors";
+import { cn } from "@/lib/utils";
 import type {
   TextPart,
   ReasoningPart,
@@ -26,9 +28,11 @@ type MessagePart =
 interface MessagePartViewProps {
   part: MessagePart;
   isExpanded?: boolean;
+  componentMapping?: Record<string, string>;
+  componentColors?: Record<string, string>;
 }
 
-export function MessagePartView({ part, isExpanded = false }: MessagePartViewProps) {
+export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors }: MessagePartViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -153,6 +157,9 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
 
   const tokenCount = getTokenCount();
 
+  // Get component for this part
+  const component = componentMapping?.[part.id];
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md">
       <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
@@ -168,6 +175,17 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
           {tokenCount !== null && (
             <Badge variant="secondary" className="text-xs">
               {tokenCount} tokens
+            </Badge>
+          )}
+          {component && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs font-medium border",
+                getComponentColorClasses(component, componentColors)
+              )}
+            >
+              {component}
             </Badge>
           )}
         </div>

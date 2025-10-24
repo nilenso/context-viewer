@@ -92,6 +92,8 @@ export function ConversationView({ conversation, componentMapping, componentTime
                 message={message}
                 index={index}
                 isExpanded={expandAll}
+                componentMapping={componentMapping}
+                componentColors={componentColors}
               />
             ))}
           </div>

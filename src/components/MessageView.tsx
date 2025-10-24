@@ -14,9 +14,11 @@ interface MessageViewProps {
   message: Message;
   index: number;
   isExpanded?: boolean;
+  componentMapping?: Record<string, string>;
+  componentColors?: Record<string, string>;
 }
 
-export function MessageView({ message, index, isExpanded = false }: MessageViewProps) {
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -90,7 +92,13 @@ export function MessageView({ message, index, isExpanded = false }: MessageViewP
       <CollapsibleContent className="p-3 pt-0">
         <div className="space-y-2 mt-2">
           {message.parts.map((part, partIndex) => (
-            <MessagePartView key={partIndex} part={part} isExpanded={isOpen} />
+            <MessagePartView
+              key={partIndex}
+              part={part}
+              isExpanded={isOpen}
+              componentMapping={componentMapping}
+              componentColors={componentColors}
+            />
           ))}
         </div>
       </CollapsibleContent>

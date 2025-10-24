@@ -446,3 +446,6 @@ The type of object returned, must be list.
 
 ### components in conversationv iew
 i want to see the components of a message's parts in the conversation view too.
+so, in the title of the message part, along with "TEXT", "1010 Tokens", I want to see the same sort of chip with color indicating the component this message part is assigned to
+
+###
