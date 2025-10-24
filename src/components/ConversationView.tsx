@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
-import { TreeMapView } from "./TreeMapView";
+import { StackedBarChartView } from "./StackedBarChartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -26,7 +26,7 @@ export function ConversationView({ conversation, componentMapping, componentTime
         <TabsList>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
-          <TabsTrigger value="treemap">TreeMap</TabsTrigger>
+          <TabsTrigger value="chart">Timeline Chart</TabsTrigger>
         </TabsList>
         <Button
           variant="outline"
@@ -74,9 +74,9 @@ export function ConversationView({ conversation, componentMapping, componentTime
         </div>
       </TabsContent>
 
-      <TabsContent value="treemap" className="flex-1 mt-0">
+      <TabsContent value="chart" className="flex-1 mt-0">
         <div className="border rounded-lg bg-white h-full">
-          <TreeMapView
+          <StackedBarChartView
             componentMapping={componentMapping}
             conversation={conversation}
             componentTimeline={componentTimeline}
