@@ -137,8 +137,8 @@ export function ConversationList({
                   <div
                     key={conversation.id}
                     className={cn(
-                      "rounded-md border",
-                      selectedId === conversation.id && "border-accent bg-accent/50",
+                      "rounded-md border border-gray-200",
+                      selectedId === conversation.id && "border-blue-400 bg-blue-50/50",
                       conversation.status === "failed" && "border-red-200 bg-red-50"
                     )}
                   >
@@ -146,7 +146,7 @@ export function ConversationList({
                       variant="ghost"
                       className={cn(
                         "w-full justify-start text-left h-auto py-3 px-3",
-                        selectedId === conversation.id && "hover:bg-accent"
+                        selectedId === conversation.id && "hover:bg-blue-50"
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
