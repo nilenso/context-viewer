@@ -10,9 +10,10 @@ import {
 import { addTokenCounts } from "./add-token-counts";
 import { segmentConversation } from "./segmentation";
 import { componentiseConversation, type ComponentTimelineSnapshot } from "./componentisation";
+import { generateConversationSummary } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
-import { ConversationSummary as SummaryView } from "./components/ConversationSummary";
+import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
 import { Clock, Loader2, AlertCircle } from "lucide-react";
 
@@ -31,6 +32,7 @@ interface ParsedConversation {
   step?: ProcessingStep;
   conversation?: Conversation;
   summary?: ConversationSummary;
+  aiSummary?: string; // Streaming AI-generated summary
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
@@ -45,7 +47,8 @@ async function parseFiles(
   files: File[],
   fileIds: Map<number, string>, // Map of file index to id
   onStepUpdate?: (id: string, step: ProcessingStep) => void,
-  onFileComplete?: (conversation: ParsedConversation) => void
+  onFileComplete?: (conversation: ParsedConversation) => void,
+  onAISummaryChunk?: (id: string, chunk: string) => void
 ): Promise<ParseResult> {
   // Give React a chance to render the placeholders before we start processing
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -94,31 +97,45 @@ async function parseFiles(
         };
         onFileComplete?.(afterTokens);
 
-        // Step 3: Segmenting large parts
+        // Step 3, 4, and AI Summary: Run in parallel
         onStepUpdate?.(id, "segmenting");
-        const segmentedConversation = await segmentConversation(
-          conversationWithTokens
-        );
 
-        // Re-count tokens after segmentation
-        const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
+        // Start all three operations in parallel
+        const [
+          conversationAfterSegmentation,
+          aiSummaryText,
+          componentsResult,
+        ] = await Promise.all([
+          // Segmentation
+          (async () => {
+            const segmented = await segmentConversation(conversationWithTokens);
+            const reCountedAfterSegmentation = await addTokenCounts(segmented);
+            return reCountedAfterSegmentation;
+          })(),
 
-        // Update with segmented conversation
-        const afterSegmentation: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationAfterSegmentation,
-          summary,
-          step: "finding-components",
-        };
-        onFileComplete?.(afterSegmentation);
+          // AI Summary (streaming)
+          (async () => {
+            let fullSummary = "";
+            await generateConversationSummary(
+              conversationWithTokens,
+              (chunk) => {
+                fullSummary += chunk;
+                onAISummaryChunk?.(id, chunk);
+              }
+            );
+            return fullSummary;
+          })(),
 
-        // Step 4: Finding components
-        onStepUpdate?.(id, "finding-components");
-        const { components, mapping, timeline } = await componentiseConversation(
-          conversationAfterSegmentation
-        );
+          // Componentization
+          (async () => {
+            // Wait a tiny bit for segmentation to start first
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const result = await componentiseConversation(conversationWithTokens);
+            return result;
+          })(),
+        ]);
+
+        const { components, mapping, timeline } = componentsResult;
 
         // Final update
         const completed: ParsedConversation = {
@@ -127,6 +144,7 @@ async function parseFiles(
           status: "success",
           conversation: conversationAfterSegmentation,
           summary,
+          aiSummary: aiSummaryText,
           components,
           componentMapping: mapping,
           componentTimeline: timeline,
@@ -181,6 +199,16 @@ export default function App() {
           setParsedConversations((prev) =>
             prev.map((conv) =>
               conv.id === completed.id ? completed : conv
+            )
+          );
+        },
+        (id, chunk) => {
+          // Update AI summary as chunks arrive (streaming)
+          setParsedConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === id
+                ? { ...conv, aiSummary: (conv.aiSummary || "") + chunk }
+                : conv
             )
           );
         }
@@ -338,10 +366,18 @@ export default function App() {
             )}
           </main>
 
-          {/* Right Sidebar: Summary */}
+          {/* Right Sidebar: AI Summary */}
           <aside>
-            {selectedConversation && selectedConversation.summary && (
-              <SummaryView summary={selectedConversation.summary} />
+            {selectedConversation && (
+              <AISummary
+                summary={selectedConversation.aiSummary}
+                isStreaming={
+                  selectedConversation.status === "processing" ||
+                  selectedConversation.status === "success" &&
+                  selectedConversation.conversation &&
+                  !selectedConversation.components
+                }
+              />
             )}
           </aside>
         </div>
