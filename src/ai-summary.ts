@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
+import type { ComponentTimelineSnapshot } from "./componentisation";
 import { getPrompt } from "./prompts";
 
 /**
@@ -86,6 +87,90 @@ export async function generateConversationSummary(
     return fullText;
   } catch (error) {
     console.error("[AI Summary] Error generating summary:", error);
+    return "";
+  }
+}
+
+/**
+ * Generate CSV data from component timeline for analysis
+ */
+function generateComponentCSV(
+  componentTimeline: ComponentTimelineSnapshot[],
+  components: string[],
+  conversation: Conversation
+): string {
+  // CSV header
+  const header = ["Message", "Total Tokens", ...components].join(",");
+
+  // CSV rows
+  const rows = componentTimeline.map((snapshot, idx) => {
+    const row = [
+      `Msg ${idx + 1}`,
+      snapshot.totalTokens.toString(),
+      ...components.map((component) => {
+        const tokens = snapshot.componentTokens[component] || 0;
+        const percentage = snapshot.totalTokens > 0
+          ? ((tokens / snapshot.totalTokens) * 100).toFixed(1)
+          : "0.0";
+        return `${tokens} (${percentage}%)`;
+      }),
+    ];
+    return row.join(",");
+  });
+
+  return [header, ...rows].join("\n");
+}
+
+/**
+ * Generate AI analysis of context usage patterns
+ * Analyzes component distribution and provides recommendations for improvement
+ */
+export async function generateContextAnalysis(
+  conversation: Conversation,
+  componentTimeline: ComponentTimelineSnapshot[],
+  components: string[],
+  aiSummary: string,
+  onChunk?: (chunk: string) => void
+): Promise<string> {
+  console.log("[Context Analysis] Starting analysis generation");
+
+  const config = getSummaryConfig();
+
+  if (!config) {
+    console.log("[Context Analysis] No config, skipping analysis");
+    return "";
+  }
+
+  const openai = createOpenAI({
+    apiKey: config.apiKey,
+  });
+
+  // Generate CSV of component data over time
+  const componentDataCSV = generateComponentCSV(componentTimeline, components, conversation);
+
+  const prompt = getPrompt("context-analysis", {
+    conversationSummary: aiSummary,
+    componentDataCSV,
+  });
+
+  try {
+    const result = streamText({
+      model: openai(config.model),
+      prompt,
+    });
+
+    let fullText = "";
+
+    // Stream the chunks
+    for await (const chunk of result.textStream) {
+      fullText += chunk;
+      onChunk?.(chunk);
+    }
+
+    console.log(`[Context Analysis] Generated analysis (${fullText.length} chars)`);
+    return fullText;
+  } catch (error) {
+    console.error("[Context Analysis] Error generating analysis:", error);
     return "";
   }
 }

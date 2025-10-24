@@ -249,6 +249,18 @@ the conversation view doesn't seem to get updated after segmentation,
 or after something later. debug it, and if you find it fix it
 
 
+### AI analysis
+- create another tab in the right pane of the summary, and call it analysis
+- after componentisation and coloring is done, start the analysis status
+- send the components, their counts and %s over time as a csv, along with the ai-summary of conversation to ai, and ask for an analysis
+- analysis should be in markdown and shown the smae way the summary is
+- intent is to get ai to tell us what we're looking to find out for ourselves anyway
+- which is find ways to improve context relevance
+### UI fix expand button
+- move the expand/collapse-all button into the conversation tab
+
+### [TODO] create a button to optionally meta-analyse ai conversations from the context-viewer itself
+
 ## Things I've put a pin on
 - spinner is not smooth
 - parsing the tool definition

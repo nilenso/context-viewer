@@ -8,7 +8,8 @@ export type PromptKey =
   | "conversation-summary"
   | "component-identification"
   | "component-mapping"
-  | "component-coloring";
+  | "component-coloring"
+  | "context-analysis";
 
 interface PromptTemplate {
   key: PromptKey;
@@ -85,6 +86,37 @@ Example format: {"component_name": "orange", "another_component": "blue"}
 
 Components:
 ${componentsJson}`,
+  },
+
+  "context-analysis": {
+    key: "context-analysis",
+    description: "Analyzes conversation context to find opportunities for improvement",
+    template: ({ conversationSummary, componentDataCSV }) => `You are analyzing a conversation to identify opportunities for improving context relevance and efficiency.
+
+## Conversation Summary
+${conversationSummary}
+
+## Component Distribution Over Time (CSV)
+This shows how different context components grew throughout the conversation:
+
+${componentDataCSV}
+
+## Your Task
+Analyze this data and provide insights in markdown format covering:
+
+1. **Context Growth Patterns**: What patterns do you see in how context accumulated? Which components dominated?
+
+2. **Redundancy & Efficiency**: Are there signs of redundant context? Which components could potentially be reduced or optimized?
+
+3. **Context Relevance**: Based on the conversation goal, which components seem most/least relevant? Are there disproportionate allocations?
+
+4. **Recommendations**: Specific, actionable suggestions for improving context management in similar conversations. Focus on:
+   - Components to reduce or eliminate
+   - Better segmentation strategies
+   - Context retrieval improvements
+   - Memory optimization opportunities
+
+Keep your analysis practical and focused on improving context relevance. Use clear headings, bullet points, and be specific about which components you're referring to.`,
   },
 };
 

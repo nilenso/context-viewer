@@ -15,7 +15,7 @@ import {
   getComponentisationConfig,
   type ComponentTimelineSnapshot
 } from "./componentisation";
-import { generateConversationSummary } from "./ai-summary";
+import { generateConversationSummary, generateContextAnalysis } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { AISummary } from "./components/AISummary";
@@ -28,7 +28,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring" | "analysis";
 
 interface ParsedConversation {
   id: string;
@@ -38,6 +38,7 @@ interface ParsedConversation {
   conversation?: Conversation;
   summary?: ConversationSummary;
   aiSummary?: string; // Streaming AI-generated summary
+  analysis?: string; // Streaming AI-generated analysis
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
@@ -54,7 +55,8 @@ async function parseFiles(
   fileIds: Map<number, string>, // Map of file index to id
   onStepUpdate?: (id: string, step: ProcessingStep) => void,
   onFileComplete?: (conversation: ParsedConversation) => void,
-  onAISummaryChunk?: (id: string, chunk: string) => void
+  onAISummaryChunk?: (id: string, chunk: string) => void,
+  onAnalysisChunk?: (id: string, chunk: string) => void
 ): Promise<ParseResult> {
   // Give React a chance to render the placeholders before we start processing
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -173,7 +175,40 @@ async function parseFiles(
           componentColors = await assignComponentColors(components, colorConfig);
         }
 
-        // Final update with colors
+        // Update with colors
+        const afterColoring: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationAfterSegmentation,
+          summary,
+          aiSummary: aiSummaryText,
+          components,
+          componentMapping: mapping,
+          componentTimeline: timeline,
+          componentColors,
+          step: "analysis",
+        };
+        onFileComplete?.(afterColoring);
+
+        // Step 6: Generate context analysis
+        onStepUpdate?.(id, "analysis");
+        let analysisText = "";
+
+        if (aiSummaryText && components.length > 0 && timeline.length > 0) {
+          await generateContextAnalysis(
+            conversationAfterSegmentation,
+            timeline,
+            components,
+            aiSummaryText,
+            (chunk) => {
+              analysisText += chunk;
+              onAnalysisChunk?.(id, chunk);
+            }
+          );
+        }
+
+        // Final update with analysis
         const completed: ParsedConversation = {
           id,
           filename: file.name,
@@ -181,6 +216,7 @@ async function parseFiles(
           conversation: conversationAfterSegmentation,
           summary,
           aiSummary: aiSummaryText,
+          analysis: analysisText,
           components,
           componentMapping: mapping,
           componentTimeline: timeline,
@@ -245,6 +281,16 @@ export default function App() {
             prev.map((conv) =>
               conv.id === id
                 ? { ...conv, aiSummary: (conv.aiSummary || "") + chunk }
+                : conv
+            )
+          );
+        },
+        (id, chunk) => {
+          // Update analysis as chunks arrive (streaming)
+          setParsedConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === id
+                ? { ...conv, analysis: (conv.analysis || "") + chunk }
                 : conv
             )
           );
@@ -405,16 +451,21 @@ export default function App() {
             )}
           </main>
 
-          {/* Right Sidebar: AI Summary */}
+          {/* Right Sidebar: AI Summary & Analysis */}
           <aside>
             {selectedConversation && (
               <AISummary
                 summary={selectedConversation.aiSummary}
-                isStreaming={
-                  selectedConversation.status === "processing" ||
-                  selectedConversation.status === "success" &&
-                  selectedConversation.conversation &&
-                  !selectedConversation.components
+                analysis={selectedConversation.analysis}
+                isSummaryStreaming={
+                  selectedConversation.status === "processing" &&
+                  selectedConversation.step !== "analysis" &&
+                  !!selectedConversation.conversation &&
+                  !selectedConversation.componentColors
+                }
+                isAnalysisStreaming={
+                  selectedConversation.status === "processing" &&
+                  selectedConversation.step === "analysis"
                 }
               />
             )}
