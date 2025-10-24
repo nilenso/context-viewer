@@ -20,7 +20,6 @@ curl -fsSL https://bun.sh/install | bash
 # Install dependencies
 bun install
 
-# Optional: Configure AI-powered segmentation
 # Copy .env.example to .env and add your API key
 cp .env.example .env
 # Edit .env and set VITE_AI_API_KEY=your-api-key-here
@@ -58,6 +57,9 @@ Input conversations should support a few formats, since this space is
 evolving, still. To begin with, it will support the completions and
 responses API formats. They're implemented behind an interface so it's
 easy to add another format's parser.
+
+Currently this tool only supports open-ai, but the idea is to be fully
+model and format agnostic.
 
 ## Rationale
 
