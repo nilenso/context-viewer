@@ -47,110 +47,111 @@ async function parseFiles(
   onStepUpdate?: (id: string, step: ProcessingStep) => void,
   onFileComplete?: (conversation: ParsedConversation) => void
 ): Promise<ParseResult> {
-  const conversations: ParsedConversation[] = [];
-
   // Give React a chance to render the placeholders before we start processing
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (!file) continue;
+  // Process all files in parallel
+  const conversations = await Promise.all(
+    files.map(async (file, i) => {
+      if (!file) return null;
 
-    const id = fileIds.get(i) || generateId();
+      const id = fileIds.get(i) || generateId();
 
-    try {
-      // Step 1: Parsing
-      onStepUpdate?.(id, "parsing");
+      try {
+        // Step 1: Parsing
+        onStepUpdate?.(id, "parsing");
 
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const parsedConversation = parserRegistry.parse(data);
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const parsedConversation = parserRegistry.parse(data);
 
-      // Generate summary immediately after parsing
-      const summary = summarizeConversation(parsedConversation);
+        // Generate summary immediately after parsing
+        const summary = summarizeConversation(parsedConversation);
 
-      // Show the conversation and summary immediately after parsing
-      const afterParsing: ParsedConversation = {
-        id,
-        filename: file.name,
-        status: "success",
-        conversation: parsedConversation,
-        summary,
-        step: "counting-tokens",
-      };
-      onFileComplete?.(afterParsing);
+        // Show the conversation and summary immediately after parsing
+        const afterParsing: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: parsedConversation,
+          summary,
+          step: "counting-tokens",
+        };
+        onFileComplete?.(afterParsing);
 
-      // Step 2: Counting tokens
-      onStepUpdate?.(id, "counting-tokens");
-      const conversationWithTokens = await addTokenCounts(parsedConversation);
+        // Step 2: Counting tokens
+        onStepUpdate?.(id, "counting-tokens");
+        const conversationWithTokens = await addTokenCounts(parsedConversation);
 
-      // Update with token counts
-      const afterTokens: ParsedConversation = {
-        id,
-        filename: file.name,
-        status: "success",
-        conversation: conversationWithTokens,
-        summary,
-        step: "segmenting",
-      };
-      onFileComplete?.(afterTokens);
+        // Update with token counts
+        const afterTokens: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationWithTokens,
+          summary,
+          step: "segmenting",
+        };
+        onFileComplete?.(afterTokens);
 
-      // Step 3: Segmenting large parts
-      onStepUpdate?.(id, "segmenting");
-      const segmentedConversation = await segmentConversation(
-        conversationWithTokens
-      );
+        // Step 3: Segmenting large parts
+        onStepUpdate?.(id, "segmenting");
+        const segmentedConversation = await segmentConversation(
+          conversationWithTokens
+        );
 
-      // Re-count tokens after segmentation
-      const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
+        // Re-count tokens after segmentation
+        const conversationAfterSegmentation = await addTokenCounts(segmentedConversation);
 
-      // Update with segmented conversation
-      const afterSegmentation: ParsedConversation = {
-        id,
-        filename: file.name,
-        status: "success",
-        conversation: conversationAfterSegmentation,
-        summary,
-        step: "finding-components",
-      };
-      onFileComplete?.(afterSegmentation);
+        // Update with segmented conversation
+        const afterSegmentation: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationAfterSegmentation,
+          summary,
+          step: "finding-components",
+        };
+        onFileComplete?.(afterSegmentation);
 
-      // Step 4: Finding components
-      onStepUpdate?.(id, "finding-components");
-      const { components, mapping, timeline } = await componentiseConversation(
-        conversationAfterSegmentation
-      );
+        // Step 4: Finding components
+        onStepUpdate?.(id, "finding-components");
+        const { components, mapping, timeline } = await componentiseConversation(
+          conversationAfterSegmentation
+        );
 
-      // Final update
-      const completed: ParsedConversation = {
-        id,
-        filename: file.name,
-        status: "success",
-        conversation: conversationAfterSegmentation,
-        summary,
-        components,
-        componentMapping: mapping,
-        componentTimeline: timeline,
-      };
+        // Final update
+        const completed: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationAfterSegmentation,
+          summary,
+          components,
+          componentMapping: mapping,
+          componentTimeline: timeline,
+        };
 
-      conversations.push(completed);
-      onFileComplete?.(completed);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown parsing error";
-      const failed: ParsedConversation = {
-        id,
-        filename: file.name,
-        status: "failed",
-        error: message,
-      };
+        onFileComplete?.(completed);
+        return completed;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown parsing error";
+        const failed: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "failed",
+          error: message,
+        };
 
-      conversations.push(failed);
-      onFileComplete?.(failed);
-    }
-  }
+        onFileComplete?.(failed);
+        return failed;
+      }
+    })
+  );
 
-  return { conversations };
+  // Filter out any null values from skipped files
+  return { conversations: conversations.filter((c): c is ParsedConversation => c !== null) };
 }
 
 export default function App() {
