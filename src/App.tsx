@@ -131,6 +131,18 @@ async function parseFiles(
           })(),
         ]);
 
+        // Update with segmented conversation
+        const afterSegmentation: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationAfterSegmentation,
+          summary,
+          aiSummary: aiSummaryText,
+          step: "finding-components",
+        };
+        onFileComplete?.(afterSegmentation);
+
         // Step 4: Componentization (uses full conversation)
         onStepUpdate?.(id, "finding-components");
         const { components, mapping, timeline } = await componentiseConversation(
@@ -345,6 +357,7 @@ export default function App() {
                   componentMapping={selectedConversation.componentMapping}
                   componentTimeline={selectedConversation.componentTimeline}
                   componentColors={selectedConversation.componentColors}
+                  components={selectedConversation.components}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

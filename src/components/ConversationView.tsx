@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
+import { TreeMapView } from "./TreeMapView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -13,9 +14,10 @@ interface ConversationViewProps {
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+  components?: string[];
 }
 
-export function ConversationView({ conversation, componentMapping, componentTimeline, componentColors }: ConversationViewProps) {
+export function ConversationView({ conversation, componentMapping, componentTimeline, componentColors, components }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
 
   return (
@@ -24,6 +26,7 @@ export function ConversationView({ conversation, componentMapping, componentTime
         <TabsList>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
+          <TabsTrigger value="treemap">TreeMap</TabsTrigger>
         </TabsList>
         <Button
           variant="outline"
@@ -67,6 +70,18 @@ export function ConversationView({ conversation, componentMapping, componentTime
             conversation={conversation}
             componentTimeline={componentTimeline}
             componentColors={componentColors}
+          />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="treemap" className="flex-1 mt-0">
+        <div className="border rounded-lg bg-white h-full">
+          <TreeMapView
+            componentMapping={componentMapping}
+            conversation={conversation}
+            componentTimeline={componentTimeline}
+            componentColors={componentColors}
+            components={components}
           />
         </div>
       </TabsContent>

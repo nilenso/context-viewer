@@ -1,24 +1,4 @@
-## Message structure
-<message_structure>
-- token_count
-- role: one of user / assistant / system / tool
-- component (a single message can have multiple components)
-  - token_count
-  - type: instruction / input-context / artifact / result / tool / reasoning
-  - name [2–4 word name for it that remains the same for this sort of thing through the conversation]
-  - relevance: (similar to a list of tags from the following, can be 1 or more tags per component)
-</message_structure>
-
-## Prompt
-<task>
-in the given conversation
-- take each message part, and add the properties in the message_structure below.
-- wherever the message is complex, break the message down into multiple components that can be represented in the same message_structure.
-- wherever there are xml tags in the messages, use the name of that tag as the component's name. one component per xml tag.
-</task>
-
-
-## Things I need to do:
+## Milestones
 
 [DONE] Milestone 0:
 Define the tech stack
@@ -33,7 +13,7 @@ Define the tech stack
 4. Command to run program
 5. Render HTML that allows a file to be drag-dropped
 
-[TODO] Milestone 2: show components
+[DONE] Milestone 2: show components
 - Count tokens per component
 - Get api-key
 - Show spinner when calling AI
@@ -41,10 +21,10 @@ Define the tech stack
 - No relevance tags
 - Render chips per component, create the responses visualisation
 
-Milestone 3: time-travel view
+[DONE] Milestone 3: time-travel view
 - Build a slider that lets one visualise the context growth chronologically
 
-Milestone 4: tree-map view
+[DOING] Milestone 4: tree-map view
 - Build a simple tree map that shows the components by size
 
 Milestone 5: try it out
@@ -252,6 +232,21 @@ i want to manage all my prompts from a single place. create a prompts.ts which h
 - update component and render with the new colors
 - set status as "coloring"
 
+### [TODO] provide ability to iterate on the components through the UI itself
+
+### tree map
+- create another tab like components
+- in it, i want a different view. i want a tree map visualisation that represents space occupied
+- total space is total tokens
+- the parts of the tree and their sizes/spaces are the components and their token counts
+- use same colors for components as the components tab
+- need the slider here + click-to-view the parts functionality here too
+- reuse react components across tabs where possible
+
+### bug fix: rendering delayed after segmentation
+the conversation view doesn't seem to get updated after segmentation,
+ it only seems to get updated with the segments after componentisation
+or after something later. debug it, and if you find it fix it
 
 
 ## Things I've put a pin on

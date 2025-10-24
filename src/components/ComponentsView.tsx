@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { getComponentColorClasses } from "@/lib/component-colors";
 import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
@@ -14,32 +15,6 @@ interface ComponentsViewProps {
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
 }
-
-// Map color names to Tailwind CSS classes
-const colorNameToClasses: Record<string, string> = {
-  orange: "bg-orange-100 text-orange-700 border-orange-300",
-  emerald: "bg-emerald-100 text-emerald-700 border-emerald-300",
-  purple: "bg-purple-100 text-purple-700 border-purple-300",
-  blue: "bg-blue-100 text-blue-700 border-blue-300",
-  slate: "bg-slate-100 text-slate-700 border-slate-300",
-  indigo: "bg-indigo-100 text-indigo-700 border-indigo-300",
-  gray: "bg-gray-100 text-gray-700 border-gray-300",
-};
-
-// Get component color based on AI assignment or fallback to gray
-const getComponentColor = (
-  component: string,
-  componentColors?: Record<string, string>
-): string => {
-  // If colors are assigned, use them
-  if (componentColors && componentColors[component]) {
-    const colorName = componentColors[component];
-    return colorNameToClasses[colorName] || colorNameToClasses.gray;
-  }
-
-  // Default to gray (used while waiting for AI to assign colors)
-  return colorNameToClasses.gray;
-};
 
 export function ComponentsView({ componentMapping, conversation, componentTimeline, componentColors }: ComponentsViewProps) {
   // Initialize slider to the last message
@@ -126,7 +101,7 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
                   onClick={() => setSelectedComponent(selectedComponent === component ? null : component)}
                   className={cn(
                     "px-4 py-3 rounded-lg border-2 font-medium text-sm shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer",
-                    getComponentColor(component, componentColors),
+                    getComponentColorClasses(component, componentColors),
                     selectedComponent === component && "ring-2 ring-offset-2 ring-blue-500"
                   )}
                 >

@@ -64,3 +64,10 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Ensure SVG text elements don't inherit problematic styles */
+svg text {
+  -webkit-text-stroke: 0;
+  text-stroke: 0;
+  paint-order: stroke fill;
+}
