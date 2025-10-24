@@ -230,7 +230,7 @@ export async function assignComponentColors(
 
 /**
  * Componentise a conversation: identify components and map them to message IDs
- * Returns the list of components, the mapping, and timeline data
+ * Returns the list of components, the mapping, timeline data, and error info
  */
 export async function componentiseConversation(
   conversation: Conversation,
@@ -239,6 +239,7 @@ export async function componentiseConversation(
   components: string[];
   mapping: Record<string, string>;
   timeline: ComponentTimelineSnapshot[];
+  error?: string;
 }> {
   console.log("[Componentisation] Starting componentisation process");
 
@@ -246,7 +247,7 @@ export async function componentiseConversation(
 
   if (!config) {
     console.log("[Componentisation] No config, skipping componentisation");
-    return { components: [], mapping: {}, timeline: [] };
+    return { components: [], mapping: {}, timeline: [], error: "Componentisation: No API key configured" };
   }
 
   // Step 1: Identify components
@@ -255,7 +256,7 @@ export async function componentiseConversation(
 
   if (components.length === 0) {
     console.log("[Componentisation] No components identified");
-    return { components: [], mapping: {}, timeline: [] };
+    return { components: [], mapping: {}, timeline: [], error: "Componentisation: Failed to identify components (API error)" };
   }
 
   // Step 2: Map components to IDs

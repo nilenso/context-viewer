@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -19,6 +19,7 @@ interface ParsedConversation {
     totalMessages: number;
   };
   error?: string;
+  warnings?: string[];
 }
 
 interface ConversationListProps {
@@ -164,8 +165,11 @@ export function ConversationList({
                           {isProcessing && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
                           )}
-                          {conversation.status === "success" && !conversation.step && (
+                          {conversation.status === "success" && !conversation.step && !conversation.warnings && (
                             <FileText className="h-4 w-4 shrink-0" />
+                          )}
+                          {conversation.status === "success" && !conversation.step && conversation.warnings && (
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
                           )}
                           {conversation.status === "failed" && (
                             <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
@@ -188,17 +192,25 @@ export function ConversationList({
                           )}
                         </div>
 
-                        {conversation.status === "success" && !conversation.step && conversation.summary && (
-                          <Badge variant="secondary" className="self-start text-xs">
-                            {conversation.summary.totalMessages} messages
-                          </Badge>
-                        )}
+                        <div className="flex gap-2 items-center flex-wrap">
+                          {conversation.status === "success" && !conversation.step && conversation.summary && (
+                            <Badge variant="secondary" className="self-start text-xs">
+                              {conversation.summary.totalMessages} messages
+                            </Badge>
+                          )}
 
-                        {conversation.status === "failed" && (
-                          <Badge variant="destructive" className="self-start text-xs">
-                            Failed
-                          </Badge>
-                        )}
+                          {conversation.status === "failed" && (
+                            <Badge variant="destructive" className="self-start text-xs">
+                              Failed
+                            </Badge>
+                          )}
+
+                          {conversation.status === "success" && !conversation.step && conversation.warnings && (
+                            <Badge variant="outline" className="self-start text-xs border-yellow-600 text-yellow-700 bg-yellow-50">
+                              {conversation.warnings.length} warning{conversation.warnings.length > 1 ? 's' : ''}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </Button>
 

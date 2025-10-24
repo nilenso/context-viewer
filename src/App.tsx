@@ -46,6 +46,7 @@ interface ParsedConversation {
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>; // component name → color name
   error?: string;
+  warnings?: string[]; // Non-fatal warnings (e.g., AI features that failed)
 }
 
 interface ParseResult {
@@ -110,30 +111,39 @@ async function parseFiles(
         // Step 3: Segmentation and AI Summary in parallel
         onStepUpdate?.(id, "segmenting");
 
+        const warnings: string[] = [];
+
         const [
-          conversationAfterSegmentation,
-          aiSummaryText,
+          segmentationResult,
+          summaryResult,
         ] = await Promise.all([
           // Segmentation
           (async () => {
-            const segmented = await segmentConversation(conversationWithTokens);
-            const reCountedAfterSegmentation = await addTokenCounts(segmented);
+            const result = await segmentConversation(conversationWithTokens);
+            if (result.error) {
+              warnings.push(result.error);
+            }
+            const reCountedAfterSegmentation = await addTokenCounts(result.conversation);
             return reCountedAfterSegmentation;
           })(),
 
           // AI Summary (streaming)
           (async () => {
-            let fullSummary = "";
-            await generateConversationSummary(
+            const result = await generateConversationSummary(
               conversationWithTokens,
               (chunk) => {
-                fullSummary += chunk;
                 onAISummaryChunk?.(id, chunk);
               }
             );
-            return fullSummary;
+            if (result.error) {
+              warnings.push(result.error);
+            }
+            return result.summary;
           })(),
         ]);
+
+        const conversationAfterSegmentation = segmentationResult;
+        const aiSummaryText = summaryResult;
 
         // Update with segmented conversation
         const afterSegmentation: ParsedConversation = {
@@ -143,15 +153,22 @@ async function parseFiles(
           conversation: conversationAfterSegmentation,
           summary,
           aiSummary: aiSummaryText,
+          warnings: warnings.length > 0 ? warnings : undefined,
           step: "finding-components",
         };
         onFileComplete?.(afterSegmentation);
 
         // Step 4: Componentization (uses full conversation)
         onStepUpdate?.(id, "finding-components");
-        const { components, mapping, timeline } = await componentiseConversation(
+        const componentResult = await componentiseConversation(
           conversationAfterSegmentation
         );
+
+        if (componentResult.error) {
+          warnings.push(componentResult.error);
+        }
+
+        const { components, mapping, timeline } = componentResult;
 
         // Update with components before coloring (all gray)
         const afterComponentisation: ParsedConversation = {
@@ -164,6 +181,7 @@ async function parseFiles(
           components,
           componentMapping: mapping,
           componentTimeline: timeline,
+          warnings: warnings.length > 0 ? warnings : undefined,
           step: "coloring",
         };
         onFileComplete?.(afterComponentisation);
@@ -189,6 +207,7 @@ async function parseFiles(
           componentMapping: mapping,
           componentTimeline: timeline,
           componentColors,
+          warnings: warnings.length > 0 ? warnings : undefined,
           step: "analysis",
         };
         onFileComplete?.(afterColoring);
@@ -198,16 +217,19 @@ async function parseFiles(
         let analysisText = "";
 
         if (aiSummaryText && components.length > 0 && timeline.length > 0) {
-          await generateContextAnalysis(
+          const analysisResult = await generateContextAnalysis(
             conversationAfterSegmentation,
             timeline,
             components,
             aiSummaryText,
             (chunk) => {
-              analysisText += chunk;
               onAnalysisChunk?.(id, chunk);
             }
           );
+          analysisText = analysisResult.analysis;
+          if (analysisResult.error) {
+            warnings.push(analysisResult.error);
+          }
         }
 
         // Final update with analysis
@@ -223,6 +245,7 @@ async function parseFiles(
           componentMapping: mapping,
           componentTimeline: timeline,
           componentColors,
+          warnings: warnings.length > 0 ? warnings : undefined,
         };
 
         onFileComplete?.(completed);
@@ -458,6 +481,7 @@ export default function App() {
                   componentTimeline={selectedConversation.componentTimeline}
                   componentColors={selectedConversation.componentColors}
                   components={selectedConversation.components}
+                  warnings={selectedConversation.warnings}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

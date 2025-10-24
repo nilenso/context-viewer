@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, AlertTriangle, X } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
@@ -15,13 +15,45 @@ interface ConversationViewProps {
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
   components?: string[];
+  warnings?: string[];
 }
 
-export function ConversationView({ conversation, componentMapping, componentTimeline, componentColors, components }: ConversationViewProps) {
+export function ConversationView({ conversation, componentMapping, componentTimeline, componentColors, components, warnings }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
+  const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
   return (
     <Tabs defaultValue="conversation" className="flex flex-col h-full">
+      {/* Warnings Banner */}
+      {warnings && warnings.length > 0 && !dismissedWarnings && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-2">
+                Some AI features failed
+              </h3>
+              <ul className="text-sm text-yellow-800 space-y-1">
+                {warnings.map((warning, idx) => (
+                  <li key={idx}>• {warning}</li>
+                ))}
+              </ul>
+              <p className="text-xs text-yellow-700 mt-2">
+                The conversation was parsed successfully, but AI-powered features require a valid API key.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDismissedWarnings(true)}
+              className="shrink-0 h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4">
         <TabsList>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>

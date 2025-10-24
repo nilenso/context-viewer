@@ -31,19 +31,19 @@ export function getSummaryConfig(): SummaryConfig | null {
 /**
  * Generate a streaming AI summary of the conversation
  * Calls onChunk with each text chunk as it arrives
- * Returns a promise that resolves with the complete summary text
+ * Returns a promise that resolves with the complete summary text and error info
  */
 export async function generateConversationSummary(
   conversation: Conversation,
   onChunk?: (chunk: string) => void
-): Promise<string> {
+): Promise<{ summary: string; error?: string }> {
   console.log("[AI Summary] Starting summary generation");
 
   const config = getSummaryConfig();
 
   if (!config) {
     console.log("[AI Summary] No config, skipping summary");
-    return "";
+    return { summary: "", error: "AI Summary: No API key configured" };
   }
 
   const openai = createOpenAI({
@@ -84,10 +84,11 @@ export async function generateConversationSummary(
     }
 
     console.log(`[AI Summary] Generated summary (${fullText.length} chars)`);
-    return fullText;
+    return { summary: fullText };
   } catch (error) {
     console.error("[AI Summary] Error generating summary:", error);
-    return "";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { summary: "", error: `AI Summary: ${errorMessage}` };
   }
 }
 
@@ -131,14 +132,14 @@ export async function generateContextAnalysis(
   components: string[],
   aiSummary: string,
   onChunk?: (chunk: string) => void
-): Promise<string> {
+): Promise<{ analysis: string; error?: string }> {
   console.log("[Context Analysis] Starting analysis generation");
 
   const config = getSummaryConfig();
 
   if (!config) {
     console.log("[Context Analysis] No config, skipping analysis");
-    return "";
+    return { analysis: "", error: "Context Analysis: No API key configured" };
   }
 
   const openai = createOpenAI({
@@ -168,9 +169,10 @@ export async function generateContextAnalysis(
     }
 
     console.log(`[Context Analysis] Generated analysis (${fullText.length} chars)`);
-    return fullText;
+    return { analysis: fullText };
   } catch (error) {
     console.error("[Context Analysis] Error generating analysis:", error);
-    return "";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { analysis: "", error: `Context Analysis: ${errorMessage}` };
   }
 }

@@ -214,26 +214,26 @@ async function segmentMessagePart(
 
 /**
  * Process conversation segmentation with parallel processing of large parts
- * Returns a new conversation with segmented parts
+ * Returns a new conversation with segmented parts and error info
  */
 export async function segmentConversation(
   conversation: Conversation,
   onProgress?: (processed: number, total: number) => void
-): Promise<Conversation> {
+): Promise<{ conversation: Conversation; error?: string }> {
   console.log("[Segmentation] Starting segmentation process");
 
   const config = getSegmentationConfig();
 
   if (!config) {
     console.log("[Segmentation] No config, returning original conversation");
-    return conversation;
+    return { conversation, error: "Segmentation: No API key configured" };
   }
 
   const largeParts = identifyLargeParts(conversation);
 
   if (largeParts.length === 0) {
     console.log("[Segmentation] No large parts to segment, returning original conversation");
-    return conversation;
+    return { conversation };
   }
 
   // Process all large parts in parallel
@@ -244,11 +244,15 @@ export async function segmentConversation(
     }
   );
 
-  // Track progress
+  // Track progress and collect failures
   let completed = 0;
+  let failedCount = 0;
   const results = await Promise.all(
     segmentationPromises.map(async (promise) => {
       const result = await promise;
+      if (!result.segments) {
+        failedCount++;
+      }
       completed++;
       onProgress?.(completed, largeParts.length);
       return result;
@@ -316,7 +320,17 @@ export async function segmentConversation(
     }
   });
 
-  return {
+  const newConversation = {
     messages: newMessages as Message[],
   };
+
+  // Return with error info if any segmentations failed
+  if (failedCount > 0) {
+    return {
+      conversation: newConversation,
+      error: `Segmentation: Failed to segment ${failedCount} of ${largeParts.length} large parts (API error)`
+    };
+  }
+
+  return { conversation: newConversation };
 }
