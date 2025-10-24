@@ -6,7 +6,6 @@
 export type PromptKey =
   | "segmentation"
   | "conversation-summary"
-  | "message-summarization"
   | "component-identification"
   | "component-mapping";
 
@@ -47,14 +46,6 @@ Do not use code blocks, tables, or complex formatting.
 
 Conversation:
 ${JSON.stringify(conversationOverview, null, 2)}`,
-  },
-
-  "message-summarization": {
-    key: "message-summarization",
-    description: "Summarizes individual message parts in batches",
-    template: ({ messageParts }) => `given the following json, give back an array of message-parts with just a one line summary of the message-part's text.
-output just a json like this: {id: "42", summary: "text"}
-messages: \`\`\`${JSON.stringify(messageParts, null, 2)}\`\`\``,
   },
 
   "component-identification": {

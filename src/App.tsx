@@ -11,7 +11,6 @@ import { addTokenCounts } from "./add-token-counts";
 import { segmentConversation } from "./segmentation";
 import { componentiseConversation, type ComponentTimelineSnapshot } from "./componentisation";
 import { generateConversationSummary } from "./ai-summary";
-import { summarizeMessages } from "./message-summarization";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { AISummary } from "./components/AISummary";
@@ -24,7 +23,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "summarising" | "finding-components";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components";
 
 interface ParsedConversation {
   id: string;
@@ -34,7 +33,6 @@ interface ParsedConversation {
   conversation?: Conversation;
   summary?: ConversationSummary;
   aiSummary?: string; // Streaming AI-generated summary
-  messageSummaries?: Record<string, string>; // Map of message part ID to summary
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
@@ -127,15 +125,10 @@ async function parseFiles(
           })(),
         ]);
 
-        // Step 4: Summarize message parts
-        onStepUpdate?.(id, "summarising");
-        const messageSummaries = await summarizeMessages(conversationAfterSegmentation);
-
-        // Step 5: Componentization (uses message summaries)
+        // Step 4: Componentization (uses full conversation)
         onStepUpdate?.(id, "finding-components");
         const { components, mapping, timeline } = await componentiseConversation(
-          conversationAfterSegmentation,
-          messageSummaries
+          conversationAfterSegmentation
         );
 
         // Final update
@@ -146,7 +139,6 @@ async function parseFiles(
           conversation: conversationAfterSegmentation,
           summary,
           aiSummary: aiSummaryText,
-          messageSummaries,
           components,
           componentMapping: mapping,
           componentTimeline: timeline,
@@ -281,7 +273,6 @@ export default function App() {
       (window as any).__debug = {
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
-        messageSummaries: selectedConversation.messageSummaries,
         msg: (index: number) => selectedConversation.conversation!.messages[index],
         part: (msgIndex: number, partIndex: number) =>
           selectedConversation.conversation!.messages[msgIndex]?.parts[partIndex],
@@ -322,7 +313,6 @@ export default function App() {
                   conversation={selectedConversation.conversation}
                   componentMapping={selectedConversation.componentMapping}
                   componentTimeline={selectedConversation.componentTimeline}
-                  messageSummaries={selectedConversation.messageSummaries}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

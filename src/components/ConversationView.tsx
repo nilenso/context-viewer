@@ -12,10 +12,9 @@ interface ConversationViewProps {
   conversation: Conversation;
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
-  messageSummaries?: Record<string, string>;
 }
 
-export function ConversationView({ conversation, componentMapping, componentTimeline, messageSummaries }: ConversationViewProps) {
+export function ConversationView({ conversation, componentMapping, componentTimeline }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
 
   return (
@@ -66,7 +65,6 @@ export function ConversationView({ conversation, componentMapping, componentTime
             componentMapping={componentMapping}
             conversation={conversation}
             componentTimeline={componentTimeline}
-            messageSummaries={messageSummaries}
           />
         </div>
       </TabsContent>

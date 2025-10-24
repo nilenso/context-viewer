@@ -12,7 +12,6 @@ interface ComponentsViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
-  messageSummaries?: Record<string, string>;
 }
 
 // Color schemes for different component types
@@ -53,7 +52,7 @@ const getComponentColor = (component: string): string => {
   return "bg-gray-100 text-gray-700 border-gray-300";
 };
 
-export function ComponentsView({ componentMapping, conversation, componentTimeline, messageSummaries }: ComponentsViewProps) {
+export function ComponentsView({ componentMapping, conversation, componentTimeline }: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -194,25 +193,8 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
 
                     <div className="space-y-3">
                       {relevantParts.map((part) => {
-                        const summary = messageSummaries?.[part.id];
-
                         return (
-                          <div key={part.id} className="space-y-2">
-                            {/* Summary */}
-                            {summary && (
-                              <div className="border rounded-lg p-3 bg-blue-50/50">
-                                <div className="flex items-start gap-2 mb-2">
-                                  <Badge variant="outline" className="text-xs font-mono shrink-0">
-                                    {part.id}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">Summary:</span>
-                                </div>
-                                <div className="text-sm text-foreground/80 leading-relaxed">
-                                  {summary}
-                                </div>
-                              </div>
-                            )}
-
+                          <div key={part.id}>
                             {/* Full content (collapsible) */}
                             <MessagePartView part={part as any} isExpanded={false} />
                           </div>
