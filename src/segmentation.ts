@@ -28,25 +28,15 @@ export function getSegmentationConfig(): SegmentationConfig | null {
 }
 
 /**
- * Identify message parts that account for more than 10% of total token count
+ * Identify message parts that are greater than 500 tokens
  */
 function identifyLargeParts(conversation: Conversation): Array<{
   messageIndex: number;
   partIndex: number;
   part: Message["parts"][number];
 }> {
-  // Calculate total token count
-  const totalTokens = conversation.messages.reduce((sum, message) => {
-    return (
-      sum +
-      message.parts.reduce((partSum, part) => {
-        return partSum + (("token_count" in part && part.token_count) || 0);
-      }, 0)
-    );
-  }, 0);
-
-  const threshold = totalTokens * 0.1;
-  console.log(`[Segmentation] Total tokens: ${totalTokens}, threshold (10%): ${threshold}`);
+  const threshold = 500;
+  console.log(`[Segmentation] Using fixed threshold: ${threshold} tokens`);
 
   const largeParts: Array<{
     messageIndex: number;
@@ -64,7 +54,7 @@ function identifyLargeParts(conversation: Conversation): Array<{
     });
   });
 
-  console.log(`[Segmentation] Found ${largeParts.length} large parts (>10% of total)`);
+  console.log(`[Segmentation] Found ${largeParts.length} large parts (>${threshold} tokens)`);
   return largeParts;
 }
 

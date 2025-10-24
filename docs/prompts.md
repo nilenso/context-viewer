@@ -448,4 +448,5 @@ The type of object returned, must be list.
 i want to see the components of a message's parts in the conversation view too.
 so, in the title of the message part, along with "TEXT", "1010 Tokens", I want to see the same sort of chip with color indicating the component this message part is assigned to
 
-###
+### change large segment selection logic
+instead of choosing large by 10% or whatever %, just decide that any part greater than 500 tokens is large enough to be segmented
