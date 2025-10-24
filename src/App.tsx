@@ -97,14 +97,12 @@ async function parseFiles(
         };
         onFileComplete?.(afterTokens);
 
-        // Step 3, 4, and AI Summary: Run in parallel
+        // Step 3: Segmentation and AI Summary in parallel
         onStepUpdate?.(id, "segmenting");
 
-        // Start all three operations in parallel
         const [
           conversationAfterSegmentation,
           aiSummaryText,
-          componentsResult,
         ] = await Promise.all([
           // Segmentation
           (async () => {
@@ -125,17 +123,13 @@ async function parseFiles(
             );
             return fullSummary;
           })(),
-
-          // Componentization
-          (async () => {
-            // Wait a tiny bit for segmentation to start first
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const result = await componentiseConversation(conversationWithTokens);
-            return result;
-          })(),
         ]);
 
-        const { components, mapping, timeline } = componentsResult;
+        // Step 4: Componentization (runs after segmentation)
+        onStepUpdate?.(id, "finding-components");
+        const { components, mapping, timeline } = await componentiseConversation(
+          conversationAfterSegmentation
+        );
 
         // Final update
         const completed: ParsedConversation = {
@@ -288,7 +282,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="w-[1440px] space-y-6">
+      <div className="w-[90%] max-w-[1500px] mx-auto space-y-6">
         {/* Header */}
         <header>
           <h1 className="text-3xl font-bold">Context Viewer</h1>
@@ -298,7 +292,7 @@ export default function App() {
         </header>
 
         {/* Main Content */}
-        <div className="grid grid-cols-[280px_minmax(800px,800px)_320px] gap-6">
+        <div className="grid grid-cols-[280px_minmax(740px,740px)_380px] gap-6">
           {/* Sidebar: Conversation List */}
           <aside className="space-y-4">
             <ConversationList

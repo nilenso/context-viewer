@@ -11,11 +11,11 @@ export function AISummary({ summary, isStreaming }: AISummaryProps) {
   if (!summary && !isStreaming) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">AI Summary</h2>
+        <h2 className="text-xl font-semibold">Summary</h2>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              AI summary will appear here once processing begins...
+              Summary will appear here once processing begins...
             </p>
           </CardContent>
         </Card>
@@ -25,7 +25,7 @@ export function AISummary({ summary, isStreaming }: AISummaryProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">AI Summary</h2>
+      <h2 className="text-xl font-semibold">Summary</h2>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
