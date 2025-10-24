@@ -12,47 +12,36 @@ interface ComponentsViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
+  componentColors?: Record<string, string>;
 }
 
-// Color schemes for different component types
-const getComponentColor = (component: string): string => {
-  const lower = component.toLowerCase();
-
-  // Tool-related components (orange/red)
-  if (lower.includes("tool") || lower.includes("call")) {
-    return "bg-orange-100 text-orange-700 border-orange-300";
-  }
-
-  // Document-related components (green/teal)
-  if (lower.includes("doc") || lower.includes("file") || lower.includes("context")) {
-    return "bg-emerald-100 text-emerald-700 border-emerald-300";
-  }
-
-  // Memory-related components (purple)
-  if (lower.includes("memory") || lower.includes("history")) {
-    return "bg-purple-100 text-purple-700 border-purple-300";
-  }
-
-  // Instruction/knowledge components (blue)
-  if (lower.includes("instruction") || lower.includes("knowledge") || lower.includes("domain")) {
-    return "bg-blue-100 text-blue-700 border-blue-300";
-  }
-
-  // Structure/breakdown components (slate)
-  if (lower.includes("structure") || lower.includes("breakdown") || lower.includes("block")) {
-    return "bg-slate-100 text-slate-700 border-slate-300";
-  }
-
-  // Task-related components (indigo)
-  if (lower.includes("task") || lower.includes("source") || lower.includes("reflection")) {
-    return "bg-indigo-100 text-indigo-700 border-indigo-300";
-  }
-
-  // Default (gray)
-  return "bg-gray-100 text-gray-700 border-gray-300";
+// Map color names to Tailwind CSS classes
+const colorNameToClasses: Record<string, string> = {
+  orange: "bg-orange-100 text-orange-700 border-orange-300",
+  emerald: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  purple: "bg-purple-100 text-purple-700 border-purple-300",
+  blue: "bg-blue-100 text-blue-700 border-blue-300",
+  slate: "bg-slate-100 text-slate-700 border-slate-300",
+  indigo: "bg-indigo-100 text-indigo-700 border-indigo-300",
+  gray: "bg-gray-100 text-gray-700 border-gray-300",
 };
 
-export function ComponentsView({ componentMapping, conversation, componentTimeline }: ComponentsViewProps) {
+// Get component color based on AI assignment or fallback to gray
+const getComponentColor = (
+  component: string,
+  componentColors?: Record<string, string>
+): string => {
+  // If colors are assigned, use them
+  if (componentColors && componentColors[component]) {
+    const colorName = componentColors[component];
+    return colorNameToClasses[colorName] || colorNameToClasses.gray;
+  }
+
+  // Default to gray (used while waiting for AI to assign colors)
+  return colorNameToClasses.gray;
+};
+
+export function ComponentsView({ componentMapping, conversation, componentTimeline, componentColors }: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -137,7 +126,7 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
                   onClick={() => setSelectedComponent(selectedComponent === component ? null : component)}
                   className={cn(
                     "px-4 py-3 rounded-lg border-2 font-medium text-sm shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer",
-                    getComponentColor(component),
+                    getComponentColor(component, componentColors),
                     selectedComponent === component && "ring-2 ring-offset-2 ring-blue-500"
                   )}
                 >

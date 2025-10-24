@@ -7,7 +7,8 @@ export type PromptKey =
   | "segmentation"
   | "conversation-summary"
   | "component-identification"
-  | "component-mapping";
+  | "component-mapping"
+  | "component-coloring";
 
 interface PromptTemplate {
   key: PromptKey;
@@ -69,6 +70,21 @@ just give me a simple json object {id: component}
 
 <conversation>${conversationJson}</conversation>
 <components>${componentsJson}</components>`,
+  },
+
+  "component-coloring": {
+    key: "component-coloring",
+    description: "Assigns colors to components based on similarity",
+    template: ({ componentsJson }) => `Given this list of components, assign a color to each component.
+Similar kinds of components should get the same color to make it easy to visually group them.
+
+Available colors: orange, emerald, purple, blue, slate, indigo, gray
+
+Return ONLY a valid JSON object mapping each component to a color name.
+Example format: {"component_name": "orange", "another_component": "blue"}
+
+Components:
+${componentsJson}`,
   },
 };
 

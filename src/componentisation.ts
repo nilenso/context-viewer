@@ -181,6 +181,54 @@ export function buildComponentTimeline(
 }
 
 /**
+ * Assign colors to components based on similarity using AI
+ * Returns an object mapping component names to color names
+ */
+export async function assignComponentColors(
+  components: string[],
+  config: ComponentisationConfig
+): Promise<Record<string, string>> {
+  const openai = createOpenAI({
+    apiKey: config.apiKey,
+  });
+
+  const componentsJson = JSON.stringify(components, null, 2);
+
+  console.log(`[Componentisation] Calling AI to assign colors (model: ${config.model})`);
+
+  const prompt = getPrompt("component-coloring", { componentsJson });
+
+  try {
+    const result = await generateText({
+      model: openai(config.model),
+      prompt,
+    });
+
+    console.log(`[Componentisation] AI response for colors: ${result.text}`);
+
+    // Parse the JSON response
+    const jsonMatch = result.text.match(/\{[^]*\}/s);
+    if (!jsonMatch) {
+      console.log("[Componentisation] No JSON object found in response");
+      return {};
+    }
+
+    const colorMapping = JSON.parse(jsonMatch[0]);
+
+    if (typeof colorMapping !== "object" || colorMapping === null) {
+      console.log("[Componentisation] Parsed result is not an object");
+      return {};
+    }
+
+    console.log(`[Componentisation] Assigned colors to ${Object.keys(colorMapping).length} components`);
+    return colorMapping;
+  } catch (error) {
+    console.error("[Componentisation] Error calling AI for colors:", error);
+    return {};
+  }
+}
+
+/**
  * Componentise a conversation: identify components and map them to message IDs
  * Returns the list of components, the mapping, and timeline data
  */

@@ -169,7 +169,7 @@ Return an array of substrings which I can use to run string split on in javascri
 ---
 given this conversation, give me a list of all its components
 just give me a list in a json array
-<conversation>{conversation}</conversation>
+ <conversation>{conversation}</conversation>
 ---
 
 - then, with the result of components in a json array, make another call with this promopt:
@@ -179,7 +179,7 @@ of id in the conversation, to a component from the list, for all the messages
 just give me a simple json object {id: component}
 
 <conversation>{conversation}</conversation>
-<components>{components}</components>
+ <components>{components}</components>
 ---
 - the conversation's status should say "Finding components"
 - make middle "Conversation" section a part of a tab group
@@ -207,6 +207,54 @@ the components, token counts, everything should reflect the conversat until that
 as i move that forward and backward, the overview should change to reflect the composition of the covnersation until that point
 do all the computation in advance, along with the componentisation, so that the slider works smoothly
 
+### summary of conversation
+at the same time that segmentation starts, start off another ai call
+- make an ai call to get a "summary of the conversation. the goal, turns of conversation, and result"
+- show this in the right-panel instead of the summary of counts we show right now.
+- stream this text to the view so UX is nicer
+- all this should happen in parallel as the segmentation, and componentization happen
+
+### message part summarisation [reverted]
+after segmentation is complete, start a new status / process called "summarising"
+- use the following prompt, and get a summary of message-part-ids to their summaries
+- send 10 messages from the conversation at a time to a single api call, and make parallel ai calls to cover all of them
+- collect all responses together and create a single collection of all the summaries
+- store the ids to summaries in a different variable called message-summaries (add a window.__debug variable for this so i can inspect/debug)
+- use the message-summaries as the input for componentisation instead of the full conversation json
+
+ prompt:
+---
+  given the following json, give back an array of message-parts with just short-line summary of the message-part's text.
+  output just a json like this: {id: 42, summary: text}
+  messages: ```{list of messages go here}```
+---
+
+### component detail on click
+instead of the component mapping section under the overview diagram,
+when i click on a component in the overview (make that clickable,
+selectable), show the relevant messages and their parts in the section
+below. include their summaries, token counts, etc.
+
+### debug response times
+symptom: ai network calls take 10s of seconds
+known facts: gpt-5-nano model is fast, same works super fast on chat-gpt
+come up with possible
+
+### refactor: extract prompts
+i want to manage all my prompts from a single place. create a prompts.ts which has a simple keyword to prompt map, and use that everywhere
+
+### get component colors from ai
+- after rendering components, keep them all gray
+- make a call to ai to get colors for the components
+- idea is to make similar kinds of components the same color
+- use the current color set, provide a list of simple color names to ai in prompt
+- ask it to get back with component to color name just like in other prompts
+- update component and render with the new colors
+- set status as "coloring"
+
+
+
 ## Things I've put a pin on
 - spinner is not smooth
 - parsing the tool definition
+- turn off all reasoning by switching effort in vercel to none

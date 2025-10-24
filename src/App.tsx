@@ -9,7 +9,12 @@ import {
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
 import { segmentConversation } from "./segmentation";
-import { componentiseConversation, type ComponentTimelineSnapshot } from "./componentisation";
+import {
+  componentiseConversation,
+  assignComponentColors,
+  getComponentisationConfig,
+  type ComponentTimelineSnapshot
+} from "./componentisation";
 import { generateConversationSummary } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
@@ -23,7 +28,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring";
 
 interface ParsedConversation {
   id: string;
@@ -36,6 +41,7 @@ interface ParsedConversation {
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
+  componentColors?: Record<string, string>; // component name → color name
   error?: string;
 }
 
@@ -131,7 +137,31 @@ async function parseFiles(
           conversationAfterSegmentation
         );
 
-        // Final update
+        // Update with components before coloring (all gray)
+        const afterComponentisation: ParsedConversation = {
+          id,
+          filename: file.name,
+          status: "success",
+          conversation: conversationAfterSegmentation,
+          summary,
+          aiSummary: aiSummaryText,
+          components,
+          componentMapping: mapping,
+          componentTimeline: timeline,
+          step: "coloring",
+        };
+        onFileComplete?.(afterComponentisation);
+
+        // Step 5: Assign colors to components using AI
+        onStepUpdate?.(id, "coloring");
+        let componentColors: Record<string, string> = {};
+
+        const colorConfig = getComponentisationConfig();
+        if (colorConfig && components.length > 0) {
+          componentColors = await assignComponentColors(components, colorConfig);
+        }
+
+        // Final update with colors
         const completed: ParsedConversation = {
           id,
           filename: file.name,
@@ -142,6 +172,7 @@ async function parseFiles(
           components,
           componentMapping: mapping,
           componentTimeline: timeline,
+          componentColors,
         };
 
         onFileComplete?.(completed);
@@ -281,8 +312,8 @@ export default function App() {
   }, [selectedConversation]);
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="w-[90%] max-w-[1500px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-6 overflow-x-hidden">
+      <div className="w-full max-w-[1500px] mx-auto space-y-6">
         {/* Header */}
         <header>
           <h1 className="text-3xl font-bold">Context Viewer</h1>
@@ -292,7 +323,7 @@ export default function App() {
         </header>
 
         {/* Main Content */}
-        <div className="grid grid-cols-[280px_minmax(740px,740px)_380px] gap-6">
+        <div className="grid grid-cols-[280px_minmax(600px,1fr)_380px] gap-6">
           {/* Sidebar: Conversation List */}
           <aside className="space-y-4">
             <ConversationList
@@ -313,6 +344,7 @@ export default function App() {
                   conversation={selectedConversation.conversation}
                   componentMapping={selectedConversation.componentMapping}
                   componentTimeline={selectedConversation.componentTimeline}
+                  componentColors={selectedConversation.componentColors}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">
