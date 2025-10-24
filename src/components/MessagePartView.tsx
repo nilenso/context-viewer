@@ -62,6 +62,28 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
     return null;
   };
 
+  // Helper to format content as JSON if it's a JSON string
+  const formatJSON = (value: unknown): string => {
+    // If it's already an object, stringify it
+    if (typeof value === "object" && value !== null) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    // If it's a string, check if it's JSON
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        // Not JSON, return as-is
+        return value;
+      }
+    }
+
+    // For other types, convert to string
+    return String(value);
+  };
+
   const renderPartContent = () => {
     switch (part.type) {
       case "text":
@@ -80,7 +102,7 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
               <span className="font-medium">Tool:</span> {part.toolName}
             </div>
             <pre className="bg-slate-950 text-slate-50 p-3 rounded-md whitespace-pre-wrap break-words text-xs max-w-full">
-              {JSON.stringify(part.input, null, 2)}
+              {formatJSON(part.input)}
             </pre>
           </div>
         );
@@ -95,7 +117,7 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
               <span className="font-medium">Tool:</span> {part.toolName}
             </div>
             <pre className="bg-slate-950 text-slate-50 p-3 rounded-md whitespace-pre-wrap break-words text-xs max-w-full">
-              {JSON.stringify(part.output, null, 2)}
+              {formatJSON(part.output)}
             </pre>
             {part.isError && (
               <Badge variant="destructive" className="text-xs">
