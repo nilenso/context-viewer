@@ -8,9 +8,11 @@ interface AISummaryProps {
   analysis?: string;
   isSummaryStreaming?: boolean;
   isAnalysisStreaming?: boolean;
+  activeTab?: string;
+  onTabChange?: (value: string) => void;
 }
 
-export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming }: AISummaryProps) {
+export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange }: AISummaryProps) {
   const noContent = !summary && !isSummaryStreaming && !analysis && !isAnalysisStreaming;
 
   if (noContent) {
@@ -72,7 +74,11 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Insights</h2>
-      <Tabs defaultValue="summary" className="w-full">
+      <Tabs
+        value={activeTab || "summary"}
+        onValueChange={onTabChange}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="summary" className="flex items-center gap-1.5">
             Summary

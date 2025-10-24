@@ -24,7 +24,7 @@ Define the tech stack
 [DONE] Milestone 3: time-travel view
 - Build a slider that lets one visualise the context growth chronologically
 
-[DOING] Milestone 4: tree-map view
+[DONE] Milestone 4: tree-map view
 - Build a simple tree map that shows the components by size
 
 Milestone 5: try it out

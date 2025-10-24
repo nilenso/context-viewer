@@ -252,6 +252,7 @@ export default function App() {
     ParsedConversation[]
   >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [insightsTab, setInsightsTab] = useState<string>("summary");
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   const parseMutation = useMutation({
@@ -357,6 +358,14 @@ export default function App() {
       setSelectedId(firstConversation.id);
     }
   }, [parsedConversations, selectedId]);
+
+  // Switch to analysis tab when analysis starts streaming
+  useEffect(() => {
+    if (selectedConversation?.status === "processing" &&
+        selectedConversation.step === "analysis") {
+      setInsightsTab("analysis");
+    }
+  }, [selectedConversation?.status, selectedConversation?.step]);
 
   // Debug: Expose current conversation to window for console exploration
   useEffect(() => {
@@ -512,6 +521,8 @@ export default function App() {
                   selectedConversation.status === "processing" &&
                   selectedConversation.step === "analysis"
                 }
+                activeTab={insightsTab}
+                onTabChange={setInsightsTab}
               />
             )}
           </aside>
