@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
+import { getPrompt } from "./prompts";
 
 /**
  * Configuration for AI model used in summarization
@@ -65,17 +66,7 @@ export async function generateConversationSummary(
     })),
   };
 
-  const prompt = `Analyze this conversation and provide a concise summary covering:
-
-1. Goal: What is the main objective or task being discussed?
-2. Turns: How many meaningful exchanges occurred? What was the flow?
-3. Result: What was accomplished or concluded?
-
-Keep it brief and to the point. Use simple markdown text formatting only (headings, paragraphs, lists, bold).
-Do not use code blocks, tables, or complex formatting.
-
-Conversation:
-${JSON.stringify(conversationOverview, null, 2)}`;
+  const prompt = getPrompt("conversation-summary", { conversationOverview });
 
   try {
     const result = streamText({

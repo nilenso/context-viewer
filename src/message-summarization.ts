@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
+import { getPrompt } from "./prompts";
 
 /**
  * Configuration for AI model used in message summarization
@@ -78,11 +79,7 @@ async function summarizeBatch(
     return [];
   }
 
-  const messagesJson = JSON.stringify(messageParts, null, 2);
-
-  const prompt = `given the following json, give back an array of message-parts with just short-line summary of the message-part's text.
-output just a json like this: {id: "42", summary: "text"}
-messages: \`\`\`${messagesJson}\`\`\``;
+  const prompt = getPrompt("message-summarization", { messageParts });
 
   console.log(`[Message Summarization] Summarizing batch of ${messages.length} messages (${messageParts.length} parts)`);
 

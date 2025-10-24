@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
+import { getPrompt } from "./prompts";
 
 /**
  * Configuration for AI model used in componentisation
@@ -42,13 +43,7 @@ export async function identifyComponents(
 
   console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})`);
 
-    const prompt = `given this conversation, give me a list of all its components for a summary view
-each component can be 3 to 4 words in length
-just give me a list in a json array like this example:
-["abc_document", "xyz_structure", "foo_context", "task", "sources", "breakdown", "reflection", "files_about_bar", "files_about_baz", "tool_calls_about_quix", "xyz blocks", "pqr list"]
-
-
-<conversation>${conversationJson}</conversation>`;
+  const prompt = getPrompt("component-identification", { conversationJson });
 
   try {
     const result = await generateText({
@@ -98,12 +93,7 @@ export async function mapComponentsToIds(
 
   console.log(`[Componentisation] Calling AI to map components to IDs (model: ${config.model})`);
 
-  const prompt = `given this conversation and the list of components, give me a mapping
-of message part ids in the conversation, to a component from the list, for all the message parts
-just give me a simple json object {id: component}
-
-<conversation>${conversationJson}</conversation>
-<components>${componentsJson}</components>`;
+  const prompt = getPrompt("component-mapping", { conversationJson, componentsJson });
 
   try {
     const result = await generateText({

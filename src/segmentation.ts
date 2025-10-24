@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
+import { getPrompt } from "./prompts";
 
 /**
  * Configuration for AI model used in segmentation
@@ -80,17 +81,7 @@ async function segmentTextWithAI(
 
   console.log(`[Segmentation] Calling AI to segment text (${text.length} chars, model: ${config.model})`);
 
-  const prompt = `Given the following text, tell me where all you would apply a break.
-The purpose is semantic segmentation in way that's suitable for hierarchical categorization.
-Only give me the top level sections to split the text sufficiently.
-Return ONLY a valid JSON array of substrings with positive lookahead which I can use to run string split on in javascript.
-
-Example response format: ["(?=<section1>)", "(?=<section2>)"]
-
-\`\`\`
-${text}
-\`\`\`
-`;
+  const prompt = getPrompt("segmentation", { text });
 
   try {
     const result = await generateText({
