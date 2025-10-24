@@ -374,7 +374,15 @@ export default function App() {
       <div className="w-full max-w-[1500px] mx-auto space-y-6">
         {/* Header */}
         <header>
-          <h1 className="text-3xl font-bold">Context Viewer</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <img
+              src="/nilenso-logo.svg"
+              alt="Nilenso"
+              className="h-8 w-auto"
+            />
+            <span className="text-muted-foreground font-normal">/</span>
+            <span>context-viewer</span>
+          </h1>
           <p className="text-muted-foreground mt-1">
             Upload conversation logs to analyze their structure and token usage
           </p>

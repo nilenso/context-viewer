@@ -268,6 +268,10 @@ create a list of checkboxes there for showing progress. update those line items 
 have a simple > to expand/collapse that section
 keep it expanded by default
 
+### add nilenso branding
+- get nilenso's logo from https://nilenso.com/.
+- make the title of the page nilenso(logo)/context-viewer
+
 ## Things I've put a pin on
 - spinner is not smooth
 - parsing the tool definition
