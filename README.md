@@ -5,14 +5,41 @@ tool will provide a breakdown of its components and their sizes. It
 also classifies messages into various categories so we can observe the
 context in ways that matter to the business.
 
-It comes with a UI that provides some visualisation options:
-1. A simple components view with a time-slider: so we can see how the
-   context changes as the conversation progresses.
-2. A tree-map of the components to analyze the biggest parts of it.
-
 This tool itself is very simple, and the data mostly comes from a
 single prompt that you can use yourself. The visualisations are useful
 though.
+
+![Context Viewer Screenshot](docs/cv-screenshot.png)
+
+### Quick Start
+
+```bash
+# Install bun (if not already installed)
+curl -fsSL https://bun.sh/install | bash
+
+# Install dependencies
+bun install
+
+# Optional: Configure AI-powered segmentation
+# Copy .env.example to .env and add your API key
+cp .env.example .env
+# Edit .env and set VITE_AI_API_KEY=your-api-key-here
+
+# Start the development server
+bun run dev
+```
+
+### Environment Configuration
+
+The application supports automatic semantic segmentation of large message parts using AI. This feature is optional but recommended for better analysis of large conversations.
+
+Create a `.env` file based on `.env.example`:
+
+```bash
+# AI API Configuration for Semantic Segmentation
+VITE_AI_API_KEY=your-openai-api-key
+VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
+```
 
 ## Usage
 Clone and run `command run`. It will open up a browser with the following UI.
@@ -41,15 +68,3 @@ context, we can't understand the problem well enough to solve it.
 - Context rot
 - Context window length
 - Context bloat
-
-## Features
-- Single and multiple-conversation
-- Drag-drop conversation
-- Auto-classifier for relevance-tags
-- Recognizes artifacts
-- Break down of messages into components
-- Recognizes XML tags in the input
-- Custom relevance tags
-- Insights on context for context engineering
-- Time-travel-view: to observe context bloat / rot
-- Tree-map view: to observe size -> value
