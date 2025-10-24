@@ -47,6 +47,7 @@ interface ParsedConversation {
   componentColors?: Record<string, string>; // component name → color name
   error?: string;
   warnings?: string[]; // Non-fatal warnings (e.g., AI features that failed)
+  stepTimings?: Partial<Record<ProcessingStep, number>>; // Time in seconds for each step
 }
 
 interface ParseResult {
@@ -72,8 +73,11 @@ async function parseFiles(
       const id = fileIds.get(i) || generateId();
 
       try {
+        const stepTimings: Partial<Record<ProcessingStep, number>> = {};
+
         // Step 1: Parsing
         onStepUpdate?.(id, "parsing");
+        const parsingStart = Date.now();
 
         const text = await file.text();
         const data = JSON.parse(text);
@@ -81,6 +85,7 @@ async function parseFiles(
 
         // Generate summary immediately after parsing
         const summary = summarizeConversation(parsedConversation);
+        stepTimings.parsing = Math.round((Date.now() - parsingStart) / 1000);
 
         // Show the conversation and summary immediately after parsing
         const afterParsing: ParsedConversation = {
@@ -89,13 +94,16 @@ async function parseFiles(
           status: "success",
           conversation: parsedConversation,
           summary,
+          stepTimings: { ...stepTimings },
           step: "counting-tokens",
         };
         onFileComplete?.(afterParsing);
 
         // Step 2: Counting tokens
         onStepUpdate?.(id, "counting-tokens");
+        const tokenStart = Date.now();
         const conversationWithTokens = await addTokenCounts(parsedConversation);
+        stepTimings["counting-tokens"] = Math.round((Date.now() - tokenStart) / 1000);
 
         // Update with token counts
         const afterTokens: ParsedConversation = {
@@ -104,12 +112,14 @@ async function parseFiles(
           status: "success",
           conversation: conversationWithTokens,
           summary,
+          stepTimings: { ...stepTimings },
           step: "segmenting",
         };
         onFileComplete?.(afterTokens);
 
         // Step 3: Segmentation and AI Summary in parallel
         onStepUpdate?.(id, "segmenting");
+        const segmentingStart = Date.now();
 
         const warnings: string[] = [];
 
@@ -144,6 +154,7 @@ async function parseFiles(
 
         const conversationAfterSegmentation = segmentationResult;
         const aiSummaryText = summaryResult;
+        stepTimings.segmenting = Math.round((Date.now() - segmentingStart) / 1000);
 
         // Update with segmented conversation
         const afterSegmentation: ParsedConversation = {
@@ -154,15 +165,18 @@ async function parseFiles(
           summary,
           aiSummary: aiSummaryText,
           warnings: warnings.length > 0 ? warnings : undefined,
+          stepTimings: { ...stepTimings },
           step: "finding-components",
         };
         onFileComplete?.(afterSegmentation);
 
         // Step 4: Componentization (uses full conversation)
         onStepUpdate?.(id, "finding-components");
+        const componentsStart = Date.now();
         const componentResult = await componentiseConversation(
           conversationAfterSegmentation
         );
+        stepTimings["finding-components"] = Math.round((Date.now() - componentsStart) / 1000);
 
         if (componentResult.error) {
           warnings.push(componentResult.error);
@@ -182,18 +196,21 @@ async function parseFiles(
           componentMapping: mapping,
           componentTimeline: timeline,
           warnings: warnings.length > 0 ? warnings : undefined,
+          stepTimings: { ...stepTimings },
           step: "coloring",
         };
         onFileComplete?.(afterComponentisation);
 
         // Step 5: Assign colors to components using AI
         onStepUpdate?.(id, "coloring");
+        const coloringStart = Date.now();
         let componentColors: Record<string, string> = {};
 
         const colorConfig = getComponentisationConfig();
         if (colorConfig && components.length > 0) {
           componentColors = await assignComponentColors(components, colorConfig);
         }
+        stepTimings.coloring = Math.round((Date.now() - coloringStart) / 1000);
 
         // Update with colors
         const afterColoring: ParsedConversation = {
@@ -208,12 +225,14 @@ async function parseFiles(
           componentTimeline: timeline,
           componentColors,
           warnings: warnings.length > 0 ? warnings : undefined,
+          stepTimings: { ...stepTimings },
           step: "analysis",
         };
         onFileComplete?.(afterColoring);
 
         // Step 6: Generate context analysis
         onStepUpdate?.(id, "analysis");
+        const analysisStart = Date.now();
         let analysisText = "";
 
         if (aiSummaryText && components.length > 0 && timeline.length > 0) {
@@ -231,6 +250,7 @@ async function parseFiles(
             warnings.push(analysisResult.error);
           }
         }
+        stepTimings.analysis = Math.round((Date.now() - analysisStart) / 1000);
 
         // Final update with analysis
         const completed: ParsedConversation = {
@@ -246,6 +266,7 @@ async function parseFiles(
           componentTimeline: timeline,
           componentColors,
           warnings: warnings.length > 0 ? warnings : undefined,
+          stepTimings: { ...stepTimings },
         };
 
         onFileComplete?.(completed);

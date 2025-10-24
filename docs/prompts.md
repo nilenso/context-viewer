@@ -40,6 +40,19 @@ Milestone 7: support grouping conversations
 - When submitting, add a check box that says "group conversations"
 - When grouped
 
+## Things I've put a pin on
+- spinner is not smooth
+- parsing the tool definition
+- turn off all reasoning by switching effort in vercel to none
+- use any model that vercel's ai-sdk supports
+- use a category tree (nested using dot notation) instead of a flat list, and allow zooming in a few levels.
+  - Add ability to select zoom-levels in both the visualisation options
+  - this will need the underlying abstraction to change quite a bit, and will have some cascading effects, but should be doable
+  - token counts will need to sum up how many ever levels this is in
+  - need to assess if a tree structure would actually work well with an llm
+- create a button to optionally meta-analyse ai conversations from the context-viewer itself
+- provide ability to iterate on the components with ai through the UI itself. provide a redo with feedback interface?
+
 ## Feature prompts
 
 ### UI
@@ -232,9 +245,7 @@ i want to manage all my prompts from a single place. create a prompts.ts which h
 - update component and render with the new colors
 - set status as "coloring"
 
-### [TODO] provide ability to iterate on the components through the UI itself
-
-### tree map
+### tree map [abandoned]
 - create another tab like components
 - in it, i want a different view. i want a tree map visualisation that represents space occupied
 - total space is total tokens
@@ -259,7 +270,6 @@ or after something later. debug it, and if you find it fix it
 ### UI fix expand button
 - move the expand/collapse-all button into the conversation tab
 
-### [TODO] create a button to optionally meta-analyse ai conversations from the context-viewer itself
 ### ux: show progress better
 Rather than showing statuses one after another in the same place that vanish,
 create a small section under the file name in conversations list
@@ -277,7 +287,14 @@ because of that. look at the openai spec, with the repsonses api, and
 see if there's a way i can turn off reasoning through vercel.
 ###
 
-## Things I've put a pin on
-- spinner is not smooth
-- parsing the tool definition
-- turn off all reasoning by switching effort in vercel to none
+### Format json in tool calls
+in the tool calls and tool call results, when parsing, if the text content is json, format it as json
+### Allow simultaneous uploads
+when all am i not-allowed to drop new files? sometimes when there are things in progress, I'm unable to drag-drop new
+files. why is this? and what's a reasonable behaviour.
+### Some misc fixes (each it's own prompt)
+- in the left pane, it isn't clear which conversation is currently selected
+- clicking on the expanded area (progress section) should also select the covnersation
+### Show time with progress
+- i want to see the time in seconds, that each step took, next to the progress, like "Segment Content (5s)", rounded to nearest second. Not just time the AI call, but time the whole section.
+### I'm just parsing input messages, need to parse the output too

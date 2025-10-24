@@ -20,6 +20,7 @@ interface ParsedConversation {
   };
   error?: string;
   warnings?: string[];
+  stepTimings?: Partial<Record<ProcessingStep, number>>;
 }
 
 interface ConversationListProps {
@@ -217,6 +218,7 @@ export function ConversationList({
                         <div className="space-y-1">
                           {processingSteps.map((step) => {
                             const status = getStepStatus(conversation, step.key);
+                            const timing = conversation.stepTimings?.[step.key];
                             return (
                               <div
                                 key={step.key}
@@ -233,6 +235,7 @@ export function ConversationList({
                                 )}
                                 <span
                                   className={cn(
+                                    "flex-1",
                                     status === "completed" && "text-green-700",
                                     status === "in-progress" && "text-blue-700 font-medium",
                                     status === "pending" && "text-muted-foreground"
@@ -240,6 +243,11 @@ export function ConversationList({
                                 >
                                   {step.label}
                                 </span>
+                                {status === "completed" && timing !== undefined && (
+                                  <span className="text-gray-500 text-xs">
+                                    ({timing}s)
+                                  </span>
+                                )}
                               </div>
                             );
                           })}
