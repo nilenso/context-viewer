@@ -297,4 +297,152 @@ files. why is this? and what's a reasonable behaviour.
 - clicking on the expanded area (progress section) should also select the covnersation
 ### Show time with progress
 - i want to see the time in seconds, that each step took, next to the progress, like "Segment Content (5s)", rounded to nearest second. Not just time the AI call, but time the whole section.
+### Support conversation format
+Look at the file sample-logs/conversations/swing_storymachine.json.
+I want to support this file's format as input.
+Build a parser like we have for responses and completions. Call this one conversations.
+official docs for item list is this:
+```
+The item list
+A list of Conversation items.
+
+data
+array
+
+A list of conversation items.
+
+
+Hide possible types
+Message
+object
+A message to or from the model.
+
+
+Show properties
+Function tool call
+object
+A tool call to run a function. See the function calling guide for more information.
+
+
+Show properties
+Function tool call output
+object
+The output of a function tool call.
+
+
+Show properties
+File search tool call
+object
+The results of a file search tool call. See the file search guide for more information.
+
+
+Show properties
+Web search tool call
+object
+The results of a web search tool call. See the web search guide for more information.
+
+
+Show properties
+Image generation call
+object
+An image generation request made by the model.
+
+
+Show properties
+Computer tool call
+object
+A tool call to a computer use tool. See the computer use guide for more information.
+
+
+Show properties
+Computer tool call output
+object
+The output of a computer tool call.
+
+
+Show properties
+Reasoning
+object
+A description of the chain of thought used by a reasoning model while generating a response. Be sure to include these items in your input to the Responses API for subsequent turns of a conversation if you are manually managing context.
+
+
+Show properties
+Code interpreter tool call
+object
+A tool call to run code.
+
+
+Show properties
+Local shell call
+object
+A tool call to run a command on the local shell.
+
+
+Show properties
+Local shell call output
+object
+The output of a local shell tool call.
+
+
+Show properties
+MCP list tools
+object
+A list of tools available on an MCP server.
+
+
+Show properties
+MCP approval request
+object
+A request for human approval of a tool invocation.
+
+
+Show properties
+MCP approval response
+object
+A response to an MCP approval request.
+
+
+Show properties
+MCP tool call
+object
+An invocation of a tool on an MCP server.
+
+
+Show properties
+Custom tool call
+object
+A call to a custom tool created by the model.
+
+
+Show properties
+Custom tool call output
+object
+The output of a custom tool call from your code, being sent back to the model.
+
+
+Show properties
+first_id
+string
+
+The ID of the first item in the list.
+
+has_more
+boolean
+
+Whether there are more items available.
+
+last_id
+string
+
+The ID of the last item in the list.
+
+object
+string
+
+The type of object returned, must be list.
+```
+
 ### I'm just parsing input messages, need to parse the output too
+
+### components in conversationv iew
+i want to see the components of a message's parts in the conversation view too.

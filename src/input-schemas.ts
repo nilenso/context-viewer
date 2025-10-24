@@ -82,3 +82,57 @@ export const ResponsesInputSchema = z.object({
 
 export type ResponsesInput = z.infer<typeof ResponsesInputSchema>;
 export type ResponseDataItem = z.infer<typeof ResponseDataItemSchema>;
+
+// ============================================================================
+// OpenAI Conversations Format Schema
+// ============================================================================
+
+const ResponseInfoSchema = z.object({
+  effort: z.string().optional(),
+  model: z.string().optional(),
+  response_id: z.string().optional(),
+  temperature: z.number().optional(),
+  // Allow any other fields
+});
+
+const ConversationItemContentSchema = z.object({
+  type: z.string(),
+  text: z.string().optional(),
+  annotations: z.array(z.unknown()).optional(),
+  logprobs: z.array(z.unknown()).optional(),
+  // Allow any other fields
+});
+
+const ConversationItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  status: z.string().optional(),
+  content: z.array(ConversationItemContentSchema).optional(),
+  summary: z.array(SummaryItemSchema).optional(),
+  role: z.enum(["system", "user", "assistant"]).optional(),
+  arguments: z.string().optional(),
+  call_id: z.string().optional(),
+  name: z.string().optional(),
+  output: z.unknown().optional(),
+  // Allow any other fields
+});
+
+const ConversationDataItemSchema = z.object({
+  id: z.string(),
+  item: ConversationItemSchema,
+  response_info: ResponseInfoSchema.optional(),
+  // Allow any other fields
+});
+
+export const ConversationsInputSchema = z.object({
+  object: z.string(),
+  data: z.array(ConversationDataItemSchema),
+  first_id: z.string().optional(),
+  has_more: z.boolean().optional(),
+  last_id: z.string().optional(),
+  // Allow any other fields
+});
+
+export type ConversationsInput = z.infer<typeof ConversationsInputSchema>;
+export type ConversationDataItem = z.infer<typeof ConversationDataItemSchema>;
+export type ConversationItem = z.infer<typeof ConversationItemSchema>;

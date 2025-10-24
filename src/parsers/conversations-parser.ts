@@ -1,0 +1,194 @@
+import { ZodError } from "zod";
+import type { Parser } from "../parser";
+import {
+  ConversationSchema,
+  type Conversation,
+  type Message,
+} from "../schema";
+import {
+  ConversationsInputSchema,
+  type ConversationsInput,
+  type ConversationDataItem,
+  type ConversationItem,
+} from "../input-schemas";
+
+// Simple ID generator
+let idCounter = 0;
+const generateId = () => `${++idCounter}`;
+
+/**
+ * Parser for OpenAI Conversations API format
+ * Example: sample-logs/conversations/swing_storymachine.json
+ *
+ * Maps to Vercel AI SDK message structure:
+ * 1. Validate input with ConversationsInputSchema
+ * 2. Transform data items to standard format with typed parts
+ * 3. Validate output with ConversationSchema
+ */
+export class ConversationsParser implements Parser {
+  canParse(data: unknown): boolean {
+    const result = ConversationsInputSchema.safeParse(data);
+    if (!result.success) return false;
+    return result.data.object === "list";
+  }
+
+  parse(data: unknown): Conversation {
+    try {
+      const input = ConversationsInputSchema.parse(data);
+      const conversation = this.transformToConversation(input);
+      return ConversationSchema.parse(conversation);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new Error(
+          `Invalid conversations format: ${error.issues
+            .map(
+              (issue) => `${issue.path.join(".")}: ${issue.message}`
+            )
+            .join(", ")}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  private transformToConversation(input: ConversationsInput): Conversation {
+    return {
+      messages: input.data.map((dataItem) => this.transformDataItem(dataItem)),
+    };
+  }
+
+  private transformDataItem(dataItem: ConversationDataItem): Message {
+    const item = dataItem.item;
+
+    // Handle different item types based on the "type" field
+    switch (item.type) {
+      case "message": {
+        const role = item.role || "assistant";
+        const textParts = this.extractTextParts(item.content);
+
+        if (role === "system") {
+          return {
+            id: generateId(),
+            role: "system",
+            parts: textParts,
+          };
+        }
+
+        if (role === "user") {
+          return {
+            id: generateId(),
+            role: "user",
+            parts: textParts,
+          };
+        }
+
+        // Assistant message
+        return {
+          id: generateId(),
+          role: "assistant",
+          parts: textParts,
+        };
+      }
+
+      case "reasoning": {
+        // Each summary item becomes a separate reasoning part
+        const reasoningParts = item.summary?.map((s) => ({
+          id: generateId(),
+          type: "reasoning" as const,
+          text: s.text,
+        })) || [];
+
+        // Ensure at least one reasoning part (schema requires nonempty content)
+        if (reasoningParts.length === 0) {
+          reasoningParts.push({
+            id: generateId(),
+            type: "reasoning" as const,
+            text: "",
+          });
+        }
+
+        return {
+          id: generateId(),
+          role: "assistant",
+          parts: reasoningParts,
+        };
+      }
+
+      case "function_call": {
+        // Function call becomes an assistant message with tool-call part
+        return {
+          id: generateId(),
+          role: "assistant",
+          parts: [
+            {
+              id: generateId(),
+              type: "tool-call",
+              toolCallId: item.call_id || item.id,
+              toolName: item.name || "",
+              input: item.arguments ? JSON.parse(item.arguments) : {},
+            },
+          ],
+        };
+      }
+
+      case "function_call_output": {
+        // Function call output becomes a tool message with tool-result part
+        return {
+          id: generateId(),
+          role: "tool",
+          parts: [
+            {
+              id: generateId(),
+              type: "tool-result",
+              toolCallId: item.call_id || item.id,
+              toolName: "", // Not available in this format
+              output: item.output,
+            },
+          ],
+        };
+      }
+
+      default: {
+        // Default to assistant message with text content
+        return {
+          id: generateId(),
+          role: "assistant",
+          parts: [
+            {
+              id: generateId(),
+              type: "text",
+              text: "",
+            },
+          ],
+        };
+      }
+    }
+  }
+
+  private extractTextParts(
+    content: ConversationItem["content"]
+  ): Array<{ id: string; type: "text"; text: string }> {
+    if (!content || content.length === 0) {
+      return [
+        {
+          id: generateId(),
+          type: "text",
+          text: "",
+        },
+      ];
+    }
+
+    const textContent = content
+      .filter((c) => c.type === "input_text" || c.type === "output_text")
+      .map((c) => c.text || "")
+      .join("\n");
+
+    return [
+      {
+        id: generateId(),
+        type: "text",
+        text: textContent,
+      },
+    ];
+  }
+}
