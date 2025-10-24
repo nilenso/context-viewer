@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useDropzone } from "react-dropzone";
 import { parserRegistry } from "./parser";
 import "./parsers";
 import type { Conversation } from "./schema";
@@ -20,7 +21,8 @@ import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
-import { Clock, Loader2, AlertCircle } from "lucide-react";
+import { Clock, Loader2, AlertCircle, Upload } from "lucide-react";
+import { cn } from "./lib/utils";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -369,27 +371,62 @@ export default function App() {
     }
   }, [selectedConversation]);
 
-  return (
-    <div className="min-h-screen bg-background p-6 overflow-x-hidden">
-      <div className="w-full max-w-[1500px] mx-auto space-y-6">
-        {/* Header */}
-        <header>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <img
-              src="/nilenso-logo.svg"
-              alt="Nilenso"
-              className="h-8 w-auto"
-            />
-            <span className="text-muted-foreground font-normal">/</span>
-            <span>context-viewer</span>
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Upload conversation logs to analyze their structure and token usage
-          </p>
-        </header>
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (files: File[]) => parseMutation.mutate(files),
+    accept: {
+      "text/plain": [".txt"],
+      "application/json": [".json"],
+    },
+    multiple: true,
+    disabled: parseMutation.isPending,
+    noClick: parsedConversations.length > 0, // Only enable click when empty
+  });
 
-        {/* Main Content */}
-        <div className="grid grid-cols-[280px_minmax(600px,1fr)_380px] gap-6">
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header Banner */}
+      <header className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-4 mb-6">
+        <h1 className="text-xl font-semibold flex items-center gap-2 text-slate-700">
+          <img
+            src="/nilenso-logo.svg"
+            alt="Nilenso"
+            className="h-5 w-auto"
+          />
+          <span className="font-normal text-slate-400">/</span>
+          <span>context-viewer</span>
+        </h1>
+        <p className="text-sm text-slate-600 mt-1">
+          Upload conversation logs to analyze their structure and token usage
+        </p>
+      </header>
+
+      <div className="space-y-6 px-6">
+        {parsedConversations.length === 0 ? (
+          /* Empty State - Full Page Drop Zone */
+          <div
+            {...getRootProps()}
+            className={cn(
+              "min-h-[calc(100vh-12rem)] border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors",
+              isDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-accent/50"
+            )}
+          >
+            <input {...getInputProps()} />
+            <div className="text-center p-12">
+              <Upload className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50" />
+              <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
+                {isDragActive ? "Drop files here" : "Drop conversation files here"}
+              </h2>
+              <p className="text-muted-foreground mb-2">
+                or click to browse
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Accepts .json and .txt files
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* Main Content */
+          <div className="grid grid-cols-[260px_minmax(500px,1fr)_420px] gap-6">
           {/* Sidebar: Conversation List */}
           <aside className="space-y-4">
             <ConversationList
@@ -479,6 +516,7 @@ export default function App() {
             )}
           </aside>
         </div>
+        )}
       </div>
     </div>
   );

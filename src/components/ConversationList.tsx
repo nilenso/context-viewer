@@ -130,7 +130,7 @@ export function ConversationList({
         <input {...getInputProps()} />
         <div className="relative">
           <ScrollArea className="h-[calc(100vh-14rem)]">
-            <div className="space-y-2 p-4">
+            <div className="space-y-2">
               {conversations.map((conversation) => {
                 const isProcessing = conversation.status === "processing" ||
                   (conversation.status === "success" && conversation.step);
