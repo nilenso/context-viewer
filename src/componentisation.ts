@@ -196,6 +196,7 @@ export function buildComponentTimeline(
  */
 export async function componentiseConversation(
   conversation: Conversation,
+  messageSummaries?: Record<string, string>,
   onProgress?: (step: "identifying" | "mapping") => void
 ): Promise<{
   components: string[];
@@ -211,9 +212,13 @@ export async function componentiseConversation(
     return { components: [], mapping: {}, timeline: [] };
   }
 
+  // Use message summaries if provided, otherwise use full conversation
+  const inputData = messageSummaries || conversation;
+  console.log(`[Componentisation] Using ${messageSummaries ? 'message summaries' : 'full conversation'} as input`);
+
   // Step 1: Identify components
   onProgress?.("identifying");
-  const components = await identifyComponents(conversation, config);
+  const components = await identifyComponents(inputData as any, config);
 
   if (components.length === 0) {
     console.log("[Componentisation] No components identified");
@@ -222,7 +227,7 @@ export async function componentiseConversation(
 
   // Step 2: Map components to IDs
   onProgress?.("mapping");
-  const mapping = await mapComponentsToIds(conversation, components, config);
+  const mapping = await mapComponentsToIds(inputData as any, components, config);
 
   // Step 3: Build timeline
   const timeline = buildComponentTimeline(conversation, mapping);

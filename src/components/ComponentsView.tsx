@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -11,6 +12,7 @@ interface ComponentsViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
+  messageSummaries?: Record<string, string>;
 }
 
 // Color schemes for different component types
@@ -51,11 +53,14 @@ const getComponentColor = (component: string): string => {
   return "bg-gray-100 text-gray-700 border-gray-300";
 };
 
-export function ComponentsView({ componentMapping, conversation, componentTimeline }: ComponentsViewProps) {
+export function ComponentsView({ componentMapping, conversation, componentTimeline, messageSummaries }: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
+
+  // Track selected component for filtering
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
 
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
@@ -67,15 +72,6 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
       </div>
     );
   }
-
-  // Build a map of part ID to token count (for detailed mapping section)
-  const partTokenCounts = new Map<string, number>();
-  conversation.messages.forEach((message) => {
-    message.parts.forEach((part) => {
-      const tokenCount = ("token_count" in part && part.token_count) || 0;
-      partTokenCounts.set(part.id, tokenCount);
-    });
-  });
 
   // Get component data for the current message from timeline (for overview)
   let componentTokensForOverview: Record<string, number> = {};
@@ -107,19 +103,6 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
     .filter(component => (componentTokensForOverview[component] || 0) > 0)
     .sort((a, b) => (componentTokensForOverview[b] || 0) - (componentTokensForOverview[a] || 0));
 
-  // Group by component for detailed mapping (full conversation)
-  const componentGroups = Object.entries(componentMapping).reduce(
-    (acc, [id, component]) => {
-      if (!acc[component]) {
-        acc[component] = { ids: [], totalTokens: 0 };
-      }
-      acc[component].ids.push(id);
-      acc[component].totalTokens += partTokenCounts.get(id) || 0;
-      return acc;
-    },
-    {} as Record<string, { ids: string[]; totalTokens: number }>
-  );
-
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
@@ -150,11 +133,13 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
           <Card className="p-6 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-300">
             <div className="flex flex-wrap gap-3">
               {componentsForOverview.map((component) => (
-                <div
+                <button
                   key={component}
+                  onClick={() => setSelectedComponent(selectedComponent === component ? null : component)}
                   className={cn(
-                    "px-4 py-3 rounded-lg border-2 font-medium text-sm shadow-sm transition-all hover:shadow-md hover:scale-105",
-                    getComponentColor(component)
+                    "px-4 py-3 rounded-lg border-2 font-medium text-sm shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer",
+                    getComponentColor(component),
+                    selectedComponent === component && "ring-2 ring-offset-2 ring-blue-500"
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -163,61 +148,87 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
                       {(componentTokensForOverview[component] || 0).toLocaleString()} tokens
                     </Badge>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </Card>
         </div>
 
-        {/* Detailed Mapping */}
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Component Mapping</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            {Object.keys(componentGroups).length} components mapped to {Object.keys(componentMapping).length} message parts
-          </p>
+        {/* Filtered Messages */}
+        {selectedComponent ? (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">
+                Messages for: {selectedComponent}
+              </h3>
+              <button
+                onClick={() => setSelectedComponent(null)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear selection
+              </button>
+            </div>
 
-          <div className="space-y-3">
-            {Object.entries(componentGroups).map(([component, data]) => (
-              <Card key={component} className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "w-3 h-3 rounded-full",
-                        getComponentColor(component)
-                      )}
-                    />
-                    <h4 className="font-semibold text-base">{component}</h4>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {data.totalTokens.toLocaleString()} tokens
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {data.ids.length} parts
-                    </Badge>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {data.ids.map((id) => {
-                    const tokens = partTokenCounts.get(id) || 0;
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center justify-between text-xs font-mono py-1 px-2 bg-muted rounded"
-                      >
-                        <span className="text-muted-foreground">{id}</span>
-                        <span className="text-xs font-semibold text-foreground">
-                          {tokens.toLocaleString()}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))}
+            <div className="space-y-4">
+              {conversation.messages.map((message, msgIndex) => {
+                // Filter parts that belong to the selected component
+                const relevantParts = message.parts.filter(
+                  (part) => componentMapping[part.id] === selectedComponent
+                );
+
+                if (relevantParts.length === 0) return null;
+
+                return (
+                  <Card key={msgIndex} className="p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        Message {msgIndex + 1}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {message.role}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {relevantParts.length} {relevantParts.length === 1 ? 'part' : 'parts'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {relevantParts.map((part) => {
+                        const summary = messageSummaries?.[part.id];
+
+                        return (
+                          <div key={part.id} className="space-y-2">
+                            {/* Summary */}
+                            {summary && (
+                              <div className="border rounded-lg p-3 bg-blue-50/50">
+                                <div className="flex items-start gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs font-mono shrink-0">
+                                    {part.id}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">Summary:</span>
+                                </div>
+                                <div className="text-sm text-foreground/80 leading-relaxed">
+                                  {summary}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Full content (collapsible) */}
+                            <MessagePartView part={part as any} isExpanded={false} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              }).filter(Boolean)}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-center p-8 text-muted-foreground">
+            <p>Click a component above to view its messages and parts</p>
+          </div>
+        )}
       </div>
     </ScrollArea>
   );
