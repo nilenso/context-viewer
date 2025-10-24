@@ -176,9 +176,9 @@ export function ConversationList({
                             {conversation.filename}
                           </span>
                           {(isProcessing || conversation.status === "success") && (
-                            <button
+                            <div
                               onClick={(e) => toggleProgress(conversation.id, e)}
-                              className="shrink-0 p-0.5 hover:bg-accent rounded"
+                              className="shrink-0 p-0.5 hover:bg-accent rounded cursor-pointer"
                             >
                               <ChevronRight
                                 className={cn(
@@ -186,7 +186,7 @@ export function ConversationList({
                                   isExpanded && "rotate-90"
                                 )}
                               />
-                            </button>
+                            </div>
                           )}
                         </div>
 
