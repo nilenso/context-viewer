@@ -435,7 +435,7 @@ export default function App() {
           </div>
         ) : (
           /* Main Content */
-          <div className="grid grid-cols-[260px_minmax(500px,1fr)_420px] gap-6">
+          <div className="grid grid-cols-[260px_minmax(500px,1fr)_minmax(420px,30%)] gap-6">
           {/* Sidebar: Conversation List */}
           <aside className="space-y-4">
             <ConversationList

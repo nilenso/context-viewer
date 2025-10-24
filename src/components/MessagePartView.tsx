@@ -79,7 +79,7 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
             <div className="text-sm">
               <span className="font-medium">Tool:</span> {part.toolName}
             </div>
-            <pre className="bg-slate-950 text-slate-50 p-3 rounded-md overflow-x-auto text-xs max-w-full">
+            <pre className="bg-slate-950 text-slate-50 p-3 rounded-md whitespace-pre-wrap break-words text-xs max-w-full">
               {JSON.stringify(part.input, null, 2)}
             </pre>
           </div>
@@ -94,7 +94,7 @@ export function MessagePartView({ part, isExpanded = false }: MessagePartViewPro
             <div className="text-sm">
               <span className="font-medium">Tool:</span> {part.toolName}
             </div>
-            <pre className="bg-slate-950 text-slate-50 p-3 rounded-md overflow-x-auto text-xs max-w-full">
+            <pre className="bg-slate-950 text-slate-50 p-3 rounded-md whitespace-pre-wrap break-words text-xs max-w-full">
               {JSON.stringify(part.output, null, 2)}
             </pre>
             {part.isError && (

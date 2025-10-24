@@ -260,7 +260,6 @@ or after something later. debug it, and if you find it fix it
 - move the expand/collapse-all button into the conversation tab
 
 ### [TODO] create a button to optionally meta-analyse ai conversations from the context-viewer itself
-
 ### ux: show progress better
 Rather than showing statuses one after another in the same place that vanish,
 create a small section under the file name in conversations list
@@ -271,6 +270,12 @@ keep it expanded by default
 ### add nilenso branding
 - get nilenso's logo from https://nilenso.com/.
 - make the title of the page nilenso(logo)/context-viewer
+### [Dropped] ability to turn off reasoning and use gpt-5-nano
+i want to use gpt-5-nano, but i feel like the vercel-ai-sdk doesn't
+have a way to set reasoning to off, I think nano is still very slow
+because of that. look at the openai spec, with the repsonses api, and
+see if there's a way i can turn off reasoning through vercel.
+###
 
 ## Things I've put a pin on
 - spinner is not smooth
