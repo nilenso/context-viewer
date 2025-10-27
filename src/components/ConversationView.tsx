@@ -6,6 +6,7 @@ import { Maximize2, Minimize2, AlertTriangle, X } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
+import { getDefaultComponentIdentificationPrompt } from "@/prompts";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -16,11 +17,25 @@ interface ConversationViewProps {
   componentColors?: Record<string, string>;
   components?: string[];
   warnings?: string[];
+  onReprocessComponents?: (customPrompt: string) => Promise<void>;
+  isReprocessing?: boolean;
 }
 
-export function ConversationView({ conversation, componentMapping, componentTimeline, componentColors, components, warnings }: ConversationViewProps) {
+export function ConversationView({
+  conversation,
+  componentMapping,
+  componentTimeline,
+  componentColors,
+  components,
+  warnings,
+  onReprocessComponents,
+  isReprocessing
+}: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
+
+  // Lift prompt state to persist across tab changes
+  const [currentPrompt, setCurrentPrompt] = useState(getDefaultComponentIdentificationPrompt());
 
   return (
     <Tabs defaultValue="conversation" className="flex flex-col h-full">
@@ -107,6 +122,10 @@ export function ConversationView({ conversation, componentMapping, componentTime
             conversation={conversation}
             componentTimeline={componentTimeline}
             componentColors={componentColors}
+            onReprocessComponents={onReprocessComponents}
+            isReprocessing={isReprocessing}
+            currentPrompt={currentPrompt}
+            setCurrentPrompt={setCurrentPrompt}
           />
         </div>
       </TabsContent>

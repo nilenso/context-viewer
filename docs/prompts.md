@@ -54,7 +54,6 @@ Milestone 7: support grouping conversations
 - provide ability to iterate on the components with ai through the UI itself. provide a redo with feedback interface?
 
 ## Feature prompts
-
 ### UI
 okay, now implement this: when I run the program, it should open a
 browser tab and render a web page. it should have an interface to
@@ -450,3 +449,22 @@ so, in the title of the message part, along with "TEXT", "1010 Tokens", I want t
 
 ### change large segment selection logic
 instead of choosing large by 10% or whatever %, just decide that any part greater than 500 tokens is large enough to be segmented
+
+### Changeable components prompt
+I want to expose the prompt used to identify the components in the UI, and make it editable by the user.
+The first run to componentisation can run automatically as per the prompt in code.
+In the UI, above the components in the tab, I want to see an edit button that will expand text area to edit this prompt
+The user can edit it and run it. There's a run button, cancel button, can also cmd+enter to run in addition to the button.
+Near the actions, i want to indicate to the user that doing this will re-run componentisation, re-render visualisation and the analysis.
+Keep the output format specification in the code, don't show it on the UI, and append it to the prompt shown on the interface before sending to AI.
+In the text area, indicate that one can edit this to specify a different, or more appropriate way to componentise this, but request to keep it simple for good results.
+- when I run from the prompt, I want the progress to be visible on the conversation list like it does the first time. It should go back to componentisation, redo the assign colors and analysis stages.
+- show the prompt and area etc only when edit prompt is clicked, keep it hidden/collapsed until then.
+- when I switch away from the text area and come back to it, the contents switch back to the original/default prompt, they should show the current prompt
+
+#### refactor
+- It looks like the custom prompt workflow in app.tsx is implemented independently of the original workflow.
+- I want a structure in the workflow. I want the activities to be composable enough that parts of the workflow can be redone. I want to also be able to create alternative workflows easily.
+- Find an abstraction for an activity that would satisfy the composability criteria and propose that to me.
+
+### Disable animation with recharts

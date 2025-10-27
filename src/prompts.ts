@@ -53,13 +53,12 @@ ${JSON.stringify(conversationOverview, null, 2)}`,
   "component-identification": {
     key: "component-identification",
     description: "Identifies components in a conversation for categorization",
-    template: ({ conversationJson }) => `given this conversation, give me a list of all its components for a summary view
-each component can be 3 to 4 words in length
-just give me a list in a json array like this example:
-["abc_document", "xyz_structure", "foo_context", "task", "sources", "breakdown", "reflection", "files_about_bar", "files_about_baz", "tool_calls_about_quix", "xyz blocks", "pqr list"]
+    template: ({ conversationJson, customPrompt }) => {
+      const userPrompt = customPrompt || getDefaultComponentIdentificationPrompt();
+      const outputFormat = `\n\njust give me a list in a json array like this example:\n["abc_document", "xyz_structure", "foo_context", "task", "sources", "breakdown", "reflection", "files_about_bar", "files_about_baz", "tool_calls_about_quix", "xyz blocks", "pqr list"]`;
 
-
-<conversation>${conversationJson}</conversation>`,
+      return `${userPrompt}${outputFormat}\n\n<conversation>${conversationJson}</conversation>`;
+    },
   },
 
   "component-mapping": {
@@ -150,4 +149,13 @@ export function getPromptDescription(key: PromptKey): string {
  */
 export function getAllPromptKeys(): PromptKey[] {
   return Object.keys(prompts) as PromptKey[];
+}
+
+/**
+ * Get the default (user-editable) component identification prompt
+ * This is the part shown in the UI without the output format specification
+ */
+export function getDefaultComponentIdentificationPrompt(): string {
+  return `given this conversation, give me a list of all its components for a summary view
+each component can be 3 to 4 words in length`;
 }

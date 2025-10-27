@@ -3,8 +3,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Edit3, Play, X, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getComponentColorClasses } from "@/lib/component-colors";
+import { getDefaultComponentIdentificationPrompt } from "@/prompts";
 import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
@@ -14,9 +18,22 @@ interface ComponentsViewProps {
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+  onReprocessComponents?: (customPrompt: string) => Promise<void>;
+  isReprocessing?: boolean;
+  currentPrompt: string;
+  setCurrentPrompt: (prompt: string) => void;
 }
 
-export function ComponentsView({ componentMapping, conversation, componentTimeline, componentColors }: ComponentsViewProps) {
+export function ComponentsView({
+  componentMapping,
+  conversation,
+  componentTimeline,
+  componentColors,
+  onReprocessComponents,
+  isReprocessing = false,
+  currentPrompt,
+  setCurrentPrompt
+}: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -24,6 +41,39 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
 
   // Track selected component for filtering
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+
+  // Prompt editing state (only editing prompt is local to this component)
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState(currentPrompt);
+
+  const handleRunReprocessing = async () => {
+    if (!onReprocessComponents) return;
+
+    try {
+      await onReprocessComponents(editingPrompt);
+      setCurrentPrompt(editingPrompt);
+      setIsEditingPrompt(false);
+    } catch (error) {
+      console.error("Failed to reprocess components:", error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPrompt(currentPrompt);
+    setIsEditingPrompt(false);
+  };
+
+  const handleStartEdit = () => {
+    setEditingPrompt(currentPrompt);
+    setIsEditingPrompt(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleRunReprocessing();
+    }
+  };
 
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
@@ -69,6 +119,81 @@ export function ComponentsView({ componentMapping, conversation, componentTimeli
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
+        {/* Prompt Editor */}
+        {onReprocessComponents && !isEditingPrompt && (
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStartEdit}
+              className="gap-2"
+              disabled={isReprocessing}
+            >
+              <Edit3 className="h-4 w-4" />
+              Edit Prompt
+            </Button>
+          </div>
+        )}
+
+        {onReprocessComponents && isEditingPrompt && (
+          <div className="border rounded-lg p-4 bg-gray-50 mb-4">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold">Componentisation Prompt</h3>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Textarea
+                  value={editingPrompt}
+                  onChange={(e) => setEditingPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="min-h-[120px] font-mono text-sm"
+                  placeholder="Enter your componentisation prompt..."
+                  disabled={isReprocessing}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Edit this to specify a different way to componentise the conversation. Keep it simple for best results. Press Cmd+Enter to run.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleRunReprocessing}
+                  disabled={isReprocessing || !editingPrompt.trim()}
+                  className="gap-2"
+                  size="sm"
+                >
+                  {isReprocessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      Run
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancelEdit}
+                  disabled={isReprocessing}
+                  className="gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>This will re-run componentisation, visualization, and analysis</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Component Visualization */}
         <div>
           <h3 className="text-lg font-semibold mb-3">Component Overview</h3>

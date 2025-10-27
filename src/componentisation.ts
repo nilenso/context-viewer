@@ -33,7 +33,8 @@ export function getComponentisationConfig(): ComponentisationConfig | null {
  */
 export async function identifyComponents(
   conversation: Conversation,
-  config: ComponentisationConfig
+  config: ComponentisationConfig,
+  customPrompt?: string
 ): Promise<string[]> {
   const openai = createOpenAI({
     apiKey: config.apiKey,
@@ -41,9 +42,9 @@ export async function identifyComponents(
 
   const conversationJson = JSON.stringify(conversation, null, 2);
 
-  console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})`);
+  console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})${customPrompt ? ' with custom prompt' : ''}`);
 
-  const prompt = getPrompt("component-identification", { conversationJson });
+  const prompt = getPrompt("component-identification", { conversationJson, customPrompt });
 
   try {
     const result = await generateText({
@@ -234,7 +235,8 @@ export async function assignComponentColors(
  */
 export async function componentiseConversation(
   conversation: Conversation,
-  onProgress?: (step: "identifying" | "mapping") => void
+  onProgress?: (step: "identifying" | "mapping") => void,
+  customPrompt?: string
 ): Promise<{
   components: string[];
   mapping: Record<string, string>;
@@ -252,7 +254,7 @@ export async function componentiseConversation(
 
   // Step 1: Identify components
   onProgress?.("identifying");
-  const components = await identifyComponents(conversation, config);
+  const components = await identifyComponents(conversation, config, customPrompt);
 
   if (components.length === 0) {
     console.log("[Componentisation] No components identified");

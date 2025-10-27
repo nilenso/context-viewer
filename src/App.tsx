@@ -424,6 +424,155 @@ export default function App() {
     }
   }, [selectedConversation]);
 
+  // Reprocess components with a custom prompt
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+
+  const handleReprocessComponents = async (customPrompt: string) => {
+    if (!selectedConversation?.conversation) return;
+
+    const id = selectedConversation.id;
+    setReprocessingId(id);
+
+    try {
+      const config = getComponentisationConfig();
+      if (!config) {
+        console.error("No componentisation config available");
+        return;
+      }
+
+      const stepStartTimes: Record<string, number> = {};
+
+      // Step 1: Re-run componentisation with custom prompt
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? { ...conv, status: "processing" as const, step: "finding-components" as const }
+            : conv
+        )
+      );
+      stepStartTimes["finding-components"] = Date.now();
+
+      const componentResult = await componentiseConversation(
+        selectedConversation.conversation,
+        undefined,
+        customPrompt
+      );
+
+      const { components, mapping, timeline } = componentResult;
+      const findingComponentsTime = Math.round((Date.now() - stepStartTimes["finding-components"]) / 1000);
+
+      // Update with new components before coloring
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? {
+                ...conv,
+                components,
+                componentMapping: mapping,
+                componentTimeline: timeline,
+                stepTimings: {
+                  ...conv.stepTimings,
+                  "finding-components": findingComponentsTime,
+                },
+                step: "coloring" as const,
+              }
+            : conv
+        )
+      );
+
+      // Step 2: Assign colors
+      stepStartTimes.coloring = Date.now();
+      const componentColors = await assignComponentColors(components, config);
+      const coloringTime = Math.round((Date.now() - stepStartTimes.coloring) / 1000);
+
+      // Update with colors
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? {
+                ...conv,
+                componentColors,
+                stepTimings: {
+                  ...conv.stepTimings,
+                  coloring: coloringTime,
+                },
+                step: "analysis" as const,
+              }
+            : conv
+        )
+      );
+
+      // Step 3: Re-generate analysis
+      stepStartTimes.analysis = Date.now();
+      let analysisText = "";
+
+      // Clear old analysis first
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? { ...conv, analysis: "" }
+            : conv
+        )
+      );
+
+      if (selectedConversation.aiSummary && components.length > 0 && timeline.length > 0) {
+        const analysisResult = await generateContextAnalysis(
+          selectedConversation.conversation,
+          timeline,
+          components,
+          selectedConversation.aiSummary,
+          (chunk) => {
+            // Update analysis as chunks arrive
+            setParsedConversations((prev) =>
+              prev.map((conv) =>
+                conv.id === id
+                  ? { ...conv, analysis: (conv.analysis || "") + chunk }
+                  : conv
+              )
+            );
+          }
+        );
+        analysisText = analysisResult.analysis;
+      }
+
+      const analysisTime = Math.round((Date.now() - stepStartTimes.analysis) / 1000);
+
+      // Final update: mark as complete
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? {
+                ...conv,
+                status: "success" as const,
+                step: undefined,
+                stepTimings: {
+                  ...conv.stepTimings,
+                  analysis: analysisTime,
+                },
+              }
+            : conv
+        )
+      );
+    } catch (error) {
+      console.error("Failed to reprocess components:", error);
+      // Mark as failed
+      setParsedConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? {
+                ...conv,
+                status: "failed" as const,
+                step: undefined,
+                error: "Reprocessing failed",
+              }
+            : conv
+        )
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => parseMutation.mutate(files),
     accept: {
@@ -501,6 +650,8 @@ export default function App() {
                   componentColors={selectedConversation.componentColors}
                   components={selectedConversation.components}
                   warnings={selectedConversation.warnings}
+                  onReprocessComponents={handleReprocessComponents}
+                  isReprocessing={reprocessingId === selectedConversation.id}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">
