@@ -54,6 +54,360 @@ Milestone 7: support grouping conversations
 - provide ability to iterate on the components with ai through the UI itself. provide a redo with feedback interface?
 
 ## Feature prompts
+
+### Prompts around parsing and schema
+I dug these up from claude's conversation history for reference
+
+> can i use zod's parse to parse instead of writing custom parsing logic?
+
+> delete old code if we don't need it
+
+> do we have both the old and new parsers?
+
+> help me understand how the contennt in completions-parser.ts makes sense if the schema is defined fully in input-schemas.ts, and we're already using zod to parse.
+
+
+> let's remove the business logic from here. the parser should only parse and do nothing else. even though target structure has token count, component type etc, don't fill in those. let every message have a single component only. don't do any token
+counts here either. role should just be one of the roles specified in the input schema, look for roles in the input files to expand if needed. log/input files should contain data from standard APIs anyway, so, don't need to lowercase etc.
+
+
+> redo the message schema based on this pasted example structure. there are 4 types of messages. and each message has content that could be of various parts. user messages can have text, image and file parts. assistant can have reasoning and tool
+call parts additionally. tools only share results for calls. the tool set should be passed in the user message. remove the component type, relevance tags, token count etc for now. just have these in there that represent the conversation itself. ##
+API Signature
+
+#### Parameters
+
+<PropertiesTable
+  content={[
+    {
+      name: 'model',
+      type: 'LanguageModel',
+      description: "The language model to use. Example: openai('gpt-4o')",
+    },
+    {
+      name: 'system',
+      type: 'string',
+      description:
+        'The system prompt to use that specifies the behavior of the model.',
+    },
+    {
+      name: 'prompt',
+      type: 'string | Array<SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage>',
+      description: 'The input prompt to generate the text from.',
+    },
+    {
+      name: 'messages',
+      type: 'Array<SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage>',
+      description:
+        'A list of messages that represent a conversation. Automatically converts UI messages from the useChat hook.',
+      properties: [
+        {
+          type: 'SystemModelMessage',
+          parameters: [
+            {
+              name: 'role',
+              type: "'system'",
+              description: 'The role for the system message.',
+            },
+            {
+              name: 'content',
+              type: 'string',
+              description: 'The content of the message.',
+            },
+          ],
+        },
+        {
+          type: 'UserModelMessage',
+          parameters: [
+            {
+              name: 'role',
+              type: "'user'",
+              description: 'The role for the user message.',
+            },
+            {
+              name: 'content',
+              type: 'string | Array<TextPart | ImagePart | FilePart>',
+              description: 'The content of the message.',
+              properties: [
+                {
+                  type: 'TextPart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'text'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'text',
+                      type: 'string',
+                      description: 'The text content of the message part.',
+                    },
+                  ],
+                },
+                {
+                  type: 'ImagePart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'image'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'image',
+                      type: 'string | Uint8Array | Buffer | ArrayBuffer | URL',
+                      description:
+                        'The image content of the message part. String are either base64 encoded content, base64 data URLs, or http(s) URLs.',
+                    },
+                    {
+                      name: 'mediaType',
+                      type: 'string',
+                      description:
+                        'The IANA media type of the image. Optional.',
+                      isOptional: true,
+                    },
+                  ],
+                },
+                {
+                  type: 'FilePart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'file'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'data',
+                      type: 'string | Uint8Array | Buffer | ArrayBuffer | URL',
+                      description:
+                        'The file content of the message part. String are either base64 encoded content, base64 data URLs, or http(s) URLs.',
+                    },
+                    {
+                      name: 'mediaType',
+                      type: 'string',
+                      description: 'The IANA media type of the file.',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'AssistantModelMessage',
+          parameters: [
+            {
+              name: 'role',
+              type: "'assistant'",
+              description: 'The role for the assistant message.',
+            },
+            {
+              name: 'content',
+              type: 'string | Array<TextPart | FilePart | ReasoningPart | ToolCallPart>',
+              description: 'The content of the message.',
+              properties: [
+                {
+                  type: 'TextPart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'text'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'text',
+                      type: 'string',
+                      description: 'The text content of the message part.',
+                    },
+                  ],
+                },
+                {
+                  type: 'ReasoningPart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'reasoning'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'text',
+                      type: 'string',
+                      description: 'The reasoning text.',
+                    },
+                  ],
+                },
+                {
+                  type: 'FilePart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'file'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'data',
+                      type: 'string | Uint8Array | Buffer | ArrayBuffer | URL',
+                      description:
+                        'The file content of the message part. String are either base64 encoded content, base64 data URLs, or http(s) URLs.',
+                    },
+                    {
+                      name: 'mediaType',
+                      type: 'string',
+                      description: 'The IANA media type of the file.',
+                    },
+                    {
+                      name: 'filename',
+                      type: 'string',
+                      description: 'The name of the file.',
+                      isOptional: true,
+                    },
+                  ],
+                },
+                {
+                  type: 'ToolCallPart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'tool-call'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'toolCallId',
+                      type: 'string',
+                      description: 'The id of the tool call.',
+                    },
+                    {
+                      name: 'toolName',
+                      type: 'string',
+                      description:
+                        'The name of the tool, which typically would be the name of the function.',
+                    },
+                    {
+                      name: 'input',
+                      type: 'object based on zod schema',
+                      description:
+                        'Input (parameters) generated by the model to be used by the tool.',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'ToolModelMessage',
+          parameters: [
+            {
+              name: 'role',
+              type: "'tool'",
+              description: 'The role for the assistant message.',
+            },
+            {
+              name: 'content',
+              type: 'Array<ToolResultPart>',
+              description: 'The content of the message.',
+              properties: [
+                {
+                  type: 'ToolResultPart',
+                  parameters: [
+                    {
+                      name: 'type',
+                      type: "'tool-result'",
+                      description: 'The type of the message part.',
+                    },
+                    {
+                      name: 'toolCallId',
+                      type: 'string',
+                      description:
+                        'The id of the tool call the result corresponds to.',
+                    },
+                    {
+                      name: 'toolName',
+                      type: 'string',
+                      description:
+                        'The name of the tool the result corresponds to.',
+                    },
+                    {
+                      name: 'output',
+                      type: 'unknown',
+                      description:
+                        'The result returned by the tool after execution.',
+                    },
+                    {
+                      name: 'isError',
+                      type: 'boolean',
+                      isOptional: true,
+                      description:
+                        'Whether the result is an error or an error message.',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'tools',
+      type: 'ToolSet',
+      description:
+        'Tools that are accessible to and can be called by the model. The model needs to support calling tools.',
+      properties: [
+        {
+          type: 'Tool',
+          parameters: [
+            {
+              name: 'description',
+              isOptional: true,
+              type: 'string',
+              description:
+                'Information about the purpose of the tool including details on how and when it can be used by the model.',
+            },
+            {
+              name: 'inputSchema',
+              type: 'Zod Schema | JSON Schema',
+              description:
+                'The schema of the input that the tool expects. The language model will use this to generate the input. It is also used to validate the output of the language model. Use descriptions to make the input understandable for the language
+model. You can either pass in a Zod schema or a JSON schema (using the `jsonSchema` function).',
+            },
+            {
+              name: 'execute',
+              isOptional: true,
+              type: 'async (parameters: T, options: ToolExecutionOptions) => RESULT',
+              description:
+                'An async function that is called with the arguments from the tool call and produces a result. If not provided, the tool will not be executed automatically.',
+              properties: [
+                {
+                  type: 'ToolExecutionOptions',
+                  parameters: [
+                    {
+                      name: 'toolCallId',
+                      type: 'string',
+                      description:
+                        'The ID of the tool call. You can use it e.g. when sending tool-call related information with stream data.',
+                    },
+                    {
+                      name: 'messages',
+                      type: 'ModelMessage[]',
+                      description:
+                        'Messages that were sent to the language model to initiate the response that contained the tool call. The messages do not include the system prompt nor the assistant response that contained the tool call.',
+                    },
+                    {
+                      name: 'abortSignal',
+                      type: 'AbortSignal',
+                      description:
+                        'An optional abort signal that indicates that the overall operation should be aborted.',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+
 ### UI
 okay, now implement this: when I run the program, it should open a
 browser tab and render a web page. it should have an interface to
