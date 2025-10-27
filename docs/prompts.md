@@ -841,7 +841,24 @@ when the new components are being generated? that way I can play with the existi
 prompt can be disabled / hidden until componentisation is done and we can redo the prompt.
 ##### Renaming
   - this function in app.tsx ``async function parseFiles(`` strikes me as odd. how is it different from other workflow activities? suggest a different name
-   - `Return type containing WorkflowState array` this can be workflowStates if its literally an array of workflow states?
+  - `Return type containing WorkflowState array` this can be workflowStates if its literally an array of workflow states?
   - conversations sounds good, as long as it doesn't conflict with the use of that name for other things
   - how about `runWorkflows`? and also look at the other variables which start with parse, and see if they're parsing related or workflow related or something else, and suggest better name there too.
 ### Disable animation with recharts
+### Enhancements to the conversation view
+  * Add a toolbar like layer above the conversation view
+  * Add emojis to describe user, assistant, tool and system messages
+  * Allow filtering by role, component type, or a simple substring
+  * Allow sorting by time (asc/desc), token-count (asc/desc)
+  * add filters for each kind of part too, like text, reasoning, tool call/result, etc. in a way that naturally fits into
+the current filter.
+  * no row for checkboxes, allow me to multi-select in the drop-down isntead
+  * add filters for each kind of part too, like text, reasoning, tool call/result, etc. in a way that naturally fits into the
+  current filter.
+  * only some combinations of role + type can exist, according to schema.ts. use that information, and make me a single
+filter that has a role+type filter
+### Docs improvement (consider not doing this, agents are fast at this anyway)
+- Go through the code and document the purposes of each file, and the major abstractions in it. These docs could be the index for coding agents too. Create one file each for
+  - Parsing: target schema, input schemas, supported schemas. Write a section for how to add a new parser.
+  - Workflows: Start with a brief description of what the primary workflow does. then describe the abstractions of workflow, activities, etc. Try to get the design philosophy of it from the prompts in prompts.md, and readme.md
+  - Activities: Sections for segmentation, componentisation, coloring, summary and analysis

@@ -56,6 +56,21 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
     }
   };
 
+  const getRoleEmoji = () => {
+    switch (message.role) {
+      case "system":
+        return "⚙️";
+      case "user":
+        return "👤";
+      case "assistant":
+        return "🤖";
+      case "tool":
+        return "🔧";
+      default:
+        return "";
+    }
+  };
+
   const getTotalTokens = () => {
     return message.parts.reduce((sum, part) => {
       if ("token_count" in part && part.token_count !== undefined) {
@@ -80,6 +95,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
           ) : (
             <ChevronRight className="h-4 w-4" />
           )}
+          <span className="text-base">{getRoleEmoji()}</span>
           <Badge className={getRoleBadgeColor()}>{message.role}</Badge>
           <span className="text-sm text-muted-foreground">#{index + 1}</span>
           {totalTokens > 0 && (

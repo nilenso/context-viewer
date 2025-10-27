@@ -59,6 +59,25 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
     }
   };
 
+  const getPartEmoji = () => {
+    switch (part.type) {
+      case "text":
+        return "💬";
+      case "reasoning":
+        return "💭";
+      case "tool-call":
+        return "📤";
+      case "tool-result":
+        return "📥";
+      case "image":
+        return "🖼️";
+      case "file":
+        return "📄";
+      default:
+        return "❓";
+    }
+  };
+
   const getTokenCount = () => {
     if ("token_count" in part && part.token_count !== undefined) {
       return part.token_count;
@@ -169,6 +188,7 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
+          <span className="text-sm">{getPartEmoji()}</span>
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {getPartLabel()}
           </span>
