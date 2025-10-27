@@ -159,6 +159,7 @@ export function StackedBarChartView({
                     stackId="a"
                     fill={getComponentColorHex(component, componentColors)}
                     style={{ cursor: "pointer" }}
+                    isAnimationActive={false}
                   />
                 ))}
               </BarChart>
