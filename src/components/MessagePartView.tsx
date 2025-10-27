@@ -30,9 +30,10 @@ interface MessagePartViewProps {
   isExpanded?: boolean;
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;
+  onComponentClick?: (component: string) => void;
 }
 
-export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors }: MessagePartViewProps) {
+export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick }: MessagePartViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -202,8 +203,15 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
               variant="outline"
               className={cn(
                 "text-xs font-medium border",
-                getComponentColorClasses(component, componentColors)
+                getComponentColorClasses(component, componentColors),
+                onComponentClick && "cursor-pointer hover:opacity-80 transition-opacity"
               )}
+              onClick={(e) => {
+                if (onComponentClick) {
+                  e.stopPropagation();
+                  onComponentClick(component);
+                }
+              }}
             >
               {component}
             </Badge>

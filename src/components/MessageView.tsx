@@ -16,9 +16,10 @@ interface MessageViewProps {
   isExpanded?: boolean;
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;
+  onComponentClick?: (component: string) => void;
 }
 
-export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors }: MessageViewProps) {
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -114,6 +115,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
               isExpanded={isOpen}
               componentMapping={componentMapping}
               componentColors={componentColors}
+              onComponentClick={onComponentClick}
             />
           ))}
         </div>

@@ -857,7 +857,12 @@ the current filter.
   current filter.
   * only some combinations of role + type can exist, according to schema.ts. use that information, and make me a single
 filter that has a role+type filter
-### Docs improvement (consider not doing this, agents are fast at this anyway)
+#### Filter by component
+- After componentisation is done, add another filter by component types, similar to the other multiselect.
+- make the filters work at a message part level. when filtering, i want to see message parts that match the filter, not messages where one of the parts could match.
+- clicking on the component, on the title bar of a message part, should add a filter by that component
+
+### [Unsure] Docs improvement (consider not doing this, agents are fast at this anyway)
 - Go through the code and document the purposes of each file, and the major abstractions in it. These docs could be the index for coding agents too. Create one file each for
   - Parsing: target schema, input schemas, supported schemas. Write a section for how to add a new parser.
   - Workflows: Start with a brief description of what the primary workflow does. then describe the abstractions of workflow, activities, etc. Try to get the design philosophy of it from the prompts in prompts.md, and readme.md

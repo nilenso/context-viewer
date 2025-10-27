@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +44,53 @@ export function ConversationView({
   // Filtering and sorting state
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"time-asc" | "time-desc" | "tokens-asc" | "tokens-desc">("time-asc");
+
+  // Component filter state - starts with all components selected
+  const [selectedComponents, setSelectedComponents] = useState<Set<string>>(new Set());
+
+  // Initialize selected components when components prop changes
+  useEffect(() => {
+    if (components && components.length > 0) {
+      setSelectedComponents(new Set(components));
+    }
+  }, [components]);
+
+  // Helper to toggle a component filter
+  const toggleComponent = (component: string) => {
+    setSelectedComponents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(component)) {
+        newSet.delete(component);
+      } else {
+        newSet.add(component);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle all components
+  const toggleAllComponents = () => {
+    if (components) {
+      if (selectedComponents.size === components.length) {
+        setSelectedComponents(new Set());
+      } else {
+        setSelectedComponents(new Set(components));
+      }
+    }
+  };
+
+  // Get display text for component filter button
+  const getComponentFilterDisplayText = () => {
+    if (!components || components.length === 0) return "No Components";
+    if (selectedComponents.size === components.length) return "All Components";
+    if (selectedComponents.size === 0) return "No Components";
+    return `${selectedComponents.size} Component${selectedComponents.size !== 1 ? 's' : ''}`;
+  };
+
+  // Handle clicking on a component badge - filters to show only that component
+  const handleComponentClick = (component: string) => {
+    setSelectedComponents(new Set([component]));
+  };
 
   // Combined role+type filters based on valid schema combinations
   type MessageFilter =
@@ -184,47 +231,67 @@ export function ConversationView({
     }, 0);
   };
 
-  // Filter and sort messages
+  // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
-    let filtered = conversation.messages;
-
-    // Filter by role+type combinations - only apply if not all filters are selected
-    if (!messageFilters.has("all")) {
-      filtered = filtered.filter((msg) => {
-        // Check if message has any part that matches the selected filters
-        return msg.parts.some((part) => {
-          const filterKey = `${msg.role}:${part.type}` as MessageFilter;
-          return messageFilters.has(filterKey);
-        });
-      });
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((msg) =>
-        msg.parts.some((part) => {
-          if ("text" in part && typeof part.text === "string") {
-            return part.text.toLowerCase().includes(query);
-          }
-          if (part.type === "tool-call" || part.type === "tool-result") {
-            const toolName = "toolName" in part ? part.toolName : "";
-            return toolName.toLowerCase().includes(query);
-          }
+    // Helper to check if a part passes all filters
+    const partPassesFilters = (part: Message["parts"][number], msgRole: Message["role"]) => {
+      // Filter by role+type combinations
+      if (!messageFilters.has("all")) {
+        const filterKey = `${msgRole}:${part.type}` as MessageFilter;
+        if (!messageFilters.has(filterKey)) {
           return false;
-        })
-      );
-    }
+        }
+      }
 
-    // Create indexed messages for sorting
-    const indexedMessages = filtered.map((msg, idx) => ({
-      message: msg,
-      originalIndex: conversation.messages.indexOf(msg),
-      tokens: getMessageTokens(msg),
-    }));
+      // Filter by components
+      if (componentMapping && components && selectedComponents.size > 0 && selectedComponents.size < components.length) {
+        const partComponent = componentMapping[part.id];
+        if (!partComponent || !selectedComponents.has(partComponent)) {
+          return false;
+        }
+      }
+
+      // Filter by search query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        if ("text" in part && typeof part.text === "string") {
+          if (!part.text.toLowerCase().includes(query)) {
+            return false;
+          }
+        } else if (part.type === "tool-call" || part.type === "tool-result") {
+          const toolName = "toolName" in part ? part.toolName : "";
+          if (!toolName.toLowerCase().includes(query)) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    // Filter parts within each message and create filtered message objects
+    const messagesWithFilteredParts = conversation.messages.map((msg, idx) => {
+      const filteredParts = msg.parts.filter(part => partPassesFilters(part, msg.role));
+      return {
+        message: { ...msg, parts: filteredParts },
+        originalIndex: idx,
+        tokens: filteredParts.reduce((sum, part) => {
+          if ("token_count" in part && part.token_count !== undefined) {
+            return sum + part.token_count;
+          }
+          return sum;
+        }, 0),
+        hasVisibleParts: filteredParts.length > 0,
+      };
+    });
+
+    // Only include messages that have at least one visible part
+    const filtered = messagesWithFilteredParts.filter(m => m.hasVisibleParts);
 
     // Sort messages
-    let sorted = [...indexedMessages];
+    let sorted = [...filtered];
     switch (sortBy) {
       case "time-asc":
         sorted.sort((a, b) => a.originalIndex - b.originalIndex);
@@ -241,7 +308,7 @@ export function ConversationView({
     }
 
     return sorted;
-  }, [conversation.messages, messageFilters, searchQuery, sortBy]);
+  }, [conversation.messages, messageFilters, searchQuery, sortBy, componentMapping, components, selectedComponents]);
 
   return (
     <Tabs defaultValue="conversation" className="flex flex-col h-full">
@@ -337,6 +404,51 @@ export function ConversationView({
               </PopoverContent>
             </Popover>
 
+            {/* Component Filter - only show if components exist */}
+            {components && components.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[180px] justify-start">
+                    <Filter className="h-4 w-4 mr-2" />
+                    {getComponentFilterDisplayText()}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-3 max-h-[400px] overflow-y-auto" align="start">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Filter by Component
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleAllComponents}
+                        className="h-6 text-xs"
+                      >
+                        {selectedComponents.size === components.length ? "Clear All" : "Select All"}
+                      </Button>
+                    </div>
+                    <div className="space-y-1">
+                      {components.map((component) => (
+                        <label
+                          key={component}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                        >
+                          <Checkbox
+                            checked={selectedComponents.has(component)}
+                            onCheckedChange={() => toggleComponent(component)}
+                          />
+                          <span className="text-sm flex-1">
+                            {component}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
             {/* Sort */}
             <Select value={sortBy} onValueChange={(val) => setSortBy(val as typeof sortBy)}>
               <SelectTrigger className="w-[180px]">
@@ -388,6 +500,7 @@ export function ConversationView({
                 isExpanded={expandAll}
                 componentMapping={componentMapping}
                 componentColors={componentColors}
+                onComponentClick={handleComponentClick}
               />
             ))}
           </div>
