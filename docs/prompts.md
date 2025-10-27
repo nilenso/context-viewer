@@ -481,6 +481,10 @@ In the text area, indicate that one can edit this to specify a different, or mor
   * what is interface `ParsedConversation {?` it feels like a duplicate of workflow. is it the workflow? can we name it
   * how is workflow-context different from workflow-state? appropriately if not?
   * Option A: Merge them into one type with all fields optional, and the workflow/React just use what they need?
+  * i find that when I edit the prompt in components, it immediately wipes out the interface etc, perhaps because the state
+powering the component is getting reset on submitting a new prompt. instead, can we only change the interface / set state
+when the new components are being generated? that way I can play with the existing components until then. also, the edit
+prompt can be disabled / hidden until componentisation is done and we can redo the prompt.
 ##### Renaming
   - this function in app.tsx ``async function parseFiles(`` strikes me as odd. how is it different from other workflow activities? suggest a different name
    - `Return type containing WorkflowState array` this can be workflowStates if its literally an array of workflow states?

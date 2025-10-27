@@ -637,12 +637,18 @@ export default function App() {
       });
 
       // Initialize workflow context from existing conversation
+      // Preserve existing component data until new ones are generated
       const ctx: WorkflowState = {
         id,
         filename: selectedConversation.filename,
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
         aiSummary: selectedConversation.aiSummary,
+        components: selectedConversation.components,
+        componentMapping: selectedConversation.componentMapping,
+        componentTimeline: selectedConversation.componentTimeline,
+        componentColors: selectedConversation.componentColors,
+        analysis: selectedConversation.analysis,
         customPrompt,
         config: getComponentisationConfig(),
         warnings: [],

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +75,13 @@ export function ComponentsView({
     }
   };
 
+  // Close editing UI when reprocessing starts
+  useEffect(() => {
+    if (isReprocessing && isEditingPrompt) {
+      setIsEditingPrompt(false);
+    }
+  }, [isReprocessing, isEditingPrompt]);
+
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -120,14 +127,13 @@ export function ComponentsView({
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
         {/* Prompt Editor */}
-        {onReprocessComponents && !isEditingPrompt && (
+        {onReprocessComponents && !isEditingPrompt && !isReprocessing && componentMapping && Object.keys(componentMapping).length > 0 && (
           <div className="mb-4">
             <Button
               variant="outline"
               size="sm"
               onClick={handleStartEdit}
               className="gap-2"
-              disabled={isReprocessing}
             >
               <Edit3 className="h-4 w-4" />
               Edit Prompt
