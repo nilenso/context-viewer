@@ -10,10 +10,14 @@ import { cn } from "@/lib/utils";
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
 type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring" | "analysis";
 
-interface ParsedConversation {
+/**
+ * Represents the persisted state of a workflow execution.
+ * Minimal subset needed for the conversation list display.
+ */
+interface WorkflowState {
   id: string;
   filename: string;
-  status: ConversationStatus;
+  status?: ConversationStatus;
   step?: ProcessingStep;
   summary?: {
     totalMessages: number;
@@ -24,7 +28,7 @@ interface ParsedConversation {
 }
 
 interface ConversationListProps {
-  conversations: ParsedConversation[];
+  conversations: WorkflowState[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
@@ -71,7 +75,7 @@ export function ConversationList({
     { key: "analysis", label: "Generate analysis" },
   ];
 
-  const getStepStatus = (conversation: ParsedConversation, stepKey: ProcessingStep): "pending" | "in-progress" | "completed" => {
+  const getStepStatus = (conversation: WorkflowState, stepKey: ProcessingStep): "pending" | "in-progress" | "completed" => {
     if (conversation.status === "failed") return "pending";
     if (conversation.status === "pending") return "pending";
 

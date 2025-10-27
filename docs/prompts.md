@@ -466,5 +466,24 @@ In the text area, indicate that one can edit this to specify a different, or mor
 - It looks like the custom prompt workflow in app.tsx is implemented independently of the original workflow.
 - I want a structure in the workflow. I want the activities to be composable enough that parts of the workflow can be redone. I want to also be able to create alternative workflows easily.
 - Find an abstraction for an activity that would satisfy the composability criteria and propose that to me.
+  - instead of automatically figuring out parallelism based on dependencies, lets keep the workflow imperative in code, but still using the underlying activities. no magic in figuring out parallelism or execution, and no DSL. just code to write out the workflow execution.
+  - workflow abstraction will then be about managing state, especially for multiple files that are being processed in parallel.
+  - activities return specific types based on their result. they take in workflow context as input. but all state managmenet of workflow happens in code inside the workflow, not inside context. this is so that all common-state management is in one place, especially considering parallel activities.
+  - to reuse the workflow execution for the edit-prompt use-case, the workflow can be started with an event-type (enum type). if the event is new-file, then default execution occurs. if event is component-prompt-changed, then it picks up from components instead.
+  - in the future, if there's a segment-prompt-changed event, then the workflow can use that event to guide execution, or skip steps appopriately
+  - instead of a switch on the event, just skip activities based on the event type. for exampel, if event is WorkflowEvent.ComponentPromptChanged, then skip the initial steps.
 
+##### Bugs, iteration
+  * Rendering of the conversation doesn't seem to be happening correctly. It gets stuck in "parsing" in the middle pane, until workflow until analysis is complete.
+  * [Image #1] see that the middle pane still shows parsing when the left pane shows that it's moved on
+  * no, it should not show the step name, it should show the parsed covnersations.
+  * activities should not be updating state, only workflow should be updating state. look for other places as well where this happens, and fix them all.
+  * what is interface `ParsedConversation {?` it feels like a duplicate of workflow. is it the workflow? can we name it
+  * how is workflow-context different from workflow-state? appropriately if not?
+  * Option A: Merge them into one type with all fields optional, and the workflow/React just use what they need?
+##### Renaming
+  - this function in app.tsx ``async function parseFiles(`` strikes me as odd. how is it different from other workflow activities? suggest a different name
+   - `Return type containing WorkflowState array` this can be workflowStates if its literally an array of workflow states?
+  - conversations sounds good, as long as it doesn't conflict with the use of that name for other things
+  - how about `runWorkflows`? and also look at the other variables which start with parse, and see if they're parsing related or workflow related or something else, and suggest better name there too.
 ### Disable animation with recharts

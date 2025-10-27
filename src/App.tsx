@@ -32,281 +32,476 @@ const generateId = () =>
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
 type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring" | "analysis";
 
-interface ParsedConversation {
+/**
+ * Represents workflow state for processing a conversation file.
+ * Used both for React state management (persisting UI state) and during workflow execution (tracking progress).
+ *
+ * React uses: status, step, error, conversation, components, etc.
+ * Workflow uses: file, config, customPrompt, plus all data fields
+ */
+interface WorkflowState {
+  // Identity
   id: string;
   filename: string;
-  status: ConversationStatus;
+
+  // UI/Workflow lifecycle (used by React)
+  status?: ConversationStatus;
   step?: ProcessingStep;
+  error?: string;
+
+  // Execution inputs (used during workflow execution)
+  file?: File;
+  config?: any;
+  customPrompt?: string;
+
+  // Core data
   conversation?: Conversation;
   summary?: ConversationSummary;
-  aiSummary?: string; // Streaming AI-generated summary
-  analysis?: string; // Streaming AI-generated analysis
+  aiSummary?: string;
+  analysis?: string;
+
+  // Component data
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
-  componentColors?: Record<string, string>; // component name → color name
+  componentColors?: Record<string, string>;
+
+  // Tracking
+  warnings?: string[];
+  stepTimings?: Partial<Record<ProcessingStep, number>>;
+}
+
+interface WorkflowBatchResult {
+  workflowStates: WorkflowState[];
+}
+
+// ============================================================================
+// Workflow Abstractions
+// ============================================================================
+
+/**
+ * Event types that trigger workflow execution
+ */
+enum WorkflowEvent {
+  NewFile = 'new-file',
+  ComponentPromptChanged = 'component-prompt-changed'
+}
+
+/**
+ * Callbacks for streaming updates
+ */
+interface WorkflowCallbacks {
+  onSummaryChunk?: (id: string, chunk: string) => void;
+  onAnalysisChunk?: (id: string, chunk: string) => void;
+}
+
+/**
+ * Generic activity signature: takes readonly context, returns typed result
+ */
+type Activity<TResult> = (ctx: Readonly<WorkflowState>) => Promise<TResult>;
+
+// ============================================================================
+// Activity Definitions
+// ============================================================================
+
+/**
+ * Parse activity: Parse file into conversation and generate summary
+ */
+const parseActivity: Activity<{
+  conversation: Conversation;
+  summary: ConversationSummary;
+}> = async (ctx) => {
+  const text = await ctx.file!.text();
+  const data = JSON.parse(text);
+  const conversation = parserRegistry.parse(data);
+  const summary = summarizeConversation(conversation);
+  return { conversation, summary };
+};
+
+/**
+ * Token counting activity: Add token counts to conversation
+ */
+const countTokensActivity: Activity<{
+  conversation: Conversation;
+}> = async (ctx) => {
+  const conversation = await addTokenCounts(ctx.conversation!);
+  return { conversation };
+};
+
+/**
+ * Segmentation activity: Segment large parts in conversation
+ */
+const segmentActivity: Activity<{
+  conversation: Conversation;
   error?: string;
-  warnings?: string[]; // Non-fatal warnings (e.g., AI features that failed)
-  stepTimings?: Partial<Record<ProcessingStep, number>>; // Time in seconds for each step
+}> = async (ctx) => {
+  const result = await segmentConversation(ctx.conversation!);
+  const conversation = await addTokenCounts(result.conversation);
+  return {
+    conversation,
+    error: result.error
+  };
+};
+
+/**
+ * Component identification activity: Identify components in conversation
+ */
+const findComponentsActivity: Activity<{
+  components: string[];
+  mapping: Record<string, string>;
+  timeline: ComponentTimelineSnapshot[];
+  error?: string;
+}> = async (ctx) => {
+  const result = await componentiseConversation(
+    ctx.conversation!,
+    undefined,
+    ctx.customPrompt
+  );
+
+  return {
+    components: result.components,
+    mapping: result.mapping,
+    timeline: result.timeline,
+    error: result.error
+  };
+};
+
+/**
+ * Color assignment activity: Assign colors to components
+ */
+const assignColorsActivity: Activity<{
+  colors: Record<string, string>;
+}> = async (ctx) => {
+  if (!ctx.config || !ctx.components?.length) {
+    return { colors: {} };
+  }
+
+  const colors = await assignComponentColors(ctx.components, ctx.config);
+  return { colors };
+};
+
+/**
+ * Factory: Create summary generation activity with streaming callback
+ */
+const createSummaryActivity = (
+  onChunk?: (id: string, chunk: string) => void
+): Activity<{ summary: string; error?: string }> => {
+  return async (ctx) => {
+    const result = await generateConversationSummary(
+      ctx.conversation!,
+      (chunk) => onChunk?.(ctx.id, chunk)
+    );
+
+    return {
+      summary: result.summary,
+      error: result.error
+    };
+  };
+};
+
+/**
+ * Factory: Create analysis generation activity with streaming callback
+ */
+const createAnalysisActivity = (
+  onChunk?: (id: string, chunk: string) => void
+): Activity<{ analysis: string; error?: string }> => {
+  return async (ctx) => {
+    if (!ctx.aiSummary || !ctx.components?.length || !ctx.componentTimeline?.length) {
+      return { analysis: '' };
+    }
+
+    const result = await generateContextAnalysis(
+      ctx.conversation!,
+      ctx.componentTimeline!,
+      ctx.components,
+      ctx.aiSummary,
+      (chunk) => onChunk?.(ctx.id, chunk)
+    );
+
+    return {
+      analysis: result.analysis,
+      error: result.error
+    };
+  };
+};
+
+// ============================================================================
+// Workflow Runner
+// ============================================================================
+
+/**
+ * WorkflowRunner: Manages state updates and timing for workflow execution
+ */
+class WorkflowRunner {
+  constructor(
+    private setState: (id: string, update: Partial<WorkflowState>) => void
+  ) {}
+
+  /**
+   * Run an activity with timing tracking (pure helper, doesn't update state)
+   */
+  async runActivity<T>(
+    ctx: Readonly<WorkflowState>,
+    activity: Activity<T>
+  ): Promise<{ result: T; timing: number }> {
+    const start = Date.now();
+    const result = await activity(ctx);
+    const timing = Math.round((Date.now() - start) / 1000);
+
+    return { result, timing };
+  }
+
+  /**
+   * Update state to mark a step as starting
+   */
+  startStep(ctx: WorkflowState, step: ProcessingStep) {
+    this.setState(ctx.id, {
+      status: 'processing',
+      step,
+      conversation: ctx.conversation,
+      summary: ctx.summary,
+      componentMapping: ctx.componentMapping,
+      componentTimeline: ctx.componentTimeline,
+      componentColors: ctx.componentColors,
+      components: ctx.components,
+      analysis: ctx.analysis,
+      aiSummary: ctx.aiSummary,
+      warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+      stepTimings: ctx.stepTimings
+    });
+  }
+
+  /**
+   * Update state with current context (intermediate update, keeps status as 'success')
+   */
+  updateState(ctx: WorkflowState, nextStep?: ProcessingStep) {
+    this.setState(ctx.id, {
+      conversation: ctx.conversation,
+      summary: ctx.summary,
+      aiSummary: ctx.aiSummary,
+      components: ctx.components,
+      componentMapping: ctx.componentMapping,
+      componentTimeline: ctx.componentTimeline,
+      componentColors: ctx.componentColors,
+      analysis: ctx.analysis,
+      warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+      stepTimings: ctx.stepTimings,
+      status: 'success',
+      step: nextStep
+    });
+  }
+
+  /**
+   * Mark workflow as complete
+   */
+  markComplete(ctx: WorkflowState) {
+    this.setState(ctx.id, {
+      conversation: ctx.conversation,
+      summary: ctx.summary,
+      aiSummary: ctx.aiSummary,
+      components: ctx.components,
+      componentMapping: ctx.componentMapping,
+      componentTimeline: ctx.componentTimeline,
+      componentColors: ctx.componentColors,
+      analysis: ctx.analysis,
+      warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+      stepTimings: ctx.stepTimings,
+      status: 'success',
+      step: undefined
+    });
+  }
+
+  /**
+   * Mark workflow as failed
+   */
+  markFailed(id: string, error: string) {
+    this.setState(id, { status: 'failed', step: undefined, error });
+  }
 }
 
-interface ParseResult {
-  conversations: ParsedConversation[];
+// ============================================================================
+// Main Workflow
+// ============================================================================
+
+/**
+ * Process conversation workflow: Single linear workflow with conditional step skipping
+ */
+async function processConversationWorkflow(
+  event: WorkflowEvent,
+  ctx: WorkflowState,
+  runner: WorkflowRunner,
+  callbacks: WorkflowCallbacks
+): Promise<void> {
+
+  try {
+    // Step 1: Parse (only for new files)
+    if (event === WorkflowEvent.NewFile) {
+      runner.startStep(ctx, 'parsing');
+      const { result, timing } = await runner.runActivity(ctx, parseActivity);
+      ctx.conversation = result.conversation;
+      ctx.summary = result.summary;
+      ctx.stepTimings!.parsing = timing;
+      runner.updateState(ctx, 'counting-tokens');
+    }
+
+    // Step 2: Count tokens (only for new files)
+    if (event === WorkflowEvent.NewFile) {
+      runner.startStep(ctx, 'counting-tokens');
+      const { result, timing } = await runner.runActivity(ctx, countTokensActivity);
+      ctx.conversation = result.conversation;
+      ctx.stepTimings!['counting-tokens'] = timing;
+      runner.updateState(ctx, 'segmenting');
+    }
+
+    // Step 3: Segment + Summary in parallel (only for new files)
+    if (event === WorkflowEvent.NewFile) {
+      runner.startStep(ctx, 'segmenting');
+      const { result: segmentResult, timing: segmentTiming } =
+        await runner.runActivity(ctx, segmentActivity);
+
+      ctx.conversation = segmentResult.conversation;
+      if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
+      ctx.stepTimings!.segmenting = segmentTiming;
+
+      // Generate AI summary in parallel with next steps (fire and forget)
+      createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(summaryResult => {
+        ctx.aiSummary = summaryResult.summary;
+        if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
+      });
+
+      runner.updateState(ctx, 'finding-components');
+    }
+
+    // Step 4: Find components (always run)
+    runner.startStep(ctx, 'finding-components');
+    const { result: componentResult, timing: componentTiming } =
+      await runner.runActivity(ctx, findComponentsActivity);
+    ctx.components = componentResult.components;
+    ctx.componentMapping = componentResult.mapping;
+    ctx.componentTimeline = componentResult.timeline;
+    if (componentResult.error) ctx.warnings!.push(componentResult.error);
+    ctx.stepTimings!['finding-components'] = componentTiming;
+    runner.updateState(ctx, 'coloring');
+
+    // Step 5: Assign colors (always run)
+    runner.startStep(ctx, 'coloring');
+    const { result: colorResult, timing: colorTiming } =
+      await runner.runActivity(ctx, assignColorsActivity);
+    ctx.componentColors = colorResult.colors;
+    ctx.stepTimings!.coloring = colorTiming;
+    runner.updateState(ctx, 'analysis');
+
+    // Step 6: Generate analysis (always run)
+    // Clear old analysis if reprocessing
+    if (event === WorkflowEvent.ComponentPromptChanged) {
+      ctx.analysis = '';
+      runner.updateState(ctx, 'analysis');
+    }
+
+    runner.startStep(ctx, 'analysis');
+    const { result: analysisResult, timing: analysisTiming } =
+      await runner.runActivity(
+        ctx,
+        createAnalysisActivity(callbacks.onAnalysisChunk)
+      );
+    ctx.analysis = analysisResult.analysis;
+    if (analysisResult.error) ctx.warnings!.push(analysisResult.error);
+    ctx.stepTimings!.analysis = analysisTiming;
+    runner.markComplete(ctx);
+
+  } catch (error: any) {
+    runner.markFailed(ctx.id, error.message);
+  }
 }
 
-async function parseFiles(
+// ============================================================================
+// Batch workflow orchestration
+// ============================================================================
+
+async function runWorkflows(
   files: File[],
-  fileIds: Map<number, string>, // Map of file index to id
+  fileIds: Map<number, string>,
   onStepUpdate?: (id: string, step: ProcessingStep) => void,
-  onFileComplete?: (conversation: ParsedConversation) => void,
+  onFileComplete?: (conversation: WorkflowState) => void,
   onAISummaryChunk?: (id: string, chunk: string) => void,
   onAnalysisChunk?: (id: string, chunk: string) => void
-): Promise<ParseResult> {
+): Promise<WorkflowBatchResult> {
   // Give React a chance to render the placeholders before we start processing
   await new Promise(resolve => setTimeout(resolve, 0));
 
   // Process all files in parallel
-  const conversations = await Promise.all(
+  const workflowStates = await Promise.all(
     files.map(async (file, i) => {
       if (!file) return null;
 
       const id = fileIds.get(i) || generateId();
 
-      try {
-        const stepTimings: Partial<Record<ProcessingStep, number>> = {};
+      // Create workflow runner for this file
+      const runner = new WorkflowRunner((id, update) => {
+        onFileComplete?.({ id, filename: file.name, ...update } as WorkflowState);
+      });
 
-        // Step 1: Parsing
-        onStepUpdate?.(id, "parsing");
-        const parsingStart = Date.now();
+      // Initialize workflow context
+      const ctx: WorkflowState = {
+        id,
+        filename: file.name,
+        file,
+        conversation: null as any, // Will be set by parse activity
+        warnings: [],
+        stepTimings: {},
+        config: getComponentisationConfig()
+      };
 
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const parsedConversation = parserRegistry.parse(data);
-
-        // Generate summary immediately after parsing
-        const summary = summarizeConversation(parsedConversation);
-        stepTimings.parsing = Math.round((Date.now() - parsingStart) / 1000);
-
-        // Show the conversation and summary immediately after parsing
-        const afterParsing: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: parsedConversation,
-          summary,
-          stepTimings: { ...stepTimings },
-          step: "counting-tokens",
-        };
-        onFileComplete?.(afterParsing);
-
-        // Step 2: Counting tokens
-        onStepUpdate?.(id, "counting-tokens");
-        const tokenStart = Date.now();
-        const conversationWithTokens = await addTokenCounts(parsedConversation);
-        stepTimings["counting-tokens"] = Math.round((Date.now() - tokenStart) / 1000);
-
-        // Update with token counts
-        const afterTokens: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationWithTokens,
-          summary,
-          stepTimings: { ...stepTimings },
-          step: "segmenting",
-        };
-        onFileComplete?.(afterTokens);
-
-        // Step 3: Segmentation and AI Summary in parallel
-        onStepUpdate?.(id, "segmenting");
-        const segmentingStart = Date.now();
-
-        const warnings: string[] = [];
-
-        const [
-          segmentationResult,
-          summaryResult,
-        ] = await Promise.all([
-          // Segmentation
-          (async () => {
-            const result = await segmentConversation(conversationWithTokens);
-            if (result.error) {
-              warnings.push(result.error);
-            }
-            const reCountedAfterSegmentation = await addTokenCounts(result.conversation);
-            return reCountedAfterSegmentation;
-          })(),
-
-          // AI Summary (streaming)
-          (async () => {
-            const result = await generateConversationSummary(
-              conversationWithTokens,
-              (chunk) => {
-                onAISummaryChunk?.(id, chunk);
-              }
-            );
-            if (result.error) {
-              warnings.push(result.error);
-            }
-            return result.summary;
-          })(),
-        ]);
-
-        const conversationAfterSegmentation = segmentationResult;
-        const aiSummaryText = summaryResult;
-        stepTimings.segmenting = Math.round((Date.now() - segmentingStart) / 1000);
-
-        // Update with segmented conversation
-        const afterSegmentation: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationAfterSegmentation,
-          summary,
-          aiSummary: aiSummaryText,
-          warnings: warnings.length > 0 ? warnings : undefined,
-          stepTimings: { ...stepTimings },
-          step: "finding-components",
-        };
-        onFileComplete?.(afterSegmentation);
-
-        // Step 4: Componentization (uses full conversation)
-        onStepUpdate?.(id, "finding-components");
-        const componentsStart = Date.now();
-        const componentResult = await componentiseConversation(
-          conversationAfterSegmentation
-        );
-        stepTimings["finding-components"] = Math.round((Date.now() - componentsStart) / 1000);
-
-        if (componentResult.error) {
-          warnings.push(componentResult.error);
+      // Run workflow with NewFile event
+      await processConversationWorkflow(
+        WorkflowEvent.NewFile,
+        ctx,
+        runner,
+        {
+          onSummaryChunk: onAISummaryChunk,
+          onAnalysisChunk: onAnalysisChunk
         }
+      );
 
-        const { components, mapping, timeline } = componentResult;
-
-        // Update with components before coloring (all gray)
-        const afterComponentisation: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationAfterSegmentation,
-          summary,
-          aiSummary: aiSummaryText,
-          components,
-          componentMapping: mapping,
-          componentTimeline: timeline,
-          warnings: warnings.length > 0 ? warnings : undefined,
-          stepTimings: { ...stepTimings },
-          step: "coloring",
-        };
-        onFileComplete?.(afterComponentisation);
-
-        // Step 5: Assign colors to components using AI
-        onStepUpdate?.(id, "coloring");
-        const coloringStart = Date.now();
-        let componentColors: Record<string, string> = {};
-
-        const colorConfig = getComponentisationConfig();
-        if (colorConfig && components.length > 0) {
-          componentColors = await assignComponentColors(components, colorConfig);
-        }
-        stepTimings.coloring = Math.round((Date.now() - coloringStart) / 1000);
-
-        // Update with colors
-        const afterColoring: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationAfterSegmentation,
-          summary,
-          aiSummary: aiSummaryText,
-          components,
-          componentMapping: mapping,
-          componentTimeline: timeline,
-          componentColors,
-          warnings: warnings.length > 0 ? warnings : undefined,
-          stepTimings: { ...stepTimings },
-          step: "analysis",
-        };
-        onFileComplete?.(afterColoring);
-
-        // Step 6: Generate context analysis
-        onStepUpdate?.(id, "analysis");
-        const analysisStart = Date.now();
-        let analysisText = "";
-
-        if (aiSummaryText && components.length > 0 && timeline.length > 0) {
-          const analysisResult = await generateContextAnalysis(
-            conversationAfterSegmentation,
-            timeline,
-            components,
-            aiSummaryText,
-            (chunk) => {
-              onAnalysisChunk?.(id, chunk);
-            }
-          );
-          analysisText = analysisResult.analysis;
-          if (analysisResult.error) {
-            warnings.push(analysisResult.error);
-          }
-        }
-        stepTimings.analysis = Math.round((Date.now() - analysisStart) / 1000);
-
-        // Final update with analysis
-        const completed: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "success",
-          conversation: conversationAfterSegmentation,
-          summary,
-          aiSummary: aiSummaryText,
-          analysis: analysisText,
-          components,
-          componentMapping: mapping,
-          componentTimeline: timeline,
-          componentColors,
-          warnings: warnings.length > 0 ? warnings : undefined,
-          stepTimings: { ...stepTimings },
-        };
-
-        onFileComplete?.(completed);
-        return completed;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown parsing error";
-        const failed: ParsedConversation = {
-          id,
-          filename: file.name,
-          status: "failed",
-          error: message,
-        };
-
-        onFileComplete?.(failed);
-        return failed;
-      }
+      // Return final parsed conversation
+      return {
+        id,
+        filename: file.name,
+        status: ctx.conversation ? 'success' : 'failed',
+        conversation: ctx.conversation,
+        summary: ctx.summary,
+        aiSummary: ctx.aiSummary,
+        components: ctx.components,
+        componentMapping: ctx.componentMapping,
+        componentTimeline: ctx.componentTimeline,
+        componentColors: ctx.componentColors,
+        analysis: ctx.analysis,
+        warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+        stepTimings: ctx.stepTimings
+      } as WorkflowState;
     })
   );
 
   // Filter out any null values from skipped files
-  return { conversations: conversations.filter((c): c is ParsedConversation => c !== null) };
+  return { workflowStates: workflowStates.filter((c): c is WorkflowState => c !== null) };
 }
 
 export default function App() {
-  const [parsedConversations, setParsedConversations] = useState<
-    ParsedConversation[]
+  const [conversations, setConversations] = useState<
+    WorkflowState[]
   >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<string>("summary");
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
-  const parseMutation = useMutation({
+  const workflowMutation = useMutation({
     mutationFn: (files: File[]) => {
-      return parseFiles(
+      return runWorkflows(
         files,
         fileIdsRef.current,
         (id, step) => {
           // Update step
-          setParsedConversations((prev) =>
+          setConversations((prev) =>
             prev.map((conv) =>
               conv.id === id
                 ? { ...conv, status: "processing" as const, step }
@@ -316,7 +511,7 @@ export default function App() {
         },
         (completed) => {
           // Update the conversation in place as each file completes
-          setParsedConversations((prev) =>
+          setConversations((prev) =>
             prev.map((conv) =>
               conv.id === completed.id ? completed : conv
             )
@@ -324,7 +519,7 @@ export default function App() {
         },
         (id, chunk) => {
           // Update AI summary as chunks arrive (streaming)
-          setParsedConversations((prev) =>
+          setConversations((prev) =>
             prev.map((conv) =>
               conv.id === id
                 ? { ...conv, aiSummary: (conv.aiSummary || "") + chunk }
@@ -334,7 +529,7 @@ export default function App() {
         },
         (id, chunk) => {
           // Update analysis as chunks arrive (streaming)
-          setParsedConversations((prev) =>
+          setConversations((prev) =>
             prev.map((conv) =>
               conv.id === id
                 ? { ...conv, analysis: (conv.analysis || "") + chunk }
@@ -347,7 +542,7 @@ export default function App() {
     onMutate: (files: File[]) => {
       // Create placeholder entries immediately
       const fileIds = new Map<number, string>();
-      const placeholders: ParsedConversation[] = files.map((file, index) => {
+      const placeholders: WorkflowState[] = files.map((file, index) => {
         const id = generateId();
         fileIds.set(index, id);
         return {
@@ -358,7 +553,7 @@ export default function App() {
       });
 
       fileIdsRef.current = fileIds;
-      setParsedConversations((prev) => [...prev, ...placeholders]);
+      setConversations((prev) => [...prev, ...placeholders]);
 
       // Auto-select first file if nothing selected
       if (!selectedId && placeholders[0]) {
@@ -374,20 +569,20 @@ export default function App() {
   });
 
   const selectedConversation = useMemo(() => {
-    if (parsedConversations.length === 0) return undefined;
+    if (conversations.length === 0) return undefined;
     return (
-      parsedConversations.find((conv) => conv.id === selectedId) ??
-      parsedConversations[0]
+      conversations.find((conv) => conv.id === selectedId) ??
+      conversations[0]
     );
-  }, [parsedConversations, selectedId]);
+  }, [conversations, selectedId]);
 
   useEffect(() => {
-    if (parsedConversations.length === 0) {
+    if (conversations.length === 0) {
       setSelectedId(null);
       return;
     }
 
-    const [firstConversation] = parsedConversations;
+    const [firstConversation] = conversations;
     if (!firstConversation) {
       setSelectedId(null);
       return;
@@ -398,10 +593,10 @@ export default function App() {
       return;
     }
 
-    if (!parsedConversations.some((conv) => conv.id === selectedId)) {
+    if (!conversations.some((conv) => conv.id === selectedId)) {
       setSelectedId(firstConversation.id);
     }
-  }, [parsedConversations, selectedId]);
+  }, [conversations, selectedId]);
 
   // Switch to analysis tab when analysis starts streaming
   useEffect(() => {
@@ -424,7 +619,7 @@ export default function App() {
     }
   }, [selectedConversation]);
 
-  // Reprocess components with a custom prompt
+  // Reprocess components with a custom prompt using workflow
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   const handleReprocessComponents = async (customPrompt: string) => {
@@ -434,137 +629,49 @@ export default function App() {
     setReprocessingId(id);
 
     try {
-      const config = getComponentisationConfig();
-      if (!config) {
-        console.error("No componentisation config available");
-        return;
-      }
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations(prev =>
+          prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
+        );
+      });
 
-      const stepStartTimes: Record<string, number> = {};
+      // Initialize workflow context from existing conversation
+      const ctx: WorkflowState = {
+        id,
+        filename: selectedConversation.filename,
+        conversation: selectedConversation.conversation,
+        summary: selectedConversation.summary,
+        aiSummary: selectedConversation.aiSummary,
+        customPrompt,
+        config: getComponentisationConfig(),
+        warnings: [],
+        stepTimings: { ...selectedConversation.stepTimings }
+      };
 
-      // Step 1: Re-run componentisation with custom prompt
-      setParsedConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? { ...conv, status: "processing" as const, step: "finding-components" as const }
-            : conv
-        )
-      );
-      stepStartTimes["finding-components"] = Date.now();
-
-      const componentResult = await componentiseConversation(
-        selectedConversation.conversation,
-        undefined,
-        customPrompt
-      );
-
-      const { components, mapping, timeline } = componentResult;
-      const findingComponentsTime = Math.round((Date.now() - stepStartTimes["finding-components"]) / 1000);
-
-      // Update with new components before coloring
-      setParsedConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? {
-                ...conv,
-                components,
-                componentMapping: mapping,
-                componentTimeline: timeline,
-                stepTimings: {
-                  ...conv.stepTimings,
-                  "finding-components": findingComponentsTime,
-                },
-                step: "coloring" as const,
-              }
-            : conv
-        )
-      );
-
-      // Step 2: Assign colors
-      stepStartTimes.coloring = Date.now();
-      const componentColors = await assignComponentColors(components, config);
-      const coloringTime = Math.round((Date.now() - stepStartTimes.coloring) / 1000);
-
-      // Update with colors
-      setParsedConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? {
-                ...conv,
-                componentColors,
-                stepTimings: {
-                  ...conv.stepTimings,
-                  coloring: coloringTime,
-                },
-                step: "analysis" as const,
-              }
-            : conv
-        )
-      );
-
-      // Step 3: Re-generate analysis
-      stepStartTimes.analysis = Date.now();
-      let analysisText = "";
-
-      // Clear old analysis first
-      setParsedConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? { ...conv, analysis: "" }
-            : conv
-        )
-      );
-
-      if (selectedConversation.aiSummary && components.length > 0 && timeline.length > 0) {
-        const analysisResult = await generateContextAnalysis(
-          selectedConversation.conversation,
-          timeline,
-          components,
-          selectedConversation.aiSummary,
-          (chunk) => {
-            // Update analysis as chunks arrive
-            setParsedConversations((prev) =>
-              prev.map((conv) =>
+      // Run workflow with ComponentPromptChanged event
+      await processConversationWorkflow(
+        WorkflowEvent.ComponentPromptChanged,
+        ctx,
+        runner,
+        {
+          onAnalysisChunk: (id, chunk) => {
+            setConversations(prev =>
+              prev.map(conv =>
                 conv.id === id
-                  ? { ...conv, analysis: (conv.analysis || "") + chunk }
+                  ? { ...conv, analysis: (conv.analysis || '') + chunk }
                   : conv
               )
             );
           }
-        );
-        analysisText = analysisResult.analysis;
-      }
-
-      const analysisTime = Math.round((Date.now() - stepStartTimes.analysis) / 1000);
-
-      // Final update: mark as complete
-      setParsedConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? {
-                ...conv,
-                status: "success" as const,
-                step: undefined,
-                stepTimings: {
-                  ...conv.stepTimings,
-                  analysis: analysisTime,
-                },
-              }
-            : conv
-        )
+        }
       );
     } catch (error) {
       console.error("Failed to reprocess components:", error);
-      // Mark as failed
-      setParsedConversations((prev) =>
+      setConversations((prev) =>
         prev.map((conv) =>
           conv.id === id
-            ? {
-                ...conv,
-                status: "failed" as const,
-                step: undefined,
-                error: "Reprocessing failed",
-              }
+            ? { ...conv, status: "failed", step: undefined, error: "Reprocessing failed" }
             : conv
         )
       );
@@ -574,13 +681,13 @@ export default function App() {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (files: File[]) => parseMutation.mutate(files),
+    onDrop: (files: File[]) => workflowMutation.mutate(files),
     accept: {
       "text/plain": [".txt"],
       "application/json": [".json"],
     },
     multiple: true,
-    noClick: parsedConversations.length > 0, // Only enable click when empty
+    noClick: conversations.length > 0, // Only enable click when empty
   });
 
   return (
@@ -602,7 +709,7 @@ export default function App() {
       </header>
 
       <div className="space-y-6 px-6">
-        {parsedConversations.length === 0 ? (
+        {conversations.length === 0 ? (
           /* Empty State - Full Page Drop Zone */
           <div
             {...getRootProps()}
@@ -631,10 +738,10 @@ export default function App() {
           {/* Sidebar: Conversation List */}
           <aside className="space-y-4">
             <ConversationList
-              conversations={parsedConversations}
+              conversations={conversations}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              onFilesSelected={(files) => parseMutation.mutate(files)}
+              onFilesSelected={(files) => workflowMutation.mutate(files)}
             />
           </aside>
 
@@ -667,7 +774,7 @@ export default function App() {
                 <Card className="p-12 text-center">
                   <Loader2 className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-spin" />
                   <h2 className="text-xl font-semibold text-muted-foreground mb-2">
-                    Parsing...
+                    Processing...
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     {selectedConversation.filename}
