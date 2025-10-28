@@ -12,7 +12,6 @@ import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter, Ar
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
-import { getDefaultComponentIdentificationPrompt } from "@/prompts";
 import type { Conversation, Message } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -39,9 +38,6 @@ export function ConversationView({
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
-
-  // Lift prompt state to persist across tab changes
-  const [currentPrompt, setCurrentPrompt] = useState(getDefaultComponentIdentificationPrompt());
 
   // Filtering and sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -617,10 +613,6 @@ export function ConversationView({
             conversation={conversation}
             componentTimeline={componentTimeline}
             componentColors={componentColors}
-            onReprocessComponents={onReprocessComponents}
-            isReprocessing={isReprocessing}
-            currentPrompt={currentPrompt}
-            setCurrentPrompt={setCurrentPrompt}
           />
         </div>
       </TabsContent>
