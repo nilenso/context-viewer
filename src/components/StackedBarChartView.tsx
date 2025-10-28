@@ -115,7 +115,7 @@ export function StackedBarChartView({
           <h3 className="text-lg font-semibold mb-3">Component Token Distribution Over Time</h3>
 
           <Card className="p-6 bg-white border-2">
-            <ResponsiveContainer width="100%" height={600}>
+            <ResponsiveContainer width="100%" height={360}>
               <BarChart
                 data={chartData}
                 margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
