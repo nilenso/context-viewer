@@ -22,11 +22,11 @@ const prompts: Record<PromptKey, PromptTemplate> = {
     key: "segmentation",
     description: "Segments large text parts into semantic sections",
     template: ({ text }) => `Given the following text, tell me where all you would apply a break.
-The purpose is semantic segmentation in way that's suitable for hierarchical categorization.
-Only give me the top level sections to split the text sufficiently.
-Return ONLY a valid JSON array of substrings with positive lookahead which I can use to run string split on in javascript.
+The purpose is semantic chunking in way that's suitable for categorization.
+Only give me the top level sections to split the text into coherent topical chunks.
+Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
 
-Example response format: ["(?=<section1>)", "(?=<section2>)"]
+Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]
 
 \`\`\`
 ${text}
