@@ -52,6 +52,15 @@ Milestone 7: support grouping conversations
   - need to assess if a tree structure would actually work well with an llm
 - create a button to optionally meta-analyse ai conversations from the context-viewer itself
 - provide ability to iterate on the components with ai through the UI itself. provide a redo with feedback interface?
+### [TODO] Change to hierarchical categories of components
+given this conversation, give me a list of all its components for a summary view
+each component can be 3 to 4 words in length
+use prefixes
+- "sources": "sources", "sources.technical_specification_document", "sources.product_requirements_document", etc
+- "tool": "create_stories"
+- "reasoning": "reasoning.evaluation", "reasoning.identifying_questions", etc
+- "feedback": "feedback"
+- "prompts": "prompts.breakdown", "prompts.reflection", etc
 
 ## Feature prompts
 
@@ -901,3 +910,14 @@ It should behave in the same way as notion's sidebar.
  hamburger icon, except when I click the hamburger it does the open
  and lock. what i want, is that clicking the `>> `icon itself does the
  lock open.
+### [TODO] send full conversation for analysis
+- i have changed the analysis prompt in prompts.ts. this prompt also
+  needs to include the entire parsed conversation. add it to the
+  prompt template and then send it with the api call.
+- before passing the conversation into this prompt, add a component
+  attribute to every message part, look up the component from the
+  mapping.
+### MIT License
+i want to call out that this project is under MIT license. find out
+whatever is the textbook way of doing this for github repos, and do
+that. add to readme as appropriate.

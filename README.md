@@ -1,5 +1,7 @@
 # Context Viewer
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Observability for contexts. Given a coversation log (messages), this
 tool will provide a breakdown of its components and their sizes. It
 also classifies messages into various categories so we can observe the
@@ -70,3 +72,7 @@ context, we can't understand the problem well enough to solve it.
 - Context rot
 - Context window length
 - Context bloat
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
