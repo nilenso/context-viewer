@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -33,6 +33,11 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onLockSidebar?: () => void;
+  isHovered?: boolean;
+  isLocked?: boolean;
 }
 
 export function ConversationList({
@@ -41,6 +46,11 @@ export function ConversationList({
   onSelect,
   onFilesSelected,
   onEditPrompt,
+  isCollapsed = false,
+  onToggleCollapse,
+  onLockSidebar,
+  isHovered = false,
+  isLocked = false,
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(new Set());
@@ -94,10 +104,71 @@ export function ConversationList({
     return "pending";
   };
 
+  // When collapsed, show minimal UI (just hamburger when not hovered)
+  if (isCollapsed && !isHovered) {
+    return (
+      <div className="h-full flex flex-col bg-background border rounded-md transition-all duration-200 w-12">
+        {/* Collapsed header with hamburger */}
+        <div className="flex items-center justify-center p-3 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Open sidebar"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // When collapsed but hovered, show full content as overlay
+  const isOverlay = isCollapsed && isHovered;
+
   if (conversations.length === 0) {
     return (
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+      <div className={cn(
+        "space-y-3",
+        isOverlay && "absolute left-0 top-0 w-[280px] shadow-xl z-50 bg-background border rounded-md p-4"
+      )}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+          {onToggleCollapse && !isOverlay && !isLocked && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 p-0"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {onToggleCollapse && isLocked && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 p-0"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {isOverlay && onLockSidebar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLockSidebar}
+              className="h-8 w-8 p-0"
+              title="Lock sidebar open"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <Card
           {...getRootProps()}
           className={cn(
@@ -121,14 +192,53 @@ export function ConversationList({
   }
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+    <div className={cn(
+      "space-y-3",
+      isOverlay && "absolute left-0 top-0 w-[280px] shadow-xl z-50 bg-background border rounded-md p-4 h-full flex flex-col"
+    )}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+        {onToggleCollapse && !isOverlay && !isLocked && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        {onToggleCollapse && isLocked && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        {isOverlay && onLockSidebar && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onLockSidebar}
+            className="h-8 w-8 p-0"
+            title="Lock sidebar open"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
       <div
         {...getRootProps()}
         className={cn(
           "border-2 border-dashed rounded-md transition-colors",
           isDragActive && "border-primary bg-primary/5",
-          !isDragActive && "border-border"
+          !isDragActive && "border-border",
+          isOverlay && "flex-1 flex flex-col"
         )}
       >
         <input {...getInputProps()} />

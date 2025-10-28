@@ -879,9 +879,25 @@ sections in the pop over?
 - [Image #1]weird black outline isn't present on the left edge
 - it's not fixed. the border only shows up when the text area is in
   focus, when we're writing in it.
-
 ### [Unsure] Docs improvement (consider not doing this, agents are fast at this anyway)
 - Go through the code and document the purposes of each file, and the major abstractions in it. These docs could be the index for coding agents too. Create one file each for
   - Parsing: target schema, input schemas, supported schemas. Write a section for how to add a new parser.
   - Workflows: Start with a brief description of what the primary workflow does. then describe the abstractions of workflow, activities, etc. Try to get the design philosophy of it from the prompts in prompts.md, and readme.md
   - Activities: Sections for segmentation, componentisation, coloring, summary and analysis
+
+### collapsible sidebar
+Provide an option to close sidebar (conversations list) in the same way notion's sidebar can be closed.
+It should behave in the same way as notion's sidebar.
+- Simple icon that turns into hamburger when closed.
+- When hovering over the closed hamburger option it shows `>>` for locking sidebar as open, otherwise it opens it while hoevering over the content below.
+- Show close sidebar option with `<<` icon.
+- When the left sidebar is collapsed, the other two columns should get a lot more horiz space
+#### bug fixes
+- even while hovering i want to see the full contents of the
+ conversation list, with the progress, etc. it should not look
+ different when hidden / hover / locked.
+ - lock sidebar open doesn't actually work as expected. once i click
+ it, it closes the sidebar, then nothing happens on hovering over the
+ hamburger icon, except when I click the hamburger it does the open
+ and lock. what i want, is that clicking the `>> `icon itself does the
+ lock open.

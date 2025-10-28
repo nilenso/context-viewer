@@ -497,6 +497,11 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<string>("summary");
 
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [isSidebarLocked, setIsSidebarLocked] = useState(false);
+
   // Prompt editor dialog state
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(getDefaultComponentIdentificationPrompt());
@@ -646,6 +651,40 @@ export default function App() {
     }
   };
 
+  // Sidebar toggle handlers
+  const handleToggleSidebar = () => {
+    if (isSidebarCollapsed) {
+      // Expanding: unlock and expand
+      setIsSidebarLocked(false);
+      setIsSidebarCollapsed(false);
+      setIsSidebarHovered(false);
+    } else {
+      // Collapsing
+      setIsSidebarCollapsed(true);
+      setIsSidebarLocked(false);
+      setIsSidebarHovered(false);
+    }
+  };
+
+  const handleLockSidebar = () => {
+    // Lock sidebar open: expand it and keep it locked
+    setIsSidebarCollapsed(false);
+    setIsSidebarLocked(true);
+    setIsSidebarHovered(false);
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (isSidebarCollapsed && !isSidebarLocked) {
+      setIsSidebarHovered(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (isSidebarCollapsed && !isSidebarLocked) {
+      setIsSidebarHovered(false);
+    }
+  };
+
   const handleReprocessComponents = async (customPrompt: string) => {
     if (!selectedConversation?.conversation) return;
 
@@ -764,15 +803,29 @@ export default function App() {
           </div>
         ) : (
           /* Main Content */
-          <div className="grid grid-cols-[260px_minmax(500px,1fr)_minmax(420px,30%)] gap-6">
+          <div className={cn(
+            "grid gap-6 transition-all duration-300",
+            isSidebarCollapsed
+              ? "grid-cols-[48px_minmax(600px,1fr)_minmax(480px,32%)]"
+              : "grid-cols-[260px_minmax(500px,1fr)_minmax(420px,30%)]"
+          )}>
           {/* Sidebar: Conversation List */}
-          <aside className="space-y-4">
+          <aside
+            className="relative"
+            onMouseEnter={handleSidebarMouseEnter}
+            onMouseLeave={handleSidebarMouseLeave}
+          >
             <ConversationList
               conversations={conversations}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={handleToggleSidebar}
+              onLockSidebar={handleLockSidebar}
+              isHovered={isSidebarHovered}
+              isLocked={isSidebarLocked}
             />
           </aside>
 
