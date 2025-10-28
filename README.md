@@ -11,19 +11,10 @@ This tool itself is very simple, and the data mostly comes from a
 single prompt that you can use yourself. The visualisations are useful
 though.
 
-### Features
+Here's a quick demo at 2x speed:
 
-**Conversation View** - See the full conversation with component highlighting and token counts
+https://github.com/user-attachments/assets/bdea325b-ee7d-41fb-8214-5b76c124717a
 
-<video src="docs/conversation-view.mov" controls width="100%"></video>
-
-**Components View** - Analyze individual components and their distribution across messages
-
-<video src="docs/components-view.mov" controls width="100%"></video>
-
-**Timeline View** - Visualize how component usage evolves throughout the conversation
-
-<video src="docs/timeline-view.mov" controls width="100%"></video>
 
 ### Quick Start
 
