@@ -42,14 +42,11 @@ VITE_AI_API_KEY=your-openai-api-key
 VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
 ```
 
-## Usage
-Clone and run `command run`. It will open up a browser with the following UI.
-<Image / GIF>
-
 ## Design
 
-Conversation data is private. Your data should stay with you. However,
-the breakdown and classification is done by an LLM, so you'll need to
+Conversation data is private. Your data should stay with you. So this
+implementation doesn't have a backend component. However, the
+breakdown and classification is done by an LLM, so you'll need to
 provide an API key. It could be an API key to the same provider as the
 conversation, so the data stays in one place. This tool doesn't have a
 server component which would require sending conversations to another
@@ -60,18 +57,9 @@ evolving, still. To begin with, it will support the completions and
 responses API formats. They're implemented behind an interface so it's
 easy to add another format's parser.
 
-Currently this tool only supports open-ai, but the idea is to be fully
-model and format agnostic.
-
-## Rationale
-
-Context-engineering involves finding the most relevant context to
-provide to an LLM. But unless we can actually see and pull-apart the
-context, we can't understand the problem well enough to solve it.
-
-- Context rot
-- Context window length
-- Context bloat
+Currently this tool only supports open-ai as the LLM provider, but the
+idea is to be fully model and format agnostic. It uses vercel's AI
+SDK, so it should be easy enough to add support for other providers.
 
 ## License
 
