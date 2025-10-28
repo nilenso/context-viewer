@@ -11,7 +11,19 @@ This tool itself is very simple, and the data mostly comes from a
 single prompt that you can use yourself. The visualisations are useful
 though.
 
-![Context Viewer Screenshot](docs/cv-screenshot.png)
+### Features
+
+**Conversation View** - See the full conversation with component highlighting and token counts
+
+<video src="docs/conversation-view.mov" controls width="100%"></video>
+
+**Components View** - Analyze individual components and their distribution across messages
+
+<video src="docs/components-view.mov" controls width="100%"></video>
+
+**Timeline View** - Visualize how component usage evolves throughout the conversation
+
+<video src="docs/timeline-view.mov" controls width="100%"></video>
 
 ### Quick Start
 
