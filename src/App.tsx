@@ -21,8 +21,12 @@ import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./components/ui/dialog";
+import { Textarea } from "./components/ui/textarea";
+import { Button as UIButton } from "./components/ui/button";
 import { Clock, Loader2, AlertCircle, Upload } from "lucide-react";
 import { cn } from "./lib/utils";
+import { getDefaultComponentIdentificationPrompt } from "./prompts";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -492,6 +496,10 @@ export default function App() {
   >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<string>("summary");
+
+  // Prompt editor dialog state
+  const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState(getDefaultComponentIdentificationPrompt());
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   const workflowMutation = useMutation({
@@ -622,6 +630,22 @@ export default function App() {
   // Reprocess components with a custom prompt using workflow
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
+  // Handle opening the prompt editor
+  const handleOpenPromptEditor = () => {
+    // Get the prompt from the selected conversation if it exists, otherwise use default
+    const currentPrompt = selectedConversation?.customPrompt || getDefaultComponentIdentificationPrompt();
+    setEditingPrompt(currentPrompt);
+    setIsPromptDialogOpen(true);
+  };
+
+  // Handle applying the edited prompt
+  const handleApplyPrompt = async () => {
+    setIsPromptDialogOpen(false);
+    if (selectedConversation && selectedConversation.conversation) {
+      await handleReprocessComponents(editingPrompt);
+    }
+  };
+
   const handleReprocessComponents = async (customPrompt: string) => {
     if (!selectedConversation?.conversation) return;
 
@@ -748,6 +772,7 @@ export default function App() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
+              onEditPrompt={handleOpenPromptEditor}
             />
           </aside>
 
@@ -836,6 +861,44 @@ export default function App() {
         </div>
         )}
       </div>
+
+      {/* Prompt Editor Dialog */}
+      <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Component Identification Prompt</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <p className="text-sm text-muted-foreground">
+              Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components.
+            </p>
+            <Textarea
+              value={editingPrompt}
+              onChange={(e) => setEditingPrompt(e.target.value)}
+              placeholder="Enter your componentisation prompt..."
+              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>This will re-run componentisation, visualization, and analysis</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <UIButton
+              variant="outline"
+              onClick={() => setIsPromptDialogOpen(false)}
+            >
+              Cancel
+            </UIButton>
+            <UIButton
+              onClick={handleApplyPrompt}
+              disabled={!editingPrompt.trim()}
+            >
+              Apply & Reprocess
+            </UIButton>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

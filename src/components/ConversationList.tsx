@@ -32,6 +32,7 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
+  onEditPrompt?: () => void;
 }
 
 export function ConversationList({
@@ -39,6 +40,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   onFilesSelected,
+  onEditPrompt,
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(new Set());
@@ -223,34 +225,46 @@ export function ConversationList({
                           {processingSteps.map((step) => {
                             const status = getStepStatus(conversation, step.key);
                             const timing = conversation.stepTimings?.[step.key];
+                            const isFindComponentsStep = step.key === "finding-components";
                             return (
-                              <div
-                                key={step.key}
-                                className="flex items-center gap-2 text-xs"
-                              >
-                                {status === "completed" && (
-                                  <Check className="h-3 w-3 text-green-600" />
-                                )}
-                                {status === "in-progress" && (
-                                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                                )}
-                                {status === "pending" && (
-                                  <Circle className="h-3 w-3 text-gray-300" />
-                                )}
-                                <span
-                                  className={cn(
-                                    "flex-1",
-                                    status === "completed" && "text-green-700",
-                                    status === "in-progress" && "text-blue-700 font-medium",
-                                    status === "pending" && "text-muted-foreground"
+                              <div key={step.key}>
+                                <div className="flex items-center gap-2 text-xs">
+                                  {status === "completed" && (
+                                    <Check className="h-3 w-3 text-green-600" />
                                   )}
-                                >
-                                  {step.label}
-                                </span>
-                                {status === "completed" && timing !== undefined && (
-                                  <span className="text-gray-500 text-xs">
-                                    ({timing}s)
+                                  {status === "in-progress" && (
+                                    <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                                  )}
+                                  {status === "pending" && (
+                                    <Circle className="h-3 w-3 text-gray-300" />
+                                  )}
+                                  <span
+                                    className={cn(
+                                      "flex-1",
+                                      status === "completed" && "text-green-700",
+                                      status === "in-progress" && "text-blue-700 font-medium",
+                                      status === "pending" && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {step.label}
                                   </span>
+                                  {status === "completed" && timing !== undefined && (
+                                    <span className="text-gray-500 text-xs">
+                                      ({timing}s)
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Edit prompt link - show below "Find components" step */}
+                                {isFindComponentsStep && onEditPrompt && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditPrompt();
+                                    }}
+                                    className="ml-5 mt-0.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                  >
+                                    Edit prompt
+                                  </button>
                                 )}
                               </div>
                             );

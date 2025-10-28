@@ -861,6 +861,24 @@ filter that has a role+type filter
 - After componentisation is done, add another filter by component types, similar to the other multiselect.
 - make the filters work at a message part level. when filtering, i want to see message parts that match the filter, not messages where one of the parts could match.
 - clicking on the component, on the title bar of a message part, should add a filter by that component
+### Toolbar design
+- [Image #1]this toolbar is spilling to another line. make it more
+compact.sort and expand can just be icons.
+- [Image #2]this still feels a bit squished. is it possible to put all
+the filters into one pane?  have a vertical separator between the two
+sections in the pop over?
+- [Image #1] i meant the two sections should be beside each other,
+  with a vertical line between
+### Minor design tweaks
+- the edit prompt for components... i want it as a text link that
+  appears under the "Find components" status on the left. when i click
+  that, it should open the prompt editing component as a modal in the
+  middle, with the rest of the interface greyed out.
+- i want the same disclaimer as earlier that says that changing th
+  eprompt will retrigger the other phases by name
+- [Image #1]weird black outline isn't present on the left edge
+- it's not fixed. the border only shows up when the text area is in
+  focus, when we're writing in it.
 
 ### [Unsure] Docs improvement (consider not doing this, agents are fast at this anyway)
 - Go through the code and document the purposes of each file, and the major abstractions in it. These docs could be the index for coding agents too. Create one file each for

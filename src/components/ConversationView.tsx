@@ -5,8 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
@@ -87,9 +89,61 @@ export function ConversationView({
     return `${selectedComponents.size} Component${selectedComponents.size !== 1 ? 's' : ''}`;
   };
 
+  // Get combined filter display text
+  const getCombinedFilterDisplayText = () => {
+    const messageFilterText = getFilterDisplayText();
+    const hasComponentFilter = components && components.length > 0;
+
+    if (!hasComponentFilter) {
+      return messageFilterText;
+    }
+
+    const componentFilterText = getComponentFilterDisplayText();
+    const isAllMessages = messageFilters.has("all");
+    const isAllComponents = selectedComponents.size === components.length;
+
+    if (isAllMessages && isAllComponents) {
+      return "All Filters";
+    }
+
+    // Count active filters
+    let activeCount = 0;
+    if (!isAllMessages) activeCount += messageFilters.size;
+    if (!isAllComponents) activeCount += selectedComponents.size;
+
+    if (activeCount === 0) return "No Filters";
+    return `${activeCount} Filter${activeCount !== 1 ? 's' : ''}`;
+  };
+
   // Handle clicking on a component badge - filters to show only that component
   const handleComponentClick = (component: string) => {
     setSelectedComponents(new Set([component]));
+  };
+
+  // Get sort icon based on current sort
+  const getSortIcon = () => {
+    switch (sortBy) {
+      case "time-asc":
+      case "tokens-asc":
+        return <ArrowUpNarrowWide className="h-4 w-4" />;
+      case "time-desc":
+      case "tokens-desc":
+        return <ArrowDownNarrowWide className="h-4 w-4" />;
+    }
+  };
+
+  // Get sort tooltip text
+  const getSortTooltip = () => {
+    switch (sortBy) {
+      case "time-asc":
+        return "Time (Oldest First)";
+      case "time-desc":
+        return "Time (Newest First)";
+      case "tokens-asc":
+        return "Tokens (Low to High)";
+      case "tokens-desc":
+        return "Tokens (High to Low)";
+    }
   };
 
   // Combined role+type filters based on valid schema combinations
@@ -352,143 +406,192 @@ export function ConversationView({
 
       <TabsContent value="conversation" className="flex-1 mt-0">
         {/* Toolbar */}
-        <div className="border rounded-lg p-3 mb-3 bg-white space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search messages..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
+        <TooltipProvider>
+          <div className="border rounded-lg p-3 mb-3 bg-white">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search */}
+              <div className="relative w-[240px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search messages..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
 
-            {/* Combined Role+Type Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[180px] justify-start">
-                  <Filter className="h-4 w-4 mr-2" />
-                  {getFilterDisplayText()}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[280px] p-3" align="start">
-                <div className="space-y-3">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Filter by Message Type
-                  </div>
-                  {filterOptions.map(({ role, emoji, filters }) => (
-                    <div key={role} className="space-y-1">
-                      <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2 mb-1">
-                        <span>{emoji}</span>
-                        <span>{role}</span>
-                      </div>
-                      {filters.map(({ key, label, emoji: filterEmoji }) => (
-                        <label
-                          key={key}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors ml-2"
-                        >
-                          <Checkbox
-                            checked={messageFilters.has(key)}
-                            onCheckedChange={() => toggleMessageFilter(key)}
-                          />
-                          <span className="text-sm flex-1">
-                            {filterEmoji} {label}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Component Filter - only show if components exist */}
-            {components && components.length > 0 && (
+              {/* Combined Filters */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[180px] justify-start">
+                  <Button variant="outline" className="w-[140px] justify-start">
                     <Filter className="h-4 w-4 mr-2" />
-                    {getComponentFilterDisplayText()}
+                    {getCombinedFilterDisplayText()}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-3 max-h-[400px] overflow-y-auto" align="start">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-medium text-muted-foreground">
-                        Filter by Component
+                <PopoverContent className="w-auto p-0 max-h-[500px]" align="start">
+                  <div className="flex max-h-[500px]">
+                    {/* Message Type Filters Section */}
+                    <div className="p-3 overflow-y-auto min-w-[280px]">
+                      <div className="space-y-3">
+                        <div className="text-xs font-medium text-muted-foreground">
+                          Message Type
+                        </div>
+                        {filterOptions.map(({ role, emoji, filters }) => (
+                          <div key={role} className="space-y-1">
+                            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2 mb-1">
+                              <span>{emoji}</span>
+                              <span>{role}</span>
+                            </div>
+                            {filters.map(({ key, label, emoji: filterEmoji }) => (
+                              <label
+                                key={key}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors ml-2"
+                              >
+                                <Checkbox
+                                  checked={messageFilters.has(key)}
+                                  onCheckedChange={() => toggleMessageFilter(key)}
+                                />
+                                <span className="text-sm flex-1">
+                                  {filterEmoji} {label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={toggleAllComponents}
-                        className="h-6 text-xs"
-                      >
-                        {selectedComponents.size === components.length ? "Clear All" : "Select All"}
-                      </Button>
                     </div>
-                    <div className="space-y-1">
-                      {components.map((component) => (
-                        <label
-                          key={component}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
-                        >
-                          <Checkbox
-                            checked={selectedComponents.has(component)}
-                            onCheckedChange={() => toggleComponent(component)}
-                          />
-                          <span className="text-sm flex-1">
-                            {component}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+
+                    {/* Vertical Separator - only show if components exist */}
+                    {components && components.length > 0 && (
+                      <Separator orientation="vertical" className="h-auto" />
+                    )}
+
+                    {/* Component Filters Section - only show if components exist */}
+                    {components && components.length > 0 && (
+                      <div className="p-3 overflow-y-auto min-w-[240px] max-w-[300px]">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-medium text-muted-foreground">
+                              Component
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={toggleAllComponents}
+                              className="h-6 text-xs"
+                            >
+                              {selectedComponents.size === components.length ? "Clear All" : "Select All"}
+                            </Button>
+                          </div>
+                          <div className="space-y-1">
+                            {components.map((component) => (
+                              <label
+                                key={component}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                              >
+                                <Checkbox
+                                  checked={selectedComponents.has(component)}
+                                  onCheckedChange={() => toggleComponent(component)}
+                                />
+                                <span className="text-sm flex-1 break-words">
+                                  {component}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </PopoverContent>
               </Popover>
-            )}
 
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={(val) => setSortBy(val as typeof sortBy)}>
-              <SelectTrigger className="w-[180px]">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="time-asc">Time (Oldest First)</SelectItem>
-                <SelectItem value="time-desc">Time (Newest First)</SelectItem>
-                <SelectItem value="tokens-asc">Tokens (Low to High)</SelectItem>
-                <SelectItem value="tokens-desc">Tokens (High to Low)</SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Sort - Icon Only */}
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        {getSortIcon()}
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sort: {getSortTooltip()}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-[220px] p-3" align="start">
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      Sort Messages
+                    </div>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("time-asc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "time-asc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "time-asc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Time (Oldest First)</span>
+                    </label>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("time-desc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "time-desc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "time-desc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Time (Newest First)</span>
+                    </label>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("tokens-asc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "tokens-asc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "tokens-asc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Tokens (Low to High)</span>
+                    </label>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("tokens-desc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "tokens-desc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "tokens-desc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Tokens (High to Low)</span>
+                    </label>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-            {/* Expand/Collapse */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setExpandAll(!expandAll)}
-              className="gap-2"
-            >
-              {expandAll ? (
-                <>
-                  <Minimize2 className="h-4 w-4" />
-                  Collapse All
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-4 w-4" />
-                  Expand All
-                </>
-              )}
-            </Button>
+              {/* Expand/Collapse - Icon Only */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setExpandAll(!expandAll)}
+                  >
+                    {expandAll ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{expandAll ? "Collapse All" : "Expand All"}</p>
+                </TooltipContent>
+              </Tooltip>
 
-            {/* Filter summary */}
-            <div className="text-xs text-muted-foreground ml-auto">
-              Showing {filteredAndSortedMessages.length} of {conversation.messages.length} messages
+              {/* Filter summary */}
+              <div className="text-xs text-muted-foreground ml-auto whitespace-nowrap">
+                Showing {filteredAndSortedMessages.length} of {conversation.messages.length}
+              </div>
             </div>
           </div>
-        </div>
+        </TooltipProvider>
 
         <ScrollArea className="h-full border rounded-lg p-4 bg-white">
           <div className="space-y-3">
