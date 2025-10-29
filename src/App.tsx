@@ -219,6 +219,7 @@ const createAnalysisActivity = (
       ctx.componentTimeline!,
       ctx.components,
       ctx.aiSummary,
+      ctx.componentMapping!,
       (chunk) => onChunk?.(ctx.id, chunk)
     );
 
