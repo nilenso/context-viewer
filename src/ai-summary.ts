@@ -131,6 +131,7 @@ export async function generateContextAnalysis(
   componentTimeline: ComponentTimelineSnapshot[],
   components: string[],
   aiSummary: string,
+  componentMapping: Record<string, string>,
   onChunk?: (chunk: string) => void
 ): Promise<{ analysis: string; error?: string }> {
   console.log("[Context Analysis] Starting analysis generation");
@@ -149,9 +150,22 @@ export async function generateContextAnalysis(
   // Generate CSV of component data over time
   const componentDataCSV = generateComponentCSV(componentTimeline, components, conversation);
 
+  // Enrich conversation with component information
+  const enrichedConversation = {
+    ...conversation,
+    messages: conversation.messages.map((message) => ({
+      ...message,
+      parts: message.parts.map((part) => ({
+        ...part,
+        component: componentMapping[part.id] || "unmapped",
+      })),
+    })),
+  };
+
   const prompt = getPrompt("context-analysis", {
     conversationSummary: aiSummary,
     componentDataCSV,
+    conversationJson: JSON.stringify(enrichedConversation, null, 2),
   });
 
   try {
