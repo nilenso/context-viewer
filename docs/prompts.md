@@ -921,3 +921,53 @@ It should behave in the same way as notion's sidebar.
 i want to call out that this project is under MIT license. find out
 whatever is the textbook way of doing this for github repos, and do
 that. add to readme as appropriate.
+### Add support for claude transcripts
+- look in sample-logs/claude-transcripts, understand the format of these transcripts
+- these log files can be in MBs, read a few thousand lines to get a feel
+- I want to support this file's format as input.
+- Build a parser like we have for responses, completions, and conversations. Call this one claude-transcripts.
+- there are no official docs for this format
+
+#### Dec 15, 2025 12:09:32
+the interface doesn't allow me to upload jsonl, does it perhaps only allow json?
+
+#### Dec 15, 2025 12:12:08
+jsonl file option is still greyed out when i'm trying to upload
+
+#### Dec 15, 2025 12:13:06
+nope, still greyed out
+
+#### Dec 15, 2025 12:16:34
+still not working. look at this stuff.
+src/App.tsx:                Accepts .json and .txt files
+src/components/ConversationList.tsx:              Accepts .json and .txt files
+src/components/FileUploader.tsx:            Accepts .json, .jsonl, and .txt files. Multiple uploads supported.
+
+#### Dec 15, 2025 12:18:43
+yes, finally, that worked. can you find out why that worked? also I saw this error on the console, even though the flow moved past it.
+
+react-dropzone.js?v=f86ee2be:2871 TypeError: Cannot read properties of undefined (reading 'split')
+    at validator (App.tsx:776:35)
+
+#### Dec 15, 2025 12:27:57
+i want to count total tokens using the console variable: window.__debug.conversation.messages. give me a oneliner that sums the token count
+
+#### Dec 15, 2025 12:31:19
+i see this in the console. context exceeds the window of the model. 4o-mini is supposed to have 128k limit. sum of tokens in this conversation I uploaded is 75563. not sure why this happened. come up with reasons this happened.
+
+#### Dec 15, 2025 12:34:21
+2 times, but 2 different context windows right?
+
+#### Dec 15, 2025 12:35:40
+ JSON.stringify(window.__debug.conversation).length
+492091
+
+#### Dec 15, 2025 12:35:57
+  JSON.stringify(window.__debug.conversation).match(/"image":"[^"]+"/g)?.reduce((sum, m) => sum + m.length, 0) || 0
+184206
+
+#### Dec 15, 2025 12:37:40
+yes, implement stripping images.
+
+#### Dec 15, 2025 12:38:40
+interrupted accidentally, continue

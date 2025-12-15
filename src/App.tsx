@@ -109,6 +109,26 @@ type Activity<TResult> = (ctx: Readonly<WorkflowState>) => Promise<TResult>;
 // ============================================================================
 
 /**
+ * Parse file content - handles both JSON and JSONL formats
+ */
+const parseFileContent = (text: string, filename: string): unknown => {
+  // Check if it's a JSONL file (by extension or content)
+  const isJsonl = filename.endsWith('.jsonl') ||
+    (text.trim().startsWith('{') && text.includes('\n{'));
+
+  if (isJsonl) {
+    // Parse JSONL: split by newlines and parse each line
+    const lines = text.trim().split('\n');
+    return lines
+      .filter(line => line.trim()) // Skip empty lines
+      .map(line => JSON.parse(line));
+  }
+
+  // Regular JSON
+  return JSON.parse(text);
+};
+
+/**
  * Parse activity: Parse file into conversation and generate summary
  */
 const parseActivity: Activity<{
@@ -116,7 +136,7 @@ const parseActivity: Activity<{
   summary: ConversationSummary;
 }> = async (ctx) => {
   const text = await ctx.file!.text();
-  const data = JSON.parse(text);
+  const data = parseFileContent(text, ctx.file!.name);
   const conversation = parserRegistry.parse(data);
   const summary = summarizeConversation(conversation);
   return { conversation, summary };
@@ -751,9 +771,16 @@ export default function App() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => workflowMutation.mutate(files),
-    accept: {
-      "text/plain": [".txt"],
-      "application/json": [".json"],
+    validator: (file) => {
+      const acceptedExtensions = ['.json', '.jsonl', '.txt'];
+      const ext = file.name ? '.' + (file.name.split('.').pop()?.toLowerCase() || '') : '';
+      if (!acceptedExtensions.includes(ext)) {
+        return {
+          code: 'file-invalid-type',
+          message: `File type not supported. Accepted: ${acceptedExtensions.join(', ')}`,
+        };
+      }
+      return null;
     },
     multiple: true,
     noClick: conversations.length > 0, // Only enable click when empty
@@ -797,7 +824,7 @@ export default function App() {
                 or click to browse
               </p>
               <p className="text-sm text-muted-foreground">
-                Accepts .json and .txt files
+                Accepts .json, .jsonl, and .txt files
               </p>
             </div>
           </div>

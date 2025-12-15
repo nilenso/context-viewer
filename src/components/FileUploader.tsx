@@ -8,12 +8,21 @@ interface FileUploaderProps {
   isUploading?: boolean;
 }
 
+// Custom validator to accept files by extension
+const acceptedExtensions = ['.json', '.jsonl', '.txt'];
+
 export function FileUploader({ onFilesSelected, isUploading = false }: FileUploaderProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFilesSelected,
-    accept: {
-      "text/plain": [".txt"],
-      "application/json": [".json"],
+    validator: (file) => {
+      const ext = file.name ? '.' + (file.name.split('.').pop()?.toLowerCase() || '') : '';
+      if (!acceptedExtensions.includes(ext)) {
+        return {
+          code: 'file-invalid-type',
+          message: `File type not supported. Accepted: ${acceptedExtensions.join(', ')}`,
+        };
+      }
+      return null;
     },
     multiple: true,
     disabled: isUploading,
@@ -36,7 +45,7 @@ export function FileUploader({ onFilesSelected, isUploading = false }: FileUploa
             {isDragActive ? "Drop files here" : "Drop files here or click to select"}
           </p>
           <p className="text-sm text-muted-foreground">
-            Accepts .json and .txt files. Multiple uploads supported.
+            Accepts .json, .jsonl, and .txt files. Multiple uploads supported.
           </p>
         </div>
       </div>

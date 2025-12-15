@@ -57,9 +57,16 @@ export function ConversationList({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFilesSelected,
-    accept: {
-      "text/plain": [".txt"],
-      "application/json": [".json"],
+    validator: (file) => {
+      const acceptedExtensions = ['.json', '.jsonl', '.txt'];
+      const ext = file.name ? '.' + (file.name.split('.').pop()?.toLowerCase() || '') : '';
+      if (!acceptedExtensions.includes(ext)) {
+        return {
+          code: 'file-invalid-type',
+          message: `File type not supported. Accepted: ${acceptedExtensions.join(', ')}`,
+        };
+      }
+      return null;
     },
     multiple: true,
     noClick: conversations.length > 0, // Disable click when there are conversations
@@ -183,7 +190,7 @@ export function ConversationList({
               {isDragActive ? "Drop files here" : "Drop files here or click to select"}
             </p>
             <p className="text-xs mt-1">
-              Accepts .json and .txt files
+              Accepts .json, .jsonl, and .txt files
             </p>
           </div>
         </Card>

@@ -1,7 +1,35 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { Conversation } from "./schema";
+import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
+
+/**
+ * Strip large binary data (images, files) from conversation before sending to AI
+ * This reduces token count significantly while preserving structure for categorization
+ */
+function stripBinaryData(conversation: Conversation): Conversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map((message): Message => ({
+      ...message,
+      parts: message.parts.map((part) => {
+        if (part.type === "image") {
+          return {
+            ...part,
+            image: "[IMAGE_STRIPPED]",
+          };
+        }
+        if (part.type === "file") {
+          return {
+            ...part,
+            data: "[FILE_DATA_STRIPPED]",
+          };
+        }
+        return part;
+      }),
+    } as Message)),
+  };
+}
 
 /**
  * Configuration for AI model used in componentisation
@@ -40,7 +68,9 @@ export async function identifyComponents(
     apiKey: config.apiKey,
   });
 
-  const conversationJson = JSON.stringify(conversation, null, 2);
+  // Strip binary data to reduce token count
+  const strippedConversation = stripBinaryData(conversation);
+  const conversationJson = JSON.stringify(strippedConversation, null, 2);
 
   console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})${customPrompt ? ' with custom prompt' : ''}`);
 
@@ -89,7 +119,9 @@ export async function mapComponentsToIds(
     apiKey: config.apiKey,
   });
 
-  const conversationJson = JSON.stringify(conversation, null, 2);
+  // Strip binary data to reduce token count
+  const strippedConversation = stripBinaryData(conversation);
+  const conversationJson = JSON.stringify(strippedConversation, null, 2);
   const componentsJson = JSON.stringify(components, null, 2);
 
   console.log(`[Componentisation] Calling AI to map components to IDs (model: ${config.model})`);

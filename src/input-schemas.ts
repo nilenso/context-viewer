@@ -136,3 +136,120 @@ export const ConversationsInputSchema = z.object({
 export type ConversationsInput = z.infer<typeof ConversationsInputSchema>;
 export type ConversationDataItem = z.infer<typeof ConversationDataItemSchema>;
 export type ConversationItem = z.infer<typeof ConversationItemSchema>;
+
+// ============================================================================
+// Claude Code Transcripts Format Schema (JSONL)
+// ============================================================================
+
+// Content block types for assistant messages
+const ClaudeThinkingContentSchema = z.object({
+  type: z.literal("thinking"),
+  thinking: z.string(),
+  signature: z.string().optional(),
+});
+
+const ClaudeTextContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+});
+
+const ClaudeToolUseContentSchema = z.object({
+  type: z.literal("tool_use"),
+  id: z.string(),
+  name: z.string(),
+  input: z.unknown(),
+});
+
+// Content block types for user messages (tool results)
+const ClaudeToolResultContentSchema = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+  content: z.unknown(),
+});
+
+// Image content (for user messages)
+const ClaudeImageContentSchema = z.object({
+  type: z.literal("image"),
+  source: z.object({
+    type: z.string(),
+    media_type: z.string(),
+    data: z.string(),
+  }),
+});
+
+// Union of all content types
+const ClaudeContentSchema = z.union([
+  ClaudeThinkingContentSchema,
+  ClaudeTextContentSchema,
+  ClaudeToolUseContentSchema,
+  ClaudeToolResultContentSchema,
+  ClaudeImageContentSchema,
+]);
+
+// Message schema (nested in entry)
+const ClaudeMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.union([z.string(), z.array(ClaudeContentSchema)]),
+  model: z.string().optional(),
+  id: z.string().optional(),
+  type: z.literal("message").optional(),
+  usage: z.object({
+    input_tokens: z.number().optional(),
+    output_tokens: z.number().optional(),
+    cache_creation_input_tokens: z.number().optional(),
+    cache_read_input_tokens: z.number().optional(),
+  }).passthrough().optional(),
+});
+
+// Summary entry schema
+const ClaudeSummaryEntrySchema = z.object({
+  type: z.literal("summary"),
+  summary: z.string(),
+  leafUuid: z.string(),
+});
+
+// File history snapshot entry schema
+const ClaudeFileHistorySnapshotEntrySchema = z.object({
+  type: z.literal("file-history-snapshot"),
+  messageId: z.string(),
+  snapshot: z.unknown(),
+  isSnapshotUpdate: z.boolean().optional(),
+});
+
+// User/Assistant message entry schema
+const ClaudeMessageEntrySchema = z.object({
+  type: z.enum(["user", "assistant"]),
+  uuid: z.string(),
+  parentUuid: z.string().nullable(),
+  timestamp: z.string(),
+  message: ClaudeMessageSchema,
+  sessionId: z.string().optional(),
+  version: z.string().optional(),
+  cwd: z.string().optional(),
+  gitBranch: z.string().optional(),
+  isSidechain: z.boolean().optional(),
+  userType: z.string().optional(),
+  requestId: z.string().optional(),
+  thinkingMetadata: z.unknown().optional(),
+  toolUseResult: z.unknown().optional(),
+});
+
+// Union of all entry types
+export const ClaudeTranscriptEntrySchema = z.union([
+  ClaudeSummaryEntrySchema,
+  ClaudeFileHistorySnapshotEntrySchema,
+  ClaudeMessageEntrySchema,
+]);
+
+// The full transcript is an array of entries (parsed from JSONL)
+export const ClaudeTranscriptsInputSchema = z.array(ClaudeTranscriptEntrySchema);
+
+export type ClaudeTranscriptsInput = z.infer<typeof ClaudeTranscriptsInputSchema>;
+export type ClaudeTranscriptEntry = z.infer<typeof ClaudeTranscriptEntrySchema>;
+export type ClaudeMessageEntry = z.infer<typeof ClaudeMessageEntrySchema>;
+export type ClaudeThinkingContent = z.infer<typeof ClaudeThinkingContentSchema>;
+export type ClaudeTextContent = z.infer<typeof ClaudeTextContentSchema>;
+export type ClaudeToolUseContent = z.infer<typeof ClaudeToolUseContentSchema>;
+export type ClaudeToolResultContent = z.infer<typeof ClaudeToolResultContentSchema>;
+export type ClaudeImageContent = z.infer<typeof ClaudeImageContentSchema>;
+export type ClaudeContent = z.infer<typeof ClaudeContentSchema>;
