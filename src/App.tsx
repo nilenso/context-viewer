@@ -16,6 +16,7 @@ import {
   getComponentisationConfig,
   type ComponentTimelineSnapshot
 } from "./componentisation";
+import { staticComponentise } from "./static-componentisation";
 import { generateConversationSummary, generateContextAnalysis } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
@@ -64,11 +65,16 @@ interface WorkflowState {
   aiSummary?: string;
   analysis?: string;
 
-  // Component data
+  // Component data (automatic - AI-based)
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+
+  // Static component data (deterministic - role.partType)
+  staticComponents?: string[];
+  staticMapping?: Record<string, string>;
+  staticTimeline?: ComponentTimelineSnapshot[];
 
   // Tracking
   warnings?: string[];
@@ -150,6 +156,23 @@ const countTokensActivity: Activity<{
 }> = async (ctx) => {
   const conversation = await addTokenCounts(ctx.conversation!);
   return { conversation };
+};
+
+/**
+ * Static componentisation activity: Deterministic component identification
+ * based on role.partType (e.g., "user.text", "assistant.tool-call")
+ */
+const staticComponentsActivity: Activity<{
+  staticComponents: string[];
+  staticMapping: Record<string, string>;
+  staticTimeline: ComponentTimelineSnapshot[];
+}> = async (ctx) => {
+  const result = staticComponentise(ctx.conversation!);
+  return {
+    staticComponents: result.components,
+    staticMapping: result.mapping,
+    staticTimeline: result.timeline,
+  };
 };
 
 /**
@@ -288,6 +311,9 @@ class WorkflowRunner {
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
       components: ctx.components,
+      staticComponents: ctx.staticComponents,
+      staticMapping: ctx.staticMapping,
+      staticTimeline: ctx.staticTimeline,
       analysis: ctx.analysis,
       aiSummary: ctx.aiSummary,
       warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
@@ -307,6 +333,9 @@ class WorkflowRunner {
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
+      staticComponents: ctx.staticComponents,
+      staticMapping: ctx.staticMapping,
+      staticTimeline: ctx.staticTimeline,
       analysis: ctx.analysis,
       warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
       stepTimings: ctx.stepTimings,
@@ -327,6 +356,9 @@ class WorkflowRunner {
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
+      staticComponents: ctx.staticComponents,
+      staticMapping: ctx.staticMapping,
+      staticTimeline: ctx.staticTimeline,
       analysis: ctx.analysis,
       warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
       stepTimings: ctx.stepTimings,
@@ -374,6 +406,13 @@ async function processConversationWorkflow(
       const { result, timing } = await runner.runActivity(ctx, countTokensActivity);
       ctx.conversation = result.conversation;
       ctx.stepTimings!['counting-tokens'] = timing;
+
+      // Run static componentisation immediately after token counting (instant, no AI)
+      const staticResult = await runner.runActivity(ctx, staticComponentsActivity);
+      ctx.staticComponents = staticResult.result.staticComponents;
+      ctx.staticMapping = staticResult.result.staticMapping;
+      ctx.staticTimeline = staticResult.result.staticTimeline;
+
       runner.updateState(ctx, 'segmenting');
     }
 
@@ -499,6 +538,9 @@ async function runWorkflows(
         componentMapping: ctx.componentMapping,
         componentTimeline: ctx.componentTimeline,
         componentColors: ctx.componentColors,
+        staticComponents: ctx.staticComponents,
+        staticMapping: ctx.staticMapping,
+        staticTimeline: ctx.staticTimeline,
         analysis: ctx.analysis,
         warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
         stepTimings: ctx.stepTimings
@@ -867,6 +909,8 @@ export default function App() {
                   componentTimeline={selectedConversation.componentTimeline}
                   componentColors={selectedConversation.componentColors}
                   components={selectedConversation.components}
+                  staticMapping={selectedConversation.staticMapping}
+                  staticTimeline={selectedConversation.staticTimeline}
                   warnings={selectedConversation.warnings}
                   onReprocessComponents={handleReprocessComponents}
                   isReprocessing={reprocessingId === selectedConversation.id}

@@ -13,6 +13,17 @@ export const colorNameToClasses: Record<string, string> = {
   gray: "bg-gray-100 text-gray-700 border-gray-300",
 };
 
+// Map color names to just background Tailwind CSS classes (for WaffleChart)
+export const colorNameToBgClass: Record<string, string> = {
+  orange: "bg-orange-400",
+  emerald: "bg-emerald-400",
+  purple: "bg-purple-400",
+  blue: "bg-blue-400",
+  slate: "bg-slate-400",
+  indigo: "bg-indigo-400",
+  gray: "bg-gray-400",
+};
+
 // Map color names to hex codes for charts (light background)
 export const colorNameToHex: Record<string, string> = {
   orange: "#fed7aa",
@@ -84,4 +95,21 @@ export function getComponentTextColorHex(
 
   // Default to gray (used while waiting for AI to assign colors)
   return colorNameToTextHex.gray;
+}
+
+/**
+ * Get component background class for WaffleChart based on AI assignment or fallback to gray
+ */
+export function getComponentBgClass(
+  component: string,
+  componentColors?: Record<string, string>
+): string {
+  // If colors are assigned, use them
+  if (componentColors && componentColors[component]) {
+    const colorName = componentColors[component];
+    return colorNameToBgClass[colorName] || colorNameToBgClass.gray;
+  }
+
+  // Default to gray (used while waiting for AI to assign colors)
+  return colorNameToBgClass.gray;
 }

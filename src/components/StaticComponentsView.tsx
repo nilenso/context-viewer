@@ -4,24 +4,25 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
-import { getComponentBgClass } from "@/lib/component-colors";
 import { MessagePartView } from "./MessagePartView";
+import {
+  getStaticComponentBgClass,
+  getStaticComponentLabel,
+} from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
-interface ComponentsViewProps {
-  componentMapping?: Record<string, string>;
+interface StaticComponentsViewProps {
   conversation: Conversation;
-  componentTimeline?: ComponentTimelineSnapshot[];
-  componentColors?: Record<string, string>;
+  staticMapping?: Record<string, string>;
+  staticTimeline?: ComponentTimelineSnapshot[];
 }
 
-export function ComponentsView({
-  componentMapping,
+export function StaticComponentsView({
   conversation,
-  componentTimeline,
-  componentColors,
-}: ComponentsViewProps) {
+  staticMapping,
+  staticTimeline,
+}: StaticComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -30,36 +31,35 @@ export function ComponentsView({
   // Track selected component for filtering
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
 
-  if (!componentMapping || Object.keys(componentMapping).length === 0) {
+  if (!staticMapping || Object.keys(staticMapping).length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        <p>No component mapping available yet.</p>
+        <p>No static component mapping available yet.</p>
         <p className="text-sm mt-2">
-          Component mapping will appear here after processing.
+          Static components will appear here after processing.
         </p>
       </div>
     );
   }
 
-  // Get component data for the current message from timeline (for overview)
-  let componentTokensForOverview: Record<string, number> = {};
-  let totalTokensAtMessage = 0;
+  // Get component data for the current message from timeline
+  let componentTokens: Record<string, number> = {};
+  let totalTokens = 0;
 
-  if (componentTimeline && componentTimeline[currentMessageIndex]) {
-    const snapshot = componentTimeline[currentMessageIndex];
-    componentTokensForOverview = snapshot.componentTokens;
-    totalTokensAtMessage = snapshot.totalTokens;
+  if (staticTimeline && staticTimeline[currentMessageIndex]) {
+    const snapshot = staticTimeline[currentMessageIndex];
+    componentTokens = snapshot.componentTokens;
+    totalTokens = snapshot.totalTokens;
   } else {
     // Fallback: calculate on the fly if timeline not available
     conversation.messages.forEach((message, msgIndex) => {
       if (msgIndex <= currentMessageIndex) {
         message.parts.forEach((part) => {
-          const component = componentMapping[part.id];
+          const component = staticMapping[part.id];
           if (component) {
             const tokenCount = ("token_count" in part && part.token_count) || 0;
-            componentTokensForOverview[component] =
-              (componentTokensForOverview[component] || 0) + tokenCount;
-            totalTokensAtMessage += tokenCount;
+            componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+            totalTokens += tokenCount;
           }
         });
       }
@@ -75,7 +75,7 @@ export function ComponentsView({
       <div className="space-y-6 p-4">
         {/* Component Visualization */}
         <div>
-          <h3 className="text-lg font-semibold mb-3">Automatic Components</h3>
+          <h3 className="text-lg font-semibold mb-3">Static Components</h3>
 
           {/* Timeline Slider */}
           <div className="mb-4 px-2">
@@ -84,7 +84,7 @@ export function ComponentsView({
                 Message {currentMessageIndex + 1} of {conversation.messages.length}
               </span>
               <span className="text-sm font-semibold text-foreground">
-                {totalTokensAtMessage.toLocaleString()} tokens
+                {totalTokens.toLocaleString()} tokens
               </span>
             </div>
             <Slider
@@ -100,17 +100,17 @@ export function ComponentsView({
           {/* Waffle Chart */}
           <Card className="p-6">
             <WaffleChart
-              componentTokens={componentTokensForOverview}
-              totalTokens={totalTokensAtMessage}
-              getColorClass={(component) => getComponentBgClass(component, componentColors)}
-              getLabel={(component) => component}
+              componentTokens={componentTokens}
+              totalTokens={totalTokens}
+              getColorClass={getStaticComponentBgClass}
+              getLabel={getStaticComponentLabel}
               onComponentClick={handleComponentClick}
             />
           </Card>
 
           {selectedComponent && (
             <p className="text-sm text-muted-foreground mt-2 text-center">
-              Selected: <strong>{selectedComponent}</strong>
+              Selected: <strong>{getStaticComponentLabel(selectedComponent)}</strong>
               <button
                 onClick={() => setSelectedComponent(null)}
                 className="ml-2 text-blue-600 hover:underline"
@@ -126,7 +126,7 @@ export function ComponentsView({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">
-                Messages for: {selectedComponent}
+                Messages for: {getStaticComponentLabel(selectedComponent)}
               </h3>
               <button
                 onClick={() => setSelectedComponent(null)}
@@ -140,7 +140,7 @@ export function ComponentsView({
               {conversation.messages.map((message, msgIndex) => {
                 // Filter parts that belong to the selected component
                 const relevantParts = message.parts.filter(
-                  (part) => componentMapping[part.id] === selectedComponent
+                  (part) => staticMapping[part.id] === selectedComponent
                 );
 
                 if (relevantParts.length === 0) return null;
@@ -160,14 +160,11 @@ export function ComponentsView({
                     </div>
 
                     <div className="space-y-3">
-                      {relevantParts.map((part) => {
-                        return (
-                          <div key={part.id}>
-                            {/* Full content (collapsible) */}
-                            <MessagePartView part={part as any} isExpanded={false} />
-                          </div>
-                        );
-                      })}
+                      {relevantParts.map((part) => (
+                        <div key={part.id}>
+                          <MessagePartView part={part as any} isExpanded={false} />
+                        </div>
+                      ))}
                     </div>
                   </Card>
                 );
@@ -176,7 +173,7 @@ export function ComponentsView({
           </div>
         ) : (
           <div className="text-center p-8 text-muted-foreground">
-            <p>Click a component above to view its messages and parts</p>
+            <p>Click a component in the chart to view its messages and parts</p>
           </div>
         )}
       </div>

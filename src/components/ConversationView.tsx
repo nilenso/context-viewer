@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
+import { StaticComponentsView } from "./StaticComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
 import type { Conversation, Message } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
@@ -21,6 +22,9 @@ interface ConversationViewProps {
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
   components?: string[];
+  // Static componentisation (deterministic, no AI)
+  staticMapping?: Record<string, string>;
+  staticTimeline?: ComponentTimelineSnapshot[];
   warnings?: string[];
   onReprocessComponents?: (customPrompt: string) => Promise<void>;
   isReprocessing?: boolean;
@@ -32,12 +36,15 @@ export function ConversationView({
   componentTimeline,
   componentColors,
   components,
+  staticMapping,
+  staticTimeline,
   warnings,
   onReprocessComponents,
   isReprocessing
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
+  const [componentsSubTab, setComponentsSubTab] = useState<"static" | "automatic">("static");
 
   // Filtering and sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -607,13 +614,50 @@ export function ConversationView({
       </TabsContent>
 
       <TabsContent value="components" className="flex-1 mt-0">
-        <div className="border rounded-lg bg-white h-full">
-          <ComponentsView
-            componentMapping={componentMapping}
-            conversation={conversation}
-            componentTimeline={componentTimeline}
-            componentColors={componentColors}
-          />
+        <div className="border rounded-lg bg-white h-full flex flex-col">
+          {/* Sub-tabs for Static and Automatic */}
+          <div className="border-b px-4 pt-3">
+            <div className="flex gap-1">
+              <button
+                onClick={() => setComponentsSubTab("static")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
+                  componentsSubTab === "static"
+                    ? "bg-white border border-b-white -mb-px text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Static
+              </button>
+              <button
+                onClick={() => setComponentsSubTab("automatic")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
+                  componentsSubTab === "automatic"
+                    ? "bg-white border border-b-white -mb-px text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Automatic
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-tab content */}
+          <div className="flex-1 overflow-hidden">
+            {componentsSubTab === "static" ? (
+              <StaticComponentsView
+                conversation={conversation}
+                staticMapping={staticMapping}
+                staticTimeline={staticTimeline}
+              />
+            ) : (
+              <ComponentsView
+                componentMapping={componentMapping}
+                conversation={conversation}
+                componentTimeline={componentTimeline}
+                componentColors={componentColors}
+              />
+            )}
+          </div>
         </div>
       </TabsContent>
 

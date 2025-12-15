@@ -177,13 +177,19 @@ const ClaudeImageContentSchema = z.object({
   }),
 });
 
-// Union of all content types
+// Catch-all for unknown content types (e.g., "server_tool_use", "mcp_tool_use", etc.)
+const ClaudeUnknownContentSchema = z.object({
+  type: z.string(),
+}).passthrough();
+
+// Union of all content types - specific types first, then catch-all
 const ClaudeContentSchema = z.union([
   ClaudeThinkingContentSchema,
   ClaudeTextContentSchema,
   ClaudeToolUseContentSchema,
   ClaudeToolResultContentSchema,
   ClaudeImageContentSchema,
+  ClaudeUnknownContentSchema,
 ]);
 
 // Message schema (nested in entry)
@@ -234,11 +240,17 @@ const ClaudeMessageEntrySchema = z.object({
   toolUseResult: z.unknown().optional(),
 });
 
-// Union of all entry types
+// Catch-all for unknown entry types (e.g., "context", "init", etc.)
+const ClaudeUnknownEntrySchema = z.object({
+  type: z.string(),
+}).passthrough();
+
+// Union of all entry types - message entries first for priority, then known types, then catch-all
 export const ClaudeTranscriptEntrySchema = z.union([
+  ClaudeMessageEntrySchema,
   ClaudeSummaryEntrySchema,
   ClaudeFileHistorySnapshotEntrySchema,
-  ClaudeMessageEntrySchema,
+  ClaudeUnknownEntrySchema,
 ]);
 
 // The full transcript is an array of entries (parsed from JSONL)
