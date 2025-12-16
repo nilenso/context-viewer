@@ -103,7 +103,7 @@ export function getStaticComponentClasses(component: string): string {
 
 /**
  * Get display label for a static component
- * Converts "user.tool-call" to "User Tool Call"
+ * Converts "user.tool-call" to "User > Tool Call"
  */
 export function getStaticComponentLabel(component: string): string {
   return component
@@ -114,5 +114,5 @@ export function getStaticComponentLabel(component: string): string {
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ")
     )
-    .join(" ");
+    .join(" > ");
 }

@@ -1,10 +1,6 @@
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
-import { MessagePartView } from "./MessagePartView";
 import {
   getStaticComponentBgClass,
   getStaticComponentLabel,
@@ -16,20 +12,21 @@ interface StaticComponentsViewProps {
   conversation: Conversation;
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
+  selectedComponent?: string | null;
+  onComponentSelect?: (component: string | null) => void;
 }
 
 export function StaticComponentsView({
   conversation,
   staticMapping,
   staticTimeline,
+  selectedComponent,
+  onComponentSelect,
 }: StaticComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
-
-  // Track selected component for filtering
-  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
 
   if (!staticMapping || Object.keys(staticMapping).length === 0) {
     return (
@@ -67,116 +64,40 @@ export function StaticComponentsView({
   }
 
   const handleComponentClick = (component: string) => {
-    setSelectedComponent(selectedComponent === component ? null : component);
+    const newSelection = selectedComponent === component ? null : component;
+    onComponentSelect?.(newSelection);
   };
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-6 p-4">
-        {/* Component Visualization */}
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Static Components</h3>
-
-          {/* Timeline Slider */}
-          <div className="mb-4 px-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Message {currentMessageIndex + 1} of {conversation.messages.length}
-              </span>
-              <span className="text-sm font-semibold text-foreground">
-                {totalTokens.toLocaleString()} tokens
-              </span>
-            </div>
-            <Slider
-              value={[currentMessageIndex]}
-              onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
-              min={0}
-              max={conversation.messages.length - 1}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {/* Waffle Chart */}
-          <Card className="p-6">
-            <WaffleChart
-              componentTokens={componentTokens}
-              totalTokens={totalTokens}
-              getColorClass={getStaticComponentBgClass}
-              getLabel={getStaticComponentLabel}
-              onComponentClick={handleComponentClick}
-            />
-          </Card>
-
-          {selectedComponent && (
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              Selected: <strong>{getStaticComponentLabel(selectedComponent)}</strong>
-              <button
-                onClick={() => setSelectedComponent(null)}
-                className="ml-2 text-blue-600 hover:underline"
-              >
-                Clear
-              </button>
-            </p>
-          )}
+    <div className="p-4">
+      {/* Timeline Slider */}
+      <div className="mb-4 px-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Message {currentMessageIndex + 1} of {conversation.messages.length}
+          </span>
+          <span className="text-sm font-semibold text-foreground">
+            {totalTokens.toLocaleString()} tokens
+          </span>
         </div>
-
-        {/* Filtered Messages */}
-        {selectedComponent ? (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">
-                Messages for: {getStaticComponentLabel(selectedComponent)}
-              </h3>
-              <button
-                onClick={() => setSelectedComponent(null)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear selection
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {conversation.messages.map((message, msgIndex) => {
-                // Filter parts that belong to the selected component
-                const relevantParts = message.parts.filter(
-                  (part) => staticMapping[part.id] === selectedComponent
-                );
-
-                if (relevantParts.length === 0) return null;
-
-                return (
-                  <Card key={msgIndex} className="p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        Message {msgIndex + 1}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs capitalize">
-                        {message.role}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {relevantParts.length} {relevantParts.length === 1 ? 'part' : 'parts'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {relevantParts.map((part) => (
-                        <div key={part.id}>
-                          <MessagePartView part={part as any} isExpanded={false} />
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                );
-              }).filter(Boolean)}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center p-8 text-muted-foreground">
-            <p>Click a component in the chart to view its messages and parts</p>
-          </div>
-        )}
+        <Slider
+          value={[currentMessageIndex]}
+          onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
+          min={0}
+          max={conversation.messages.length - 1}
+          step={1}
+          className="w-full"
+        />
       </div>
-    </ScrollArea>
+
+      {/* Waffle Chart */}
+      <WaffleChart
+        componentTokens={componentTokens}
+        totalTokens={totalTokens}
+        getColorClass={getStaticComponentBgClass}
+        getLabel={getStaticComponentLabel}
+        onComponentClick={handleComponentClick}
+      />
+    </div>
   );
 }

@@ -56,8 +56,8 @@ export function WaffleChart({
 
   return (
     <div className="flex gap-8 items-start">
-      {/* Legend (left side) - scrollable if too many items */}
-      <div className="flex flex-col gap-1.5 min-w-[240px] max-h-[260px] overflow-y-auto">
+      {/* Legend (left side) */}
+      <div className="flex flex-col gap-1.5 min-w-[240px]">
         {componentData.map(({ component, tokens, percentage }) => (
           <button
             key={component}

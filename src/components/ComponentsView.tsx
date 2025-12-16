@@ -1,11 +1,8 @@
-import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
 import { getComponentBgClass } from "@/lib/component-colors";
-import { MessagePartView } from "./MessagePartView";
+import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -14,6 +11,11 @@ interface ComponentsViewProps {
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+  selectedComponent?: string | null;
+  onComponentSelect?: (component: string | null) => void;
+  // Static component filter - when set, only show automatic components for parts matching this static component
+  staticMapping?: Record<string, string>;
+  filterByStaticComponent?: string | null;
 }
 
 export function ComponentsView({
@@ -21,14 +23,28 @@ export function ComponentsView({
   conversation,
   componentTimeline,
   componentColors,
+  selectedComponent,
+  onComponentSelect,
+  staticMapping,
+  filterByStaticComponent,
 }: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
 
-  // Track selected component for filtering
-  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+  // Get the set of part IDs that match the static component filter
+  const filteredPartIds = useMemo(() => {
+    if (!filterByStaticComponent || !staticMapping) return null;
+
+    const ids = new Set<string>();
+    for (const [partId, staticComp] of Object.entries(staticMapping)) {
+      if (staticComp === filterByStaticComponent) {
+        ids.add(partId);
+      }
+    }
+    return ids;
+  }, [filterByStaticComponent, staticMapping]);
 
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
@@ -41,145 +57,74 @@ export function ComponentsView({
     );
   }
 
-  // Get component data for the current message from timeline (for overview)
+  // Get component data for the current message, filtered by static component if set
   let componentTokensForOverview: Record<string, number> = {};
-  let totalTokensAtMessage = 0;
+  let filteredTokensTotal = 0;
+  let fullTokensTotal = 0;
 
-  if (componentTimeline && componentTimeline[currentMessageIndex]) {
-    const snapshot = componentTimeline[currentMessageIndex];
-    componentTokensForOverview = snapshot.componentTokens;
-    totalTokensAtMessage = snapshot.totalTokens;
-  } else {
-    // Fallback: calculate on the fly if timeline not available
-    conversation.messages.forEach((message, msgIndex) => {
-      if (msgIndex <= currentMessageIndex) {
-        message.parts.forEach((part) => {
-          const component = componentMapping[part.id];
-          if (component) {
-            const tokenCount = ("token_count" in part && part.token_count) || 0;
+  // Always calculate from conversation to apply filtering
+  conversation.messages.forEach((message, msgIndex) => {
+    if (msgIndex <= currentMessageIndex) {
+      message.parts.forEach((part) => {
+        const component = componentMapping[part.id];
+        if (component) {
+          const tokenCount = ("token_count" in part && part.token_count) || 0;
+          fullTokensTotal += tokenCount;
+
+          // Apply static component filter if set
+          if (!filteredPartIds || filteredPartIds.has(part.id)) {
             componentTokensForOverview[component] =
               (componentTokensForOverview[component] || 0) + tokenCount;
-            totalTokensAtMessage += tokenCount;
+            filteredTokensTotal += tokenCount;
           }
-        });
-      }
-    });
-  }
+        }
+      });
+    }
+  });
 
   const handleComponentClick = (component: string) => {
-    setSelectedComponent(selectedComponent === component ? null : component);
+    const newSelection = selectedComponent === component ? null : component;
+    onComponentSelect?.(newSelection);
   };
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-6 p-4">
-        {/* Component Visualization */}
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Automatic Components</h3>
-
-          {/* Timeline Slider */}
-          <div className="mb-4 px-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Message {currentMessageIndex + 1} of {conversation.messages.length}
-              </span>
-              <span className="text-sm font-semibold text-foreground">
-                {totalTokensAtMessage.toLocaleString()} tokens
-              </span>
-            </div>
-            <Slider
-              value={[currentMessageIndex]}
-              onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
-              min={0}
-              max={conversation.messages.length - 1}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {/* Waffle Chart */}
-          <Card className="p-6">
-            <WaffleChart
-              componentTokens={componentTokensForOverview}
-              totalTokens={totalTokensAtMessage}
-              getColorClass={(component) => getComponentBgClass(component, componentColors)}
-              getLabel={(component) => component}
-              onComponentClick={handleComponentClick}
-            />
-          </Card>
-
-          {selectedComponent && (
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              Selected: <strong>{selectedComponent}</strong>
-              <button
-                onClick={() => setSelectedComponent(null)}
-                className="ml-2 text-blue-600 hover:underline"
-              >
-                Clear
-              </button>
-            </p>
-          )}
+    <div className="p-4">
+      {/* Filter indicator */}
+      {filterByStaticComponent && (
+        <div className="mb-3 text-sm text-muted-foreground">
+          Filtering by <strong className="text-foreground">{getStaticComponentLabel(filterByStaticComponent)}</strong>
+          {" · "}{filteredTokensTotal.toLocaleString()} tokens
         </div>
+      )}
 
-        {/* Filtered Messages */}
-        {selectedComponent ? (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">
-                Messages for: {selectedComponent}
-              </h3>
-              <button
-                onClick={() => setSelectedComponent(null)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear selection
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {conversation.messages.map((message, msgIndex) => {
-                // Filter parts that belong to the selected component
-                const relevantParts = message.parts.filter(
-                  (part) => componentMapping[part.id] === selectedComponent
-                );
-
-                if (relevantParts.length === 0) return null;
-
-                return (
-                  <Card key={msgIndex} className="p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        Message {msgIndex + 1}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs capitalize">
-                        {message.role}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {relevantParts.length} {relevantParts.length === 1 ? 'part' : 'parts'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {relevantParts.map((part) => {
-                        return (
-                          <div key={part.id}>
-                            {/* Full content (collapsible) */}
-                            <MessagePartView part={part as any} isExpanded={false} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                );
-              }).filter(Boolean)}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center p-8 text-muted-foreground">
-            <p>Click a component above to view its messages and parts</p>
-          </div>
-        )}
+      {/* Timeline Slider */}
+      <div className="mb-4 px-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Message {currentMessageIndex + 1} of {conversation.messages.length}
+          </span>
+          <span className="text-sm font-semibold text-foreground">
+            {fullTokensTotal.toLocaleString()} tokens
+          </span>
+        </div>
+        <Slider
+          value={[currentMessageIndex]}
+          onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
+          min={0}
+          max={conversation.messages.length - 1}
+          step={1}
+          className="w-full"
+        />
       </div>
-    </ScrollArea>
+
+      {/* Waffle Chart */}
+      <WaffleChart
+        componentTokens={componentTokensForOverview}
+        totalTokens={filteredTokensTotal}
+        getColorClass={(component) => getComponentBgClass(component, componentColors)}
+        getLabel={(component) => component}
+        onComponentClick={handleComponentClick}
+      />
+    </div>
   );
 }

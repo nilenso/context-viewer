@@ -13,6 +13,10 @@ import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StaticComponentsView } from "./StaticComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
+import { MessagePartView } from "./MessagePartView";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
@@ -44,7 +48,10 @@ export function ConversationView({
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
-  const [componentsSubTab, setComponentsSubTab] = useState<"static" | "automatic">("static");
+
+  // Component selection state for the Components tab
+  const [selectedStaticComponent, setSelectedStaticComponent] = useState<string | null>(null);
+  const [selectedAutoComponent, setSelectedAutoComponent] = useState<string | null>(null);
 
   // Filtering and sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -613,51 +620,113 @@ export function ConversationView({
         </ScrollArea>
       </TabsContent>
 
-      <TabsContent value="components" className="flex-1 mt-0">
-        <div className="border rounded-lg bg-white h-full flex flex-col">
-          {/* Sub-tabs for Static and Automatic */}
-          <div className="border-b px-4 pt-3">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setComponentsSubTab("static")}
-                className={`px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
-                  componentsSubTab === "static"
-                    ? "bg-white border border-b-white -mb-px text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Static
-              </button>
-              <button
-                onClick={() => setComponentsSubTab("automatic")}
-                className={`px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
-                  componentsSubTab === "automatic"
-                    ? "bg-white border border-b-white -mb-px text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Automatic
-              </button>
+      <TabsContent value="components" className="flex-1 mt-0 overflow-auto">
+        <div className="space-y-6">
+          {/* Static Components */}
+          <div className="border rounded-lg bg-white">
+            <div className="border-b px-4 py-3">
+              <h3 className="text-sm font-semibold">Static Components</h3>
+              <p className="text-xs text-muted-foreground">Categorized by role and part type</p>
             </div>
+            <StaticComponentsView
+              conversation={conversation}
+              staticMapping={staticMapping}
+              staticTimeline={staticTimeline}
+              selectedComponent={selectedStaticComponent}
+              onComponentSelect={(comp) => {
+                setSelectedStaticComponent(comp);
+                // Clear auto component selection when static filter changes
+                setSelectedAutoComponent(null);
+              }}
+            />
           </div>
 
-          {/* Sub-tab content */}
-          <div className="flex-1 overflow-hidden">
-            {componentsSubTab === "static" ? (
-              <StaticComponentsView
-                conversation={conversation}
-                staticMapping={staticMapping}
-                staticTimeline={staticTimeline}
-              />
-            ) : (
-              <ComponentsView
-                componentMapping={componentMapping}
-                conversation={conversation}
-                componentTimeline={componentTimeline}
-                componentColors={componentColors}
-              />
-            )}
+          {/* Automatic Components */}
+          <div className="border rounded-lg bg-white">
+            <div className="border-b px-4 py-3">
+              <h3 className="text-sm font-semibold">Automatic Components</h3>
+              <p className="text-xs text-muted-foreground">AI-identified semantic components</p>
+            </div>
+            <ComponentsView
+              componentMapping={componentMapping}
+              conversation={conversation}
+              componentTimeline={componentTimeline}
+              componentColors={componentColors}
+              selectedComponent={selectedAutoComponent}
+              onComponentSelect={(comp) => {
+                setSelectedAutoComponent(comp);
+              }}
+              staticMapping={staticMapping}
+              filterByStaticComponent={selectedStaticComponent}
+            />
           </div>
+
+          {/* Shared Message Parts Section */}
+          {selectedAutoComponent ? (
+            <div className="border rounded-lg bg-white">
+              <div className="border-b px-4 py-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">
+                  {selectedAutoComponent}
+                  {selectedStaticComponent && (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}· {getStaticComponentLabel(selectedStaticComponent)}
+                    </span>
+                  )}
+                </h3>
+                <button
+                  onClick={() => setSelectedAutoComponent(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="p-4 space-y-4 max-h-[500px] overflow-auto">
+                {conversation.messages.map((message, msgIndex) => {
+                  // Filter parts that belong to the selected auto component
+                  // AND optionally match the static component filter
+                  const relevantParts = message.parts.filter((part) => {
+                    const matchesAuto = componentMapping?.[part.id] === selectedAutoComponent;
+                    const matchesStatic = !selectedStaticComponent || staticMapping?.[part.id] === selectedStaticComponent;
+                    return matchesAuto && matchesStatic;
+                  });
+
+                  if (relevantParts.length === 0) return null;
+
+                  return (
+                    <Card key={msgIndex} className="p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          Message {msgIndex + 1}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {message.role}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {relevantParts.length} {relevantParts.length === 1 ? 'part' : 'parts'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {relevantParts.map((part) => (
+                          <div key={part.id}>
+                            <MessagePartView part={part as any} isExpanded={false} />
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  );
+                }).filter(Boolean)}
+              </div>
+            </div>
+          ) : (
+            <div className="border rounded-lg bg-white p-8 text-center text-muted-foreground">
+              <p>
+                {selectedStaticComponent
+                  ? "Click a component in the Automatic chart above to view its message parts"
+                  : "Click a static component to filter, then click an automatic component to view parts"}
+              </p>
+            </div>
+          )}
         </div>
       </TabsContent>
 

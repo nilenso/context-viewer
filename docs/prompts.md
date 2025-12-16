@@ -971,3 +971,121 @@ yes, implement stripping images.
 
 #### Dec 15, 2025 12:38:40
 interrupted accidentally, continue
+
+### Static components and drill down
+In addition to the kind of componentisation we have now, create another static version of components.
+
+Split the components tab contents into two tabs: static, and automatic. Move current components into automatic.
+The static componentisation is just based on role + message type like this:
+- system.text
+- user.text
+- user.image
+- user.file
+- assistant.tool_call
+- tool.tool_result
+
+UI/UX:
+- And I want it to look like this: [Image #1]
+- Use the same color theme as in the conversations tab. Message types should be different hues of the Role's color.
+- It should also have the timeline slide like the automatic components visualisation.
+
+Workflow:
+- Do this componentisation soon after counting tokens, and in parallel with other activities at that time
+
+#### Dec 15, 2025 13:55:38
+in the table, also add the number of tokens as a column in addition to the %
+
+#### Dec 15, 2025 14:06:59
+switch the automatic components to also this type of view.
+
+#### Dec 15, 2025 14:54:55
+[Image #1] it looks like this when the table has many rows. the waffle chart should continue to look like a square
+
+#### Dec 15, 2025 14:59:27
+i keep getting this error now when uploading claude transcripts. Invalid claude transcripts format: 406: Invalid input, 686: Invalid input, 786: Invalid input, 787: Invalid input, 1037: Invalid input
+
+#### Dec 15, 2025 15:00:56
+using the debug window variable, can i find out which types are unknown now
+
+#### Dec 15, 2025 15:01:30
+using window.__debug.conversation.messages i meant
+
+#### Dec 15, 2025 15:02:56
+cat sample-logs/claude-transcripts/large.jsonl | jq -r '.type' | sort | uniq -c                                                            !10035
+ 147 assistant
+  12 file-history-snapshot
+   4 summary
+  67 user
+
+#### Dec 15, 2025 15:03:13
+do this yourself
+
+#### Dec 15, 2025 15:04:04
+this was the file with those errors: /Users/srihari/.claude/projects/-Users-srihari-work-nilenso-dashboard/cf46ae96-788a-468d-ba66-6d4cba5018de.jsonl
+
+#### Dec 15, 2025 15:14:20
+need to deal with this. come with suggestions.
+componentisation.ts:104 [Componentisation] Error calling AI for components: AI_APICallError: Your input exceeds the context window of this model. Please adjust your input and try again.
+    at chunk-73PBH2EW.js?v=f86ee2be:5002:14
+    at async postToApi (chunk-73PBH2EW.js?v=f86ee2be:4890:28)
+    at async OpenAIResponsesLanguageModel.doGenerate (@ai-sdk_openai.js?v=f86ee2be:3167:9)
+    at async fn (ai.js?v=f86ee2be:4244:34)
+    at async ai.js?v=f86ee2be:3560:22
+    at async _retryWithExponentialBackoff (ai.js?v=f86ee2be:3699:12)
+    at async fn (ai.js?v=f86ee2be:4202:34)
+    at async ai.js?v=f86ee2be:3560:22
+    at async generateText (ai.js?v=f86ee2be:4147:12)
+    at async identifyComponents (componentisation.ts:80:20)
+identifyComponents @ componentisation.ts:104
+componentisation.ts:292 [Componentisation] No components identified
+ai-summary.ts:86 [AI Summary] Generated summary (1447 chars)
+window.__debug.conversation.messages.flatMap(m => m.parts).reduce((sum, p) => sum + (p.token_count || 0), 0)
+226192
+  JSON.stringify(window.__debug.conversation).length
+2571981
+
+#### Dec 16, 2025 10:32:14
+when I upload sample-logs/claude-transcripts/large.jsonl to the interface, in the automatic componentisation, it looks like after message 61, the counts of tokens / components don't increase, even though there are 132 messages.
+
+- does the file have meaningful messages after 61? (it looks like it does, I checked the parsed output in the console)
+- are we parsing it correctly? (yes, from my console try)
+- is there a bug in the visualisation, or data used in the visualisation?
+
+#### Dec 16, 2025 10:42:58
+when mapping message parts to components, don't send the full conversation, send 20 message parts at a time. call AI in parallel for all the chunks, and then put together the mapping.
+
+keep the prompt the same, engineer around it.
+
+#### Dec 16, 2025 10:48:37
+i don't want the component legend to be scrollable
+
+#### Dec 16, 2025 10:51:11
+instead of static and automatic tabs, inside the components tab just have them one below the other. static first, then automatic.
+
+#### Dec 16, 2025 10:52:40
+[Image #1]there are two headings, remove the 2nd one. even in automatic.
+
+#### Dec 16, 2025 10:54:56
+In automatic components, allow filtering by message type, same filter as in the conversations tab. consider reusing the ui component too.
+
+#### Dec 16, 2025 10:57:33
+in the static components legend, it says "Tool Tool Result", "User Text". Instead, lets add a '>' character in between so it says "Tool > Tool Result", etc.
+
+#### Dec 16, 2025 11:00:42
+currently, both static and automatic have "click component to view message parts" below them. I want only one message part viewing section, below both the graphs.
+
+#### Dec 16, 2025 11:18:36
+remove the filter, i don't want it like this, I'll redo it a different way, just remove it for nwo
+
+#### Dec 16, 2025 11:26:23
+when I click on the component in the static section, it selects the role and message type. based on this, get the ids in the conversation, and then, filter the messages (and message parts) in the automatic components chart below.
+
+so, when I click user>text in the static legend, it should only show me a waffle chart of the user>text messages, broken down by their components.
+
+timeline and token count on slider should be the same full numbers. percentages in the automatic component waffle chart should reflect % out of the total user>text message token count (if user>text is chosen).
+
+#### Dec 16, 2025 11:37:07
+[Image #1] there are too many lines, reduce the clutter.
+
+#### Dec 16, 2025 12:02:10
+remove the border around the waffle charts
