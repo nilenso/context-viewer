@@ -360,7 +360,8 @@ export async function assignComponentColors(
 export async function componentiseConversation(
   conversation: Conversation,
   onProgress?: (step: "identifying" | "mapping") => void,
-  customPrompt?: string
+  customPrompt?: string,
+  customComponents?: string[]
 ): Promise<{
   components: string[];
   mapping: Record<string, string>;
@@ -376,13 +377,19 @@ export async function componentiseConversation(
     return { components: [], mapping: {}, timeline: [], error: "Componentisation: No API key configured" };
   }
 
-  // Step 1: Identify components
-  onProgress?.("identifying");
-  const components = await identifyComponents(conversation, config, customPrompt);
+  // Step 1: Identify components (or use custom components if provided)
+  let components: string[];
+  if (customComponents && customComponents.length > 0) {
+    console.log(`[Componentisation] Using ${customComponents.length} custom components`);
+    components = customComponents;
+  } else {
+    onProgress?.("identifying");
+    components = await identifyComponents(conversation, config, customPrompt);
 
-  if (components.length === 0) {
-    console.log("[Componentisation] No components identified");
-    return { components: [], mapping: {}, timeline: [], error: "Componentisation: Failed to identify components (API error)" };
+    if (components.length === 0) {
+      console.log("[Componentisation] No components identified");
+      return { components: [], mapping: {}, timeline: [], error: "Componentisation: Failed to identify components (API error)" };
+    }
   }
 
   // Step 2: Map components to IDs

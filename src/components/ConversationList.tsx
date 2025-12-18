@@ -33,6 +33,7 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
+  onEditComponents?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onLockSidebar?: () => void;
@@ -46,6 +47,7 @@ export function ConversationList({
   onSelect,
   onFilesSelected,
   onEditPrompt,
+  onEditComponents,
   isCollapsed = false,
   onToggleCollapse,
   onLockSidebar,
@@ -371,17 +373,32 @@ export function ConversationList({
                                     </span>
                                   )}
                                 </div>
-                                {/* Edit prompt link - show below "Find components" step */}
-                                {isFindComponentsStep && onEditPrompt && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditPrompt();
-                                    }}
-                                    className="ml-5 mt-0.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                  >
-                                    Edit prompt
-                                  </button>
+                                {/* Edit prompt and Edit components links - show below "Find components" step */}
+                                {isFindComponentsStep && (onEditPrompt || onEditComponents) && (
+                                  <div className="flex gap-2 ml-5 mt-0.5">
+                                    {onEditPrompt && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditPrompt();
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                      >
+                                        Edit prompt
+                                      </button>
+                                    )}
+                                    {onEditComponents && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditComponents();
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                      >
+                                        Edit components
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             );

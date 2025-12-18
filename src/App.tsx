@@ -58,6 +58,7 @@ interface WorkflowState {
   file?: File;
   config?: any;
   customPrompt?: string;
+  customComponents?: string[];
 
   // Core data
   conversation?: Conversation;
@@ -208,7 +209,8 @@ const findComponentsActivity: Activity<{
   const result = await componentiseConversation(
     ctx.conversation!,
     undefined,
-    ctx.customPrompt
+    ctx.customPrompt,
+    ctx.customComponents
   );
 
   return {
@@ -573,6 +575,11 @@ export default function App() {
   // Prompt editor dialog state
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(getDefaultComponentIdentificationPrompt());
+
+  // Components editor dialog state
+  const [isComponentsDialogOpen, setIsComponentsDialogOpen] = useState(false);
+  const [editingComponents, setEditingComponents] = useState("");
+
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   const workflowMutation = useMutation({
@@ -715,7 +722,30 @@ export default function App() {
   const handleApplyPrompt = async () => {
     setIsPromptDialogOpen(false);
     if (selectedConversation && selectedConversation.conversation) {
-      await handleReprocessComponents(editingPrompt);
+      await handleReprocessComponents({ customPrompt: editingPrompt });
+    }
+  };
+
+  // Handle opening the components editor
+  const handleOpenComponentsEditor = () => {
+    // Get the components from the selected conversation if it exists
+    const currentComponents = selectedConversation?.components || [];
+    setEditingComponents(currentComponents.join("\n"));
+    setIsComponentsDialogOpen(true);
+  };
+
+  // Handle applying the edited components
+  const handleApplyComponents = async () => {
+    setIsComponentsDialogOpen(false);
+    if (selectedConversation && selectedConversation.conversation) {
+      // Parse components from the text (one per line, trimmed, non-empty)
+      const components = editingComponents
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      if (components.length > 0) {
+        await handleReprocessComponents({ customComponents: components });
+      }
     }
   };
 
@@ -753,7 +783,7 @@ export default function App() {
     }
   };
 
-  const handleReprocessComponents = async (customPrompt: string) => {
+  const handleReprocessComponents = async (options: { customPrompt?: string; customComponents?: string[] } = {}) => {
     if (!selectedConversation?.conversation) return;
 
     const id = selectedConversation.id;
@@ -780,7 +810,8 @@ export default function App() {
         componentTimeline: selectedConversation.componentTimeline,
         componentColors: selectedConversation.componentColors,
         analysis: selectedConversation.analysis,
-        customPrompt,
+        customPrompt: options.customPrompt,
+        customComponents: options.customComponents,
         config: getComponentisationConfig(),
         warnings: [],
         stepTimings: { ...selectedConversation.stepTimings }
@@ -896,6 +927,7 @@ export default function App() {
               onSelect={setSelectedId}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
+              onEditComponents={handleOpenComponentsEditor}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleToggleSidebar}
               onLockSidebar={handleLockSidebar}
@@ -1023,6 +1055,44 @@ export default function App() {
             <UIButton
               onClick={handleApplyPrompt}
               disabled={!editingPrompt.trim()}
+            >
+              Apply & Reprocess
+            </UIButton>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Components Editor Dialog */}
+      <Dialog open={isComponentsDialogOpen} onOpenChange={setIsComponentsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Components</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <p className="text-sm text-muted-foreground">
+              Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components.
+            </p>
+            <Textarea
+              value={editingComponents}
+              onChange={(e) => setEditingComponents(e.target.value)}
+              placeholder="Enter components (one per line)..."
+              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>This will re-run component mapping, visualization, and analysis (skipping component identification)</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <UIButton
+              variant="outline"
+              onClick={() => setIsComponentsDialogOpen(false)}
+            >
+              Cancel
+            </UIButton>
+            <UIButton
+              onClick={handleApplyComponents}
+              disabled={!editingComponents.trim()}
             >
               Apply & Reprocess
             </UIButton>

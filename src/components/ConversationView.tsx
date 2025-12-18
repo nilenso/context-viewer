@@ -30,7 +30,7 @@ interface ConversationViewProps {
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
   warnings?: string[];
-  onReprocessComponents?: (customPrompt: string) => Promise<void>;
+  onReprocessComponents?: (options?: { customPrompt?: string; customComponents?: string[] }) => Promise<void>;
   isReprocessing?: boolean;
 }
 

@@ -1111,3 +1111,6 @@ no error, it appears in the finder selection, and then nothing happens. this pre
 
 ### Dec 18, 2025 12:13:09
 nvm, i figured it out, it was an md file, this works fine
+
+### Dec 18, 2025 12:17:42
+inside componentisation there are two parts. The first part is identifying the components and the second part is assembling the components to the individual pieces. Now the first part has a prompt which is customizable from the UI. So I can edit prompt on the left of the button. And then it allows me to choose the prompt that identifies the components. There is another prompt that assigns the components that it got from the first part. And assigns them to the individual messages. Now in between these two parts I want the ability to provide my own components. So in addition to the edit prompt button there, I need a edit components button. And I want it to show the list of components. And I want to be able to put in my own components there. And this new list of components that I will provide, it can be just a plain text field. And it should replace the list of components that the second form is sending to me. That's all. It should just be the filling variable to the component assigning prompt.
