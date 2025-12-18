@@ -9,7 +9,7 @@ insight (if any).
 - How has that prompt changed over time?
   - What kind of things get added over time?
     - What does that say about organic discovery?
-  - How have models have updates influenced the prompts?
+  - How have models updates influenced the prompts?
 
 And then the idea would be to repeat this for chatbots too. And then
 potentially deep research tools/agents, and then potentially the
@@ -104,3 +104,69 @@ Note that I DO NOT WANT the system prompts for the chat-bots, or other
 usecases, I only want the system prompts for the above products.
 
 #### Note: I ended up cloning all the above github repos and running claude on it to get the data
+
+### Dimensions useful for analysis
+- Fighting the model: reminders, repetitions, DO NOT do something, NEVER, you MUST, etc
+- Things marked "IMPORTANT"
+- Task management
+- Tone and style guidance
+- Security guidance
+- With and without tools defined inline.
+
+In practice, most coding agents have multiple prompt layers:
+- Base system instructions (role, safety, style, priorities)
+- Tool catalog (names, schemas, descriptions)
+- Tool-use policy (when to use which tool, required formats, guardrails)
+- User/project instructions (per-user settings, per-repo “rules” files like CLAUDE.md / instructions.md)
+- Dynamic context (repo tree, diffs, terminal output, open files)
+
+### My component hierarchy / table of contents:
+NOTE: this has been refined into a YAML file
+- Identity (You are ...)
+- Personality, Tone and style, how to interact and respond
+  - Instructions
+  - Behaviour (not assuming, not over-engineering, etc)
+  - Communication (no emojis, concise, show reasoning, etc)
+  - Autonomy level, expected level of control to give to users
+  - Fighting the model (CAPS, reminders, repetitions, weirdly specific dos and don'ts)
+  - Examples
+- Usage instructions like slash commands
+  - Environment, OS, Platform
+  - Security
+  - Sandboxing
+- Code style (code conventions, libraries, patterns)
+  - Examples
+- Code search
+  - What tools to use, and when
+  - How to separate context, sub-agent,
+  - Examples
+- Workflows and Task management (problem solving process, todo list management, memory management)
+  - When and where to use tasks / todos
+  - Modes like planning, spec, architect, suggest, learn, etc
+  - Examples
+  - Git / version control and commits
+    - what git commands to use
+    - how to create commits, co-authoring, etc
+- Tool Usage policies
+  - Instructions
+  - Fighting the model (CAPS, reminders, repetitions, weirdly specific dos and don'ts)
+  - Examples
+- User or project specific instructions
+  - Instructions to read or follow CLAUDE/AGENTS/GEMINI.md, or similar files
+- Tools (Generic)
+  - Tool description
+  - When/Where to use the tool
+  - How to use the tool
+  - Tool definition / schema
+- Advanced Tools
+  - Multi-file refactoring
+  - Test generation
+  - PR/Issue management
+  - Web search/fetch
+  - Image analysis
+- Core Functions
+  - Code generation/editing
+  - File system operations
+  - Bash, Shell, Terminal command execution
+  - Code search/navigation
+  - Debugging/troubleshooting

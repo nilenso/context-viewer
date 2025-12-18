@@ -115,9 +115,15 @@ type Activity<TResult> = (ctx: Readonly<WorkflowState>) => Promise<TResult>;
 // ============================================================================
 
 /**
- * Parse file content - handles both JSON and JSONL formats
+ * Parse file content - handles JSON, JSONL, and plain text formats
  */
 const parseFileContent = (text: string, filename: string): unknown => {
+  // Check if it's a plain text file (not JSON/JSONL)
+  if (filename.endsWith('.txt')) {
+    // Return raw text - PlainTextParser will handle it
+    return text;
+  }
+
   // Check if it's a JSONL file (by extension or content)
   const isJsonl = filename.endsWith('.jsonl') ||
     (text.trim().startsWith('{') && text.includes('\n{'));

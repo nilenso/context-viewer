@@ -1089,3 +1089,25 @@ timeline and token count on slider should be the same full numbers. percentages 
 
 #### Dec 16, 2025 12:02:10
 remove the border around the waffle charts
+
+### Dec 18, 2025 12:02:34
+build support for uploading plain text files. this needs to be parsed as just a simple system text message.
+
+### Dec 18, 2025 12:07:20
+the text file upload didn't work. look at these files
+
+docs/prompts.md:src/App.tsx:                Accepts .json and .txt files
+docs/prompts.md:src/components/ConversationList.tsx:              Accepts .json and .txt files
+docs/prompts.md:src/components/FileUploader.tsx:            Accepts .json, .jsonl, and .txt files. Multiple uploads supported.
+src/App.tsx:                Accepts .json, .jsonl, and .txt files
+src/components/ConversationList.tsx:              Accepts .json, .jsonl, and .txt files
+src/components/FileUploader.tsx:            Accepts .json, .jsonl, and .txt files. Multiple uploads supported.
+
+### Dec 18, 2025 12:08:01
+there is a dev server up and running already
+
+### Dec 18, 2025 12:09:10
+no error, it appears in the finder selection, and then nothing happens. this previously happened when I implemented jsonl support. and that worked when the other files i mentioned were also looked into. i think the file uploader component... drag-drop something. it was implemented in multiple places?
+
+### Dec 18, 2025 12:13:09
+nvm, i figured it out, it was an md file, this works fine
