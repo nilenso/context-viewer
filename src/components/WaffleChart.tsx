@@ -9,8 +9,8 @@ interface WaffleChartProps {
 }
 
 /**
- * Waffle chart visualization showing token distribution as a 10x10 grid
- * Each square represents 1% of total tokens
+ * Waffle chart visualization showing token distribution as a 20x20 grid
+ * Each square represents 0.25% of total tokens
  */
 export function WaffleChart({
   componentTokens,
@@ -19,6 +19,8 @@ export function WaffleChart({
   getLabel,
   onComponentClick,
 }: WaffleChartProps) {
+  const GRID_SIZE = 400; // 20x20 grid
+
   // Calculate percentages and sort by size (largest first)
   const componentData = Object.entries(componentTokens)
     .map(([component, tokens]) => ({
@@ -28,31 +30,32 @@ export function WaffleChart({
     }))
     .sort((a, b) => b.percentage - a.percentage);
 
-  // Build the 100-square grid
+  // Build the 400-square grid (20x20)
   // Each square is assigned to a component based on percentage
   const squares: { component: string; index: number }[] = [];
   let squareIndex = 0;
 
   for (const { component, percentage } of componentData) {
-    // Round to nearest integer, but ensure at least 1 square if component has tokens
+    // Calculate squares: percentage * 4 (since 400 squares = 100%)
+    // Ensure at least 1 square if component has tokens
     const squareCount = Math.max(
       percentage > 0 ? 1 : 0,
-      Math.round(percentage)
+      Math.round(percentage * 4)
     );
 
-    for (let i = 0; i < squareCount && squareIndex < 100; i++) {
+    for (let i = 0; i < squareCount && squareIndex < GRID_SIZE; i++) {
       squares.push({ component, index: squareIndex });
       squareIndex++;
     }
   }
 
   // Fill remaining squares with empty (shouldn't happen if percentages add to 100)
-  while (squares.length < 100) {
+  while (squares.length < GRID_SIZE) {
     squares.push({ component: "", index: squares.length });
   }
 
-  // Trim to exactly 100
-  squares.length = 100;
+  // Trim to exactly 400
+  squares.length = GRID_SIZE;
 
   return (
     <div className="flex gap-8 items-start">
@@ -84,14 +87,14 @@ export function WaffleChart({
         ))}
       </div>
 
-      {/* Waffle grid (right side) - fixed 10x10 square */}
-      <div className="grid grid-cols-10 gap-1 flex-shrink-0">
+      {/* Waffle grid (right side) - fixed 20x20 square */}
+      <div className="grid grid-cols-[repeat(20,minmax(0,1fr))] gap-0.5 flex-shrink-0">
         {squares.map(({ component, index }) => (
           <button
             key={index}
             onClick={() => component && onComponentClick?.(component)}
             className={cn(
-              "w-5 h-5 rounded-sm transition-all",
+              "w-3 h-3 rounded-sm transition-all",
               component ? getColorClass(component) : "bg-gray-200",
               component && onComponentClick && "cursor-pointer hover:scale-110"
             )}

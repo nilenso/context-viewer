@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { parserRegistry } from "./parser";
 import "./parsers";
-import type { Conversation } from "./schema";
+import type { Conversation, SourceInfo, Message } from "./schema";
 import {
   summarizeConversation,
   type ConversationSummary,
@@ -80,6 +80,11 @@ interface WorkflowState {
   // Tracking
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
+
+  // Grouped conversation data
+  isGrouped?: boolean;
+  sourceConversations?: Array<{ id: string; filename: string }>;
+  messageSourceMap?: Record<string, SourceInfo>; // messageId -> source info
 }
 
 interface WorkflowBatchResult {
@@ -95,7 +100,8 @@ interface WorkflowBatchResult {
  */
 enum WorkflowEvent {
   NewFile = 'new-file',
-  ComponentPromptChanged = 'component-prompt-changed'
+  ComponentPromptChanged = 'component-prompt-changed',
+  GroupedConversation = 'grouped-conversation'
 }
 
 /**
@@ -408,8 +414,8 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'counting-tokens');
     }
 
-    // Step 2: Count tokens (only for new files)
-    if (event === WorkflowEvent.NewFile) {
+    // Step 2: Count tokens (only for new files, or grouped conversations)
+    if (event === WorkflowEvent.NewFile || event === WorkflowEvent.GroupedConversation) {
       runner.startStep(ctx, 'counting-tokens');
       const { result, timing } = await runner.runActivity(ctx, countTokensActivity);
       ctx.conversation = result.conversation;
@@ -424,7 +430,7 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'segmenting');
     }
 
-    // Step 3: Segment + Summary in parallel (only for new files)
+    // Step 3: Segment + Summary in parallel (only for new files - skip for grouped)
     if (event === WorkflowEvent.NewFile) {
       runner.startStep(ctx, 'segmenting');
       const { result: segmentResult, timing: segmentTiming } =
@@ -441,6 +447,17 @@ async function processConversationWorkflow(
       });
 
       runner.updateState(ctx, 'finding-components');
+    }
+
+    // For grouped conversations, skip segmenting and go directly to finding-components
+    // Also generate AI summary in parallel
+    if (event === WorkflowEvent.GroupedConversation) {
+      runner.updateState(ctx, 'finding-components');
+      // Generate AI summary in parallel with next steps (fire and forget)
+      createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(summaryResult => {
+        ctx.aiSummary = summaryResult.summary;
+        if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
+      });
     }
 
     // Step 4: Find components (always run)
@@ -565,6 +582,7 @@ export default function App() {
     WorkflowState[]
   >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [insightsTab, setInsightsTab] = useState<string>("summary");
 
   // Sidebar collapse state
@@ -848,6 +866,159 @@ export default function App() {
     }
   };
 
+  // Handle multi-selection toggle
+  const handleToggleSelection = (id: string, isSelected: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (isSelected) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  // Clear multi-selection
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Create a grouped conversation from selected conversations
+  const handleGroupConversations = async () => {
+    if (selectedIds.size < 2) return;
+
+    // Get the selected conversations (only fully processed ones)
+    const selectedConvs = conversations.filter(
+      conv => selectedIds.has(conv.id) && conv.conversation && conv.status === 'success'
+    );
+
+    if (selectedConvs.length < 2) return;
+
+    // Generate new ID for grouped conversation
+    const groupId = generateId();
+
+    // Create concatenated conversation with source info tracking
+    // We need to generate new unique IDs to avoid collisions between files
+    const messageSourceMap: Record<string, SourceInfo> = {};
+    const allMessages: Message[] = [];
+
+    for (const conv of selectedConvs) {
+      if (!conv.conversation) continue;
+      for (const msg of conv.conversation.messages) {
+        // Generate new unique ID for this message to avoid collisions
+        const newMsgId = `${conv.id}-${msg.id}`;
+
+        // Create new parts with unique IDs
+        const newParts = msg.parts.map(part => {
+          const newPartId = `${conv.id}-${part.id}`;
+          // Track source info for this part
+          messageSourceMap[newPartId] = {
+            conversationId: conv.id,
+            filename: conv.filename,
+          };
+          return { ...part, id: newPartId };
+        });
+
+        // Track source info for this message
+        messageSourceMap[newMsgId] = {
+          conversationId: conv.id,
+          filename: conv.filename,
+        };
+
+        // Create new message with new ID and new parts
+        const newMsg = { ...msg, id: newMsgId, parts: newParts } as Message;
+        allMessages.push(newMsg);
+      }
+    }
+
+    const groupedConversation: Conversation = {
+      messages: allMessages,
+    };
+
+    // Create source conversations list
+    const sourceConversations = selectedConvs.map(conv => ({
+      id: conv.id,
+      filename: conv.filename,
+    }));
+
+    // Create grouped name
+    const groupedFilename = `Grouped: ${sourceConversations.map(s => s.filename).join(', ')}`;
+
+    // Create placeholder
+    const placeholder: WorkflowState = {
+      id: groupId,
+      filename: groupedFilename,
+      status: 'pending',
+      isGrouped: true,
+      sourceConversations,
+      messageSourceMap,
+    };
+
+    // Add placeholder immediately
+    setConversations(prev => [...prev, placeholder]);
+    setSelectedId(groupId);
+    handleClearSelection();
+
+    // Create workflow runner
+    const runner = new WorkflowRunner((id, update) => {
+      setConversations(prev =>
+        prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
+      );
+    });
+
+    // Initialize workflow context
+    const ctx: WorkflowState = {
+      id: groupId,
+      filename: groupedFilename,
+      conversation: groupedConversation,
+      summary: summarizeConversation(groupedConversation),
+      isGrouped: true,
+      sourceConversations,
+      messageSourceMap,
+      warnings: [],
+      stepTimings: {},
+      config: getComponentisationConfig(),
+    };
+
+    // Run workflow with GroupedConversation event
+    await processConversationWorkflow(
+      WorkflowEvent.GroupedConversation,
+      ctx,
+      runner,
+      {
+        onSummaryChunk: (id, chunk) => {
+          setConversations(prev =>
+            prev.map(conv =>
+              conv.id === id
+                ? { ...conv, aiSummary: (conv.aiSummary || '') + chunk }
+                : conv
+            )
+          );
+        },
+        onAnalysisChunk: (id, chunk) => {
+          setConversations(prev =>
+            prev.map(conv =>
+              conv.id === id
+                ? { ...conv, analysis: (conv.analysis || '') + chunk }
+                : conv
+            )
+          );
+        },
+      }
+    );
+  };
+
+  // Handle ungrouping a grouped conversation
+  const handleUngroupConversation = (id: string) => {
+    // Remove the grouped conversation from the list
+    setConversations(prev => prev.filter(conv => conv.id !== id));
+    // Clear selection if the ungrouped conversation was selected
+    if (selectedId === id) {
+      setSelectedId(null);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => workflowMutation.mutate(files),
     validator: (file) => {
@@ -925,6 +1096,11 @@ export default function App() {
               conversations={conversations}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              selectedIds={selectedIds}
+              onToggleSelection={handleToggleSelection}
+              onGroupConversations={handleGroupConversations}
+              onClearSelection={handleClearSelection}
+              onUngroupConversation={handleUngroupConversation}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
               onEditComponents={handleOpenComponentsEditor}
@@ -952,6 +1128,8 @@ export default function App() {
                   warnings={selectedConversation.warnings}
                   onReprocessComponents={handleReprocessComponents}
                   isReprocessing={reprocessingId === selectedConversation.id}
+                  messageSourceMap={selectedConversation.messageSourceMap}
+                  isGrouped={selectedConversation.isGrouped}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

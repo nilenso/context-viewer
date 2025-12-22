@@ -184,11 +184,19 @@ async function mapPartsBatch(
       return {};
     }
 
-    const mapping = JSON.parse(jsonMatch[0]);
+    const rawMapping = JSON.parse(jsonMatch[0]);
 
-    if (typeof mapping !== "object" || mapping === null) {
+    if (typeof rawMapping !== "object" || rawMapping === null) {
       console.log("[Componentisation] Parsed batch result is not an object");
       return {};
+    }
+
+    // Normalize component names - strip leading "- " that AI might add
+    const mapping: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawMapping)) {
+      if (typeof value === 'string') {
+        mapping[key] = value.replace(/^-\s*/, '');
+      }
     }
 
     return mapping;
@@ -338,11 +346,20 @@ export async function assignComponentColors(
       return {};
     }
 
-    const colorMapping = JSON.parse(jsonMatch[0]);
+    const rawColorMapping = JSON.parse(jsonMatch[0]);
 
-    if (typeof colorMapping !== "object" || colorMapping === null) {
+    if (typeof rawColorMapping !== "object" || rawColorMapping === null) {
       console.log("[Componentisation] Parsed result is not an object");
       return {};
+    }
+
+    // Clean up keys - remove any leading "- " that AI might add
+    const colorMapping: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawColorMapping)) {
+      const cleanKey = key.replace(/^-\s*/, '');
+      if (typeof value === 'string') {
+        colorMapping[cleanKey] = value;
+      }
     }
 
     console.log(`[Componentisation] Assigned colors to ${Object.keys(colorMapping).length} components`);
@@ -380,8 +397,9 @@ export async function componentiseConversation(
   // Step 1: Identify components (or use custom components if provided)
   let components: string[];
   if (customComponents && customComponents.length > 0) {
-    console.log(`[Componentisation] Using ${customComponents.length} custom components`);
-    components = customComponents;
+    // Normalize custom components - strip leading "- " prefix
+    components = customComponents.map(c => c.replace(/^-\s*/, ''));
+    console.log(`[Componentisation] Using ${components.length} custom components (normalized)`);
   } else {
     onProgress?.("identifying");
     components = await identifyComponents(conversation, config, customPrompt);

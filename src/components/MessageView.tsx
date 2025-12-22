@@ -7,7 +7,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { MessagePartView } from "./MessagePartView";
-import type { Message } from "@/schema";
+import type { Message, SourceInfo } from "@/schema";
 import { cn } from "@/lib/utils";
 
 interface MessageViewProps {
@@ -17,9 +17,12 @@ interface MessageViewProps {
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;
   onComponentClick?: (component: string) => void;
+  // For grouped conversations
+  sourceInfo?: SourceInfo;
+  messageSourceMap?: Record<string, SourceInfo>;
 }
 
-export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick }: MessageViewProps) {
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -90,7 +93,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
       className={cn("border rounded-lg", getRoleBgColor())}
     >
       <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-black/5 transition-colors">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isOpen ? (
             <ChevronDown className="h-4 w-4" />
           ) : (
@@ -99,6 +102,11 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
           <span className="text-base">{getRoleEmoji()}</span>
           <Badge className={getRoleBadgeColor()}>{message.role}</Badge>
           <span className="text-sm text-muted-foreground">#{index + 1}</span>
+          {sourceInfo && (
+            <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
+              {sourceInfo.filename}
+            </Badge>
+          )}
           {totalTokens > 0 && (
             <Badge variant="outline" className="text-xs">
               {totalTokens} tokens total
@@ -116,6 +124,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
               componentMapping={componentMapping}
               componentColors={componentColors}
               onComponentClick={onComponentClick}
+              sourceInfo={messageSourceMap?.[part.id]}
             />
           ))}
         </div>

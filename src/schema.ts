@@ -119,6 +119,23 @@ export const ConversationSchema = z.object({
 });
 
 // ============================================================================
+// Source Conversation Info (for grouped conversations)
+// ============================================================================
+
+export const SourceInfoSchema = z.object({
+  conversationId: z.string(),
+  filename: z.string(),
+});
+
+export type SourceInfo = z.infer<typeof SourceInfoSchema>;
+
+// Extended message with optional source info (for grouped conversations)
+export interface MessageWithSource {
+  message: Message;
+  sourceInfo?: SourceInfo;
+}
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

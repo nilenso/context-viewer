@@ -15,6 +15,7 @@ import type {
   ToolResultPart,
   ImagePart,
   FilePart,
+  SourceInfo,
 } from "@/schema";
 
 type MessagePart =
@@ -31,9 +32,10 @@ interface MessagePartViewProps {
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;
   onComponentClick?: (component: string) => void;
+  sourceInfo?: SourceInfo;
 }
 
-export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick }: MessagePartViewProps) {
+export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo }: MessagePartViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop

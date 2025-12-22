@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight, Layers, Ungroup, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -25,12 +26,20 @@ interface WorkflowState {
   error?: string;
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
+  // Grouped conversation data
+  isGrouped?: boolean;
+  sourceConversations?: Array<{ id: string; filename: string }>;
 }
 
 interface ConversationListProps {
   conversations: WorkflowState[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string, isSelected: boolean) => void;
+  onGroupConversations: () => void;
+  onClearSelection: () => void;
+  onUngroupConversation: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
   onEditComponents?: () => void;
@@ -45,6 +54,11 @@ export function ConversationList({
   conversations,
   selectedId,
   onSelect,
+  selectedIds,
+  onToggleSelection,
+  onGroupConversations,
+  onClearSelection,
+  onUngroupConversation,
   onFilesSelected,
   onEditPrompt,
   onEditComponents,
@@ -56,6 +70,20 @@ export function ConversationList({
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(new Set());
+  // Selection mode - when true, show checkboxes
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  // Count of selectable conversations (non-grouped, success status)
+  const selectableConversations = conversations.filter(
+    c => !c.isGrouped && c.status === 'success'
+  );
+  const canGroup = selectedIds.size >= 2;
+
+  // Exit selection mode when selection is cleared
+  const handleExitSelectionMode = () => {
+    setIsSelectionMode(false);
+    onClearSelection();
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFilesSelected,
@@ -207,40 +235,87 @@ export function ConversationList({
     )}>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
-        {onToggleCollapse && !isOverlay && !isLocked && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleCollapse}
-            className="h-8 w-8 p-0"
-            title="Collapse sidebar"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-        {onToggleCollapse && isLocked && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleCollapse}
-            className="h-8 w-8 p-0"
-            title="Collapse sidebar"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-        {isOverlay && onLockSidebar && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onLockSidebar}
-            className="h-8 w-8 p-0"
-            title="Lock sidebar open"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {/* Selection mode toggle */}
+          {!isSelectionMode && selectableConversations.length >= 2 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSelectionMode(true)}
+              className="h-8 w-8 p-0"
+              title="Select conversations to group"
+            >
+              <Layers className="h-4 w-4" />
+            </Button>
+          )}
+          {isSelectionMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExitSelectionMode}
+              className="h-8 w-8 p-0"
+              title="Cancel selection"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+          {onToggleCollapse && !isOverlay && !isLocked && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 p-0"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {onToggleCollapse && isLocked && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 p-0"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {isOverlay && onLockSidebar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLockSidebar}
+              className="h-8 w-8 p-0"
+              title="Lock sidebar open"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Selection mode toolbar */}
+      {isSelectionMode && (
+        <div className="flex items-center gap-2 px-2 py-2 bg-blue-50 border border-blue-200 rounded-md">
+          <span className="text-xs text-blue-700 flex-1">
+            {selectedIds.size} selected
+          </span>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => {
+              onGroupConversations();
+              setIsSelectionMode(false);
+            }}
+            disabled={!canGroup}
+            className="h-7 text-xs"
+          >
+            <Layers className="h-3 w-3 mr-1" />
+            Group
+          </Button>
+        </div>
+      )}
       <div
         {...getRootProps()}
         className={cn(
@@ -258,15 +333,25 @@ export function ConversationList({
                 const isProcessing = conversation.status === "processing" ||
                   (conversation.status === "success" && conversation.step);
                 const isExpanded = !collapsedProgress.has(conversation.id);
+                const isSelectable = !conversation.isGrouped && conversation.status === 'success';
+                const isSelected = selectedIds.has(conversation.id);
 
                 return (
                   <div
                     key={conversation.id}
-                    onClick={() => onSelect(conversation.id)}
+                    onClick={() => {
+                      if (isSelectionMode && isSelectable) {
+                        onToggleSelection(conversation.id, !isSelected);
+                      } else {
+                        onSelect(conversation.id);
+                      }
+                    }}
                     className={cn(
                       "rounded-md border border-gray-200 cursor-pointer",
-                      selectedId === conversation.id && "border-blue-400 bg-blue-50/50",
-                      conversation.status === "failed" && "border-red-200 bg-red-50"
+                      selectedId === conversation.id && !isSelectionMode && "border-blue-400 bg-blue-50/50",
+                      isSelectionMode && isSelected && "border-blue-400 bg-blue-50/50",
+                      conversation.status === "failed" && "border-red-200 bg-red-50",
+                      conversation.isGrouped && "border-purple-200 bg-purple-50/30"
                     )}
                   >
                     <Button
@@ -277,29 +362,65 @@ export function ConversationList({
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onSelect(conversation.id);
+                        if (isSelectionMode && isSelectable) {
+                          onToggleSelection(conversation.id, !isSelected);
+                        } else {
+                          onSelect(conversation.id);
+                        }
                       }}
                     >
-                      <div className="flex flex-col gap-1 w-full">
-                        <div className="flex items-center gap-2">
-                          {conversation.status === "pending" && (
+                      <div className="flex flex-col gap-1 w-full overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Checkbox in selection mode */}
+                          {isSelectionMode && isSelectable && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                onToggleSelection(conversation.id, !!checked);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="shrink-0"
+                            />
+                          )}
+                          {/* Grouped icon */}
+                          {conversation.isGrouped && (
+                            <Layers className="h-4 w-4 shrink-0 text-purple-600" />
+                          )}
+                          {/* Status icons for non-grouped */}
+                          {!conversation.isGrouped && conversation.status === "pending" && (
                             <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
-                          {isProcessing && (
+                          {!conversation.isGrouped && isProcessing && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
                           )}
-                          {conversation.status === "success" && !conversation.step && !conversation.warnings && (
+                          {!conversation.isGrouped && conversation.status === "success" && !conversation.step && !conversation.warnings && (
                             <FileText className="h-4 w-4 shrink-0" />
                           )}
-                          {conversation.status === "success" && !conversation.step && conversation.warnings && (
+                          {!conversation.isGrouped && conversation.status === "success" && !conversation.step && conversation.warnings && (
                             <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
                           )}
-                          {conversation.status === "failed" && (
+                          {!conversation.isGrouped && conversation.status === "failed" && (
                             <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                           )}
-                          <span className="font-medium text-sm truncate flex-1">
-                            {conversation.filename}
+                          <span
+                            className="font-medium text-sm truncate flex-1 min-w-0"
+                            title={conversation.filename}
+                          >
+                            {conversation.isGrouped ? "Grouped" : conversation.filename}
                           </span>
+                          {/* Ungroup button for grouped conversations */}
+                          {conversation.isGrouped && conversation.status === "success" && !conversation.step && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onUngroupConversation(conversation.id);
+                              }}
+                              className="shrink-0 p-0.5 hover:bg-accent rounded cursor-pointer"
+                              title="Ungroup"
+                            >
+                              <Ungroup className="h-4 w-4 text-purple-600 hover:text-purple-800" />
+                            </div>
+                          )}
                           {(isProcessing || conversation.status === "success") && (
                             <div
                               onClick={(e) => toggleProgress(conversation.id, e)}
@@ -315,10 +436,23 @@ export function ConversationList({
                           )}
                         </div>
 
+                        {/* Source files for grouped conversation */}
+                        {conversation.isGrouped && conversation.sourceConversations && (
+                          <div className="text-xs text-purple-600 pl-6 truncate" title={conversation.sourceConversations.map(s => s.filename).join(', ')}>
+                            {conversation.sourceConversations.map(s => s.filename).join(', ')}
+                          </div>
+                        )}
+
                         <div className="flex gap-2 items-center flex-wrap">
                           {conversation.status === "success" && !conversation.step && conversation.summary && (
                             <Badge variant="secondary" className="self-start text-xs">
                               {conversation.summary.totalMessages} messages
+                            </Badge>
+                          )}
+
+                          {conversation.isGrouped && conversation.sourceConversations && (
+                            <Badge variant="outline" className="self-start text-xs border-purple-400 text-purple-700 bg-purple-50">
+                              {conversation.sourceConversations.length} files
                             </Badge>
                           )}
 

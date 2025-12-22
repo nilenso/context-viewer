@@ -17,7 +17,7 @@ import { MessagePartView } from "./MessagePartView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
-import type { Conversation, Message } from "@/schema";
+import type { Conversation, Message, SourceInfo } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
 interface ConversationViewProps {
@@ -32,6 +32,9 @@ interface ConversationViewProps {
   warnings?: string[];
   onReprocessComponents?: (options?: { customPrompt?: string; customComponents?: string[] }) => Promise<void>;
   isReprocessing?: boolean;
+  // Grouped conversation data
+  messageSourceMap?: Record<string, SourceInfo>;
+  isGrouped?: boolean;
 }
 
 export function ConversationView({
@@ -44,7 +47,9 @@ export function ConversationView({
   staticTimeline,
   warnings,
   onReprocessComponents,
-  isReprocessing
+  isReprocessing,
+  messageSourceMap,
+  isGrouped
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
@@ -608,12 +613,14 @@ export function ConversationView({
             {filteredAndSortedMessages.map(({ message, originalIndex }) => (
               <MessageView
                 key={originalIndex}
-                message={message}
+                message={message as Message}
                 index={originalIndex}
                 isExpanded={expandAll}
                 componentMapping={componentMapping}
                 componentColors={componentColors}
                 onComponentClick={handleComponentClick}
+                sourceInfo={isGrouped ? messageSourceMap?.[message.id] : undefined}
+                messageSourceMap={isGrouped ? messageSourceMap : undefined}
               />
             ))}
           </div>
@@ -692,15 +699,21 @@ export function ConversationView({
 
                   if (relevantParts.length === 0) return null;
 
+                  const sourceInfo = isGrouped ? messageSourceMap?.[message.id] : undefined;
                   return (
                     <Card key={msgIndex} className="p-4">
-                      <div className="mb-3 flex items-center gap-2">
+                      <div className="mb-3 flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           Message {msgIndex + 1}
                         </Badge>
                         <Badge variant="secondary" className="text-xs capitalize">
                           {message.role}
                         </Badge>
+                        {sourceInfo && (
+                          <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
+                            {sourceInfo.filename}
+                          </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {relevantParts.length} {relevantParts.length === 1 ? 'part' : 'parts'}
                         </span>
@@ -709,7 +722,11 @@ export function ConversationView({
                       <div className="space-y-3">
                         {relevantParts.map((part) => (
                           <div key={part.id}>
-                            <MessagePartView part={part as any} isExpanded={false} />
+                            <MessagePartView
+                              part={part as any}
+                              isExpanded={false}
+                              sourceInfo={isGrouped ? messageSourceMap?.[part.id] : undefined}
+                            />
                           </div>
                         ))}
                       </div>
