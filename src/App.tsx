@@ -14,6 +14,7 @@ import {
   componentiseConversation,
   assignComponentColors,
   getComponentisationConfig,
+  buildComponentTimeline,
   type ComponentTimelineSnapshot
 } from "./componentisation";
 import { staticComponentise } from "./static-componentisation";
@@ -416,8 +417,8 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'counting-tokens');
     }
 
-    // Step 2: Count tokens (only for new files, or grouped conversations)
-    if (event === WorkflowEvent.NewFile || event === WorkflowEvent.GroupedConversation) {
+    // Step 2: Count tokens (only for new files - skip for grouped, they already have token counts)
+    if (event === WorkflowEvent.NewFile) {
       runner.startStep(ctx, 'counting-tokens');
       const { result, timing } = await runner.runActivity(ctx, countTokensActivity);
       ctx.conversation = result.conversation;
@@ -451,10 +452,11 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'finding-components');
     }
 
-    // For grouped conversations, skip segmenting and go directly to finding-components
-    // Also generate AI summary in parallel
+    // For grouped conversations, skip segmenting, finding-components, and coloring
+    // The merged component data is already in ctx from handleGroupConversations
+    // Just generate AI summary in parallel and go directly to analysis
     if (event === WorkflowEvent.GroupedConversation) {
-      runner.updateState(ctx, 'finding-components');
+      runner.updateState(ctx, 'analysis');
       // Generate AI summary in parallel with next steps (fire and forget)
       createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(summaryResult => {
         ctx.aiSummary = summaryResult.summary;
@@ -475,24 +477,26 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'finding-components');
     }
 
-    // Step 4: Find components (always run)
-    runner.startStep(ctx, 'finding-components');
-    const { result: componentResult, timing: componentTiming } =
-      await runner.runActivity(ctx, findComponentsActivity);
-    ctx.components = componentResult.components;
-    ctx.componentMapping = componentResult.mapping;
-    ctx.componentTimeline = componentResult.timeline;
-    if (componentResult.error) ctx.warnings!.push(componentResult.error);
-    ctx.stepTimings!['finding-components'] = componentTiming;
-    runner.updateState(ctx, 'coloring');
+    // Step 4: Find components (skip for grouped conversations - data already merged)
+    if (event !== WorkflowEvent.GroupedConversation) {
+      runner.startStep(ctx, 'finding-components');
+      const { result: componentResult, timing: componentTiming } =
+        await runner.runActivity(ctx, findComponentsActivity);
+      ctx.components = componentResult.components;
+      ctx.componentMapping = componentResult.mapping;
+      ctx.componentTimeline = componentResult.timeline;
+      if (componentResult.error) ctx.warnings!.push(componentResult.error);
+      ctx.stepTimings!['finding-components'] = componentTiming;
+      runner.updateState(ctx, 'coloring');
 
-    // Step 5: Assign colors (always run)
-    runner.startStep(ctx, 'coloring');
-    const { result: colorResult, timing: colorTiming } =
-      await runner.runActivity(ctx, assignColorsActivity);
-    ctx.componentColors = colorResult.colors;
-    ctx.stepTimings!.coloring = colorTiming;
-    runner.updateState(ctx, 'analysis');
+      // Step 5: Assign colors (skip for grouped conversations - colors already merged)
+      runner.startStep(ctx, 'coloring');
+      const { result: colorResult, timing: colorTiming } =
+        await runner.runActivity(ctx, assignColorsActivity);
+      ctx.componentColors = colorResult.colors;
+      ctx.stepTimings!.coloring = colorTiming;
+      runner.updateState(ctx, 'analysis');
+    }
 
     // Step 6: Generate analysis (always run)
     // Clear old analysis if reprocessing
@@ -1038,6 +1042,52 @@ export default function App() {
       messages: allMessages,
     };
 
+    // Merge component data from all selected conversations
+    // Components: unique set of all components
+    const mergedComponentsSet = new Set<string>();
+    const mergedComponentMapping: Record<string, string> = {};
+    const mergedComponentColors: Record<string, string> = {};
+
+    // Static components
+    const mergedStaticComponentsSet = new Set<string>();
+    const mergedStaticMapping: Record<string, string> = {};
+
+    for (const conv of selectedConvs) {
+      // Merge AI components
+      if (conv.components) {
+        conv.components.forEach(c => mergedComponentsSet.add(c));
+      }
+      if (conv.componentMapping) {
+        // Remap part IDs to new prefixed IDs
+        for (const [partId, component] of Object.entries(conv.componentMapping)) {
+          const newPartId = `${conv.id}-${partId}`;
+          mergedComponentMapping[newPartId] = component;
+        }
+      }
+      if (conv.componentColors) {
+        Object.assign(mergedComponentColors, conv.componentColors);
+      }
+
+      // Merge static components
+      if (conv.staticComponents) {
+        conv.staticComponents.forEach(c => mergedStaticComponentsSet.add(c));
+      }
+      if (conv.staticMapping) {
+        // Remap part IDs to new prefixed IDs
+        for (const [partId, component] of Object.entries(conv.staticMapping)) {
+          const newPartId = `${conv.id}-${partId}`;
+          mergedStaticMapping[newPartId] = component;
+        }
+      }
+    }
+
+    const mergedComponents = Array.from(mergedComponentsSet);
+    const mergedStaticComponents = Array.from(mergedStaticComponentsSet);
+
+    // Rebuild timelines from merged data
+    const mergedComponentTimeline = buildComponentTimeline(groupedConversation, mergedComponentMapping);
+    const mergedStaticTimeline = buildComponentTimeline(groupedConversation, mergedStaticMapping);
+
     // Create source conversations list
     const sourceConversations = selectedConvs.map(conv => ({
       id: conv.id,
@@ -1047,7 +1097,7 @@ export default function App() {
     // Create grouped name
     const groupedFilename = `Grouped: ${sourceConversations.map(s => s.filename).join(', ')}`;
 
-    // Create placeholder
+    // Create placeholder with merged component data
     const placeholder: WorkflowState = {
       id: groupId,
       filename: groupedFilename,
@@ -1055,6 +1105,14 @@ export default function App() {
       isGrouped: true,
       sourceConversations,
       messageSourceMap,
+      // Include merged component data
+      components: mergedComponents,
+      componentMapping: mergedComponentMapping,
+      componentTimeline: mergedComponentTimeline,
+      componentColors: mergedComponentColors,
+      staticComponents: mergedStaticComponents,
+      staticMapping: mergedStaticMapping,
+      staticTimeline: mergedStaticTimeline,
     };
 
     // Add placeholder immediately
@@ -1069,7 +1127,7 @@ export default function App() {
       );
     });
 
-    // Initialize workflow context
+    // Initialize workflow context with merged component data
     const ctx: WorkflowState = {
       id: groupId,
       filename: groupedFilename,
@@ -1081,6 +1139,14 @@ export default function App() {
       warnings: [],
       stepTimings: {},
       config: getComponentisationConfig(),
+      // Include merged component data - workflow will skip finding-components step
+      components: mergedComponents,
+      componentMapping: mergedComponentMapping,
+      componentTimeline: mergedComponentTimeline,
+      componentColors: mergedComponentColors,
+      staticComponents: mergedStaticComponents,
+      staticMapping: mergedStaticMapping,
+      staticTimeline: mergedStaticTimeline,
     };
 
     // Run workflow with GroupedConversation event

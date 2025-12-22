@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
+
+type SortMode = "tokens" | "name";
 
 interface WaffleChartProps {
   componentTokens: Record<string, number>;
@@ -19,16 +22,22 @@ export function WaffleChart({
   getLabel,
   onComponentClick,
 }: WaffleChartProps) {
+  const [sortMode, setSortMode] = useState<SortMode>("tokens");
   const GRID_SIZE = 400; // 20x20 grid
 
-  // Calculate percentages and sort by size (largest first)
+  // Calculate percentages and sort based on mode
   const componentData = Object.entries(componentTokens)
     .map(([component, tokens]) => ({
       component,
       tokens,
       percentage: totalTokens > 0 ? (tokens / totalTokens) * 100 : 0,
     }))
-    .sort((a, b) => b.percentage - a.percentage);
+    .sort((a, b) => {
+      if (sortMode === "name") {
+        return a.component.localeCompare(b.component);
+      }
+      return b.percentage - a.percentage;
+    });
 
   // Build the 400-square grid (20x20)
   // Each square is assigned to a component based on percentage
@@ -61,6 +70,32 @@ export function WaffleChart({
     <div className="flex gap-8 items-start">
       {/* Legend (left side) */}
       <div className="flex flex-col gap-1.5 min-w-[240px]">
+        {/* Sort toggle */}
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 px-2">
+          <span>Sort:</span>
+          <button
+            onClick={() => setSortMode("tokens")}
+            className={cn(
+              "px-1.5 py-0.5 rounded transition-colors",
+              sortMode === "tokens"
+                ? "bg-gray-200 text-gray-900"
+                : "hover:bg-gray-100"
+            )}
+          >
+            tokens
+          </button>
+          <button
+            onClick={() => setSortMode("name")}
+            className={cn(
+              "px-1.5 py-0.5 rounded transition-colors",
+              sortMode === "name"
+                ? "bg-gray-200 text-gray-900"
+                : "hover:bg-gray-100"
+            )}
+          >
+            name
+          </button>
+        </div>
         {componentData.map(({ component, tokens, percentage }) => (
           <button
             key={component}

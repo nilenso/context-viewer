@@ -1394,3 +1394,11 @@ what's a good way to handle this?
 
 ### Dec 22, 2025 14:52:09
 are anthropic models supported in this tool?
+
+### Dec 22, 2025 15:08:45
+currently, when grouping conversations, the conversations are appended to appear one after another, and then re-componentisation occurs, and then all the analysis after that occurs.
+
+instead, just merge the conversations with their current segments and components as-is. 
+
+### Dec 22, 2025 15:21:56
+in the waffle chart, it's sorted by the max % tokens first. i also want the ability to sort by name on the left.
