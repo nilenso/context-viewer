@@ -63,15 +63,16 @@ function identifyLargeParts(conversation: Conversation): Array<{
  */
 async function segmentTextWithAI(
   text: string,
-  config: SegmentationConfig
+  config: SegmentationConfig,
+  customPrompt?: string
 ): Promise<string[]> {
   const openai = createOpenAI({
     apiKey: config.apiKey,
   });
 
-  console.log(`[Segmentation] Calling AI to segment text (${text.length} chars, model: ${config.model})`);
+  console.log(`[Segmentation] Calling AI to segment text (${text.length} chars, model: ${config.model})${customPrompt ? ' with custom prompt' : ''}`);
 
-  const prompt = getPrompt("segmentation", { text });
+  const prompt = getPrompt("segmentation", { text, customPrompt });
 
   try {
     const result = await generateText({
@@ -104,6 +105,26 @@ async function segmentTextWithAI(
 }
 
 /**
+ * Preprocess regex patterns to make them work correctly with split()
+ * Removes ^ and $ anchors from inside lookaheads since they don't work correctly
+ * when used with String.split()
+ */
+function preprocessPattern(pattern: string): string {
+  // Remove ^ anchor (start of line) from inside lookaheads
+  // (?=^...) -> (?=...)
+  let processed = pattern.replace(/\(\?=\^/g, '(?=');
+
+  // Remove $ anchor (end of line) from inside lookaheads
+  // ...\\s*$) -> ...\\s*)
+  processed = processed.replace(/\$\)/g, ')');
+
+  // Also handle \s*$ patterns
+  processed = processed.replace(/\\s\*\$/g, '\\s*');
+
+  return processed;
+}
+
+/**
  * Split a text using an array of regex patterns or substrings
  * Returns the parts of the text separated by the patterns
  * Supports positive lookahead patterns like (?=<tag>)
@@ -114,8 +135,11 @@ function splitTextBySubstrings(text: string, substrings: string[]): string[] {
   }
 
   try {
+    // Preprocess patterns to remove anchors that don't work with split()
+    const processedPatterns = substrings.map(preprocessPattern);
+
     // Combine all patterns into a single regex with alternation
-    const combinedPattern = substrings.join('|');
+    const combinedPattern = processedPatterns.join('|');
     const regex = new RegExp(combinedPattern);
 
     // Split using the combined regex
@@ -126,6 +150,7 @@ function splitTextBySubstrings(text: string, substrings: string[]): string[] {
       .map(part => part.trim())
       .filter(part => part.length > 0);
   } catch (error) {
+    console.error('[Segmentation] Regex error:', error);
     // Fallback: return the original text if regex fails
     return [text];
   }
@@ -148,7 +173,8 @@ type SegmentResult =
  */
 async function segmentMessagePart(
   part: Message["parts"][number],
-  config: SegmentationConfig
+  config: SegmentationConfig,
+  customPrompt?: string
 ): Promise<SegmentResult> {
   // Get text content from different part types
   let text: string;
@@ -164,7 +190,7 @@ async function segmentMessagePart(
   }
 
   console.log(`[Segmentation] Processing part ${part.id}, type: ${part.type}, text length: ${text.length}`);
-  const substrings = await segmentTextWithAI(text, config);
+  const substrings = await segmentTextWithAI(text, config, customPrompt);
 
   if (substrings.length === 0) {
     console.log(`[Segmentation] No substrings returned for part ${part.id}`);
@@ -213,7 +239,8 @@ async function segmentMessagePart(
  */
 export async function segmentConversation(
   conversation: Conversation,
-  onProgress?: (processed: number, total: number) => void
+  onProgress?: (processed: number, total: number) => void,
+  customPrompt?: string
 ): Promise<{ conversation: Conversation; error?: string }> {
   console.log("[Segmentation] Starting segmentation process");
 
@@ -234,7 +261,7 @@ export async function segmentConversation(
   // Process all large parts in parallel
   const segmentationPromises = largeParts.map(
     async ({ messageIndex, partIndex, part }) => {
-      const result = await segmentMessagePart(part, config);
+      const result = await segmentMessagePart(part, config, customPrompt);
       return { messageIndex, partIndex, result };
     }
   );

@@ -353,10 +353,21 @@ export async function assignComponentColors(
       return {};
     }
 
-    // Clean up keys - remove any leading "- " that AI might add
+    // Clean up keys - handle various AI response formats:
+    // - Remove leading "- " that AI might add
+    // - Extract component name from "name: description" format (some models include descriptions)
     const colorMapping: Record<string, string> = {};
     for (const [key, value] of Object.entries(rawColorMapping)) {
-      const cleanKey = key.replace(/^-\s*/, '');
+      let cleanKey = key.replace(/^-\s*/, '');
+
+      // If the key contains ": " followed by a description, extract just the component name
+      // e.g., "identity: Establishes who the AI is..." -> "identity"
+      // But preserve dots in component names like "personality.guidelines"
+      const colonDescIndex = cleanKey.indexOf(': ');
+      if (colonDescIndex > 0) {
+        cleanKey = cleanKey.substring(0, colonDescIndex);
+      }
+
       if (typeof value === 'string') {
         colorMapping[cleanKey] = value;
       }

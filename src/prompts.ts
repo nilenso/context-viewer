@@ -21,17 +21,15 @@ const prompts: Record<PromptKey, PromptTemplate> = {
   segmentation: {
     key: "segmentation",
     description: "Segments large text parts into semantic sections",
-    template: ({ text }) => `Given the following text, tell me where all you would apply a break.
-The purpose is semantic chunking in way that's suitable for categorization.
-Only give me the top level sections to split the text into coherent topical chunks.
-Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
-
-Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]
+    template: ({ text, customPrompt }) => {
+      const userPrompt = customPrompt || getDefaultSegmentationPrompt();
+      return `${userPrompt}
 
 \`\`\`
 ${text}
 \`\`\`
-`,
+`;
+    },
   },
 
   "conversation-summary": {
@@ -158,4 +156,17 @@ export function getAllPromptKeys(): PromptKey[] {
 export function getDefaultComponentIdentificationPrompt(): string {
   return `given this conversation, give me a list of all its components for a summary view
 each component can be 3 to 4 words in length`;
+}
+
+/**
+ * Get the default (user-editable) segmentation prompt
+ * This is the part shown in the UI without the text content
+ */
+export function getDefaultSegmentationPrompt(): string {
+  return `Given the following text, tell me where all you would apply a break.
+The purpose is semantic chunking in way that's suitable for categorization.
+Only give me the top level sections to split the text into coherent topical chunks.
+Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
+
+Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]`;
 }

@@ -27,7 +27,7 @@ import { Textarea } from "./components/ui/textarea";
 import { Button as UIButton } from "./components/ui/button";
 import { Clock, Loader2, AlertCircle, Upload } from "lucide-react";
 import { cn } from "./lib/utils";
-import { getDefaultComponentIdentificationPrompt } from "./prompts";
+import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt } from "./prompts";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -58,6 +58,7 @@ interface WorkflowState {
   file?: File;
   config?: any;
   customPrompt?: string;
+  customSegmentationPrompt?: string;
   customComponents?: string[];
 
   // Core data
@@ -101,6 +102,7 @@ interface WorkflowBatchResult {
 enum WorkflowEvent {
   NewFile = 'new-file',
   ComponentPromptChanged = 'component-prompt-changed',
+  SegmentationPromptChanged = 'segmentation-prompt-changed',
   GroupedConversation = 'grouped-conversation'
 }
 
@@ -195,7 +197,7 @@ const segmentActivity: Activity<{
   conversation: Conversation;
   error?: string;
 }> = async (ctx) => {
-  const result = await segmentConversation(ctx.conversation!);
+  const result = await segmentConversation(ctx.conversation!, undefined, ctx.customSegmentationPrompt);
   const conversation = await addTokenCounts(result.conversation);
   return {
     conversation,
@@ -460,6 +462,19 @@ async function processConversationWorkflow(
       });
     }
 
+    // For segmentation prompt changed, start from segmenting step
+    if (event === WorkflowEvent.SegmentationPromptChanged) {
+      runner.startStep(ctx, 'segmenting');
+      const { result: segmentResult, timing: segmentTiming } =
+        await runner.runActivity(ctx, segmentActivity);
+
+      ctx.conversation = segmentResult.conversation;
+      if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
+      ctx.stepTimings!.segmenting = segmentTiming;
+
+      runner.updateState(ctx, 'finding-components');
+    }
+
     // Step 4: Find components (always run)
     runner.startStep(ctx, 'finding-components');
     const { result: componentResult, timing: componentTiming } =
@@ -597,6 +612,10 @@ export default function App() {
   // Components editor dialog state
   const [isComponentsDialogOpen, setIsComponentsDialogOpen] = useState(false);
   const [editingComponents, setEditingComponents] = useState("");
+
+  // Segmentation prompt editor dialog state
+  const [isSegmentationPromptDialogOpen, setIsSegmentationPromptDialogOpen] = useState(false);
+  const [editingSegmentationPrompt, setEditingSegmentationPrompt] = useState(getDefaultSegmentationPrompt());
 
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
@@ -767,6 +786,22 @@ export default function App() {
     }
   };
 
+  // Handle opening the segmentation prompt editor
+  const handleOpenSegmentationPromptEditor = () => {
+    // Get the prompt from the selected conversation if it exists, otherwise use default
+    const currentPrompt = selectedConversation?.customSegmentationPrompt || getDefaultSegmentationPrompt();
+    setEditingSegmentationPrompt(currentPrompt);
+    setIsSegmentationPromptDialogOpen(true);
+  };
+
+  // Handle applying the edited segmentation prompt
+  const handleApplySegmentationPrompt = async () => {
+    setIsSegmentationPromptDialogOpen(false);
+    if (selectedConversation && selectedConversation.conversation) {
+      await handleReprocessSegmentation({ customSegmentationPrompt: editingSegmentationPrompt });
+    }
+  };
+
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
     if (isSidebarCollapsed) {
@@ -854,6 +889,73 @@ export default function App() {
       );
     } catch (error) {
       console.error("Failed to reprocess components:", error);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? { ...conv, status: "failed", step: undefined, error: "Reprocessing failed" }
+            : conv
+        )
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
+  // Reprocess segmentation with a custom prompt using workflow
+  const handleReprocessSegmentation = async (options: { customSegmentationPrompt?: string } = {}) => {
+    if (!selectedConversation?.conversation) return;
+
+    const id = selectedConversation.id;
+    setReprocessingId(id);
+
+    try {
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations(prev =>
+          prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
+        );
+      });
+
+      // Initialize workflow context from existing conversation
+      // We need to use the original (un-segmented) conversation for re-segmentation
+      // For now, we'll use the current conversation - in a more advanced implementation,
+      // we'd want to store the original pre-segmentation conversation
+      const ctx: WorkflowState = {
+        id,
+        filename: selectedConversation.filename,
+        conversation: selectedConversation.conversation,
+        summary: selectedConversation.summary,
+        aiSummary: selectedConversation.aiSummary,
+        components: selectedConversation.components,
+        componentMapping: selectedConversation.componentMapping,
+        componentTimeline: selectedConversation.componentTimeline,
+        componentColors: selectedConversation.componentColors,
+        analysis: selectedConversation.analysis,
+        customSegmentationPrompt: options.customSegmentationPrompt,
+        config: getComponentisationConfig(),
+        warnings: [],
+        stepTimings: { ...selectedConversation.stepTimings }
+      };
+
+      // Run workflow with SegmentationPromptChanged event
+      await processConversationWorkflow(
+        WorkflowEvent.SegmentationPromptChanged,
+        ctx,
+        runner,
+        {
+          onAnalysisChunk: (id, chunk) => {
+            setConversations(prev =>
+              prev.map(conv =>
+                conv.id === id
+                  ? { ...conv, analysis: (conv.analysis || '') + chunk }
+                  : conv
+              )
+            );
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Failed to reprocess segmentation:", error);
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === id
@@ -1104,6 +1206,7 @@ export default function App() {
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
               onEditComponents={handleOpenComponentsEditor}
+              onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleToggleSidebar}
               onLockSidebar={handleLockSidebar}
@@ -1271,6 +1374,44 @@ export default function App() {
             <UIButton
               onClick={handleApplyComponents}
               disabled={!editingComponents.trim()}
+            >
+              Apply & Reprocess
+            </UIButton>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Segmentation Prompt Editor Dialog */}
+      <Dialog open={isSegmentationPromptDialogOpen} onOpenChange={setIsSegmentationPromptDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Segmentation Prompt</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <p className="text-sm text-muted-foreground">
+              Customize the prompt used to segment large text parts into smaller semantic chunks. The AI will use this prompt to identify where to split long content.
+            </p>
+            <Textarea
+              value={editingSegmentationPrompt}
+              onChange={(e) => setEditingSegmentationPrompt(e.target.value)}
+              placeholder="Enter your segmentation prompt..."
+              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>This will re-run segmentation, componentisation, visualization, and analysis</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <UIButton
+              variant="outline"
+              onClick={() => setIsSegmentationPromptDialogOpen(false)}
+            >
+              Cancel
+            </UIButton>
+            <UIButton
+              onClick={handleApplySegmentationPrompt}
+              disabled={!editingSegmentationPrompt.trim()}
             >
               Apply & Reprocess
             </UIButton>

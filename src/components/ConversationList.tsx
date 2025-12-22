@@ -43,6 +43,7 @@ interface ConversationListProps {
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
   onEditComponents?: () => void;
+  onEditSegmentationPrompt?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onLockSidebar?: () => void;
@@ -62,6 +63,7 @@ export function ConversationList({
   onFilesSelected,
   onEditPrompt,
   onEditComponents,
+  onEditSegmentationPrompt,
   isCollapsed = false,
   onToggleCollapse,
   onLockSidebar,
@@ -479,6 +481,7 @@ export function ConversationList({
                             const status = getStepStatus(conversation, step.key);
                             const timing = conversation.stepTimings?.[step.key];
                             const isFindComponentsStep = step.key === "finding-components";
+                            const isSegmentingStep = step.key === "segmenting";
                             return (
                               <div key={step.key}>
                                 <div className="flex items-center gap-2 text-xs">
@@ -507,6 +510,20 @@ export function ConversationList({
                                     </span>
                                   )}
                                 </div>
+                                {/* Edit prompt link - show below "Segment content" step */}
+                                {isSegmentingStep && onEditSegmentationPrompt && (
+                                  <div className="flex gap-2 ml-5 mt-0.5">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditSegmentationPrompt();
+                                      }}
+                                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                    >
+                                      Edit prompt
+                                    </button>
+                                  </div>
+                                )}
                                 {/* Edit prompt and Edit components links - show below "Find components" step */}
                                 {isFindComponentsStep && (onEditPrompt || onEditComponents) && (
                                   <div className="flex gap-2 ml-5 mt-0.5">
