@@ -21,6 +21,7 @@ import { staticComponentise } from "./static-componentisation";
 import { generateConversationSummary, generateContextAnalysis } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
+import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./components/ui/dialog";
@@ -609,6 +610,9 @@ export default function App() {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isSidebarLocked, setIsSidebarLocked] = useState(false);
 
+  // Insights panel collapse state
+  const [isInsightsPanelCollapsed, setIsInsightsPanelCollapsed] = useState(false);
+
   // Prompt editor dialog state
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(getDefaultComponentIdentificationPrompt());
@@ -704,6 +708,47 @@ export default function App() {
       conversations[0]
     );
   }, [conversations, selectedId]);
+
+  // Build source conversation component data for grouped conversation comparison view
+  const sourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
+    if (!selectedConversation?.isGrouped || !selectedConversation.sourceConversations) {
+      return undefined;
+    }
+
+    return selectedConversation.sourceConversations
+      .map((source) => {
+        const conv = conversations.find((c) => c.id === source.id);
+        if (!conv?.conversation || !conv.componentMapping) {
+          return null;
+        }
+
+        // Calculate component tokens for this conversation
+        const componentTokens: Record<string, number> = {};
+        let totalTokens = 0;
+
+        for (const message of conv.conversation.messages) {
+          for (const part of message.parts) {
+            const component = conv.componentMapping[part.id];
+            const tokenCount = ("token_count" in part && part.token_count) || 0;
+            totalTokens += tokenCount;
+
+            if (component) {
+              componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+            } else {
+              componentTokens["other"] = (componentTokens["other"] || 0) + tokenCount;
+            }
+          }
+        }
+
+        return {
+          id: source.id,
+          filename: source.filename,
+          componentTokens,
+          totalTokens,
+        };
+      })
+      .filter((data): data is ConversationComponentData => data !== null);
+  }, [selectedConversation, conversations]);
 
   useEffect(() => {
     if (conversations.length === 0) {
@@ -838,6 +883,11 @@ export default function App() {
     if (isSidebarCollapsed && !isSidebarLocked) {
       setIsSidebarHovered(false);
     }
+  };
+
+  // Insights panel toggle handler
+  const handleToggleInsightsPanel = () => {
+    setIsInsightsPanelCollapsed(prev => !prev);
   };
 
   const handleReprocessComponents = async (options: { customPrompt?: string; customComponents?: string[] } = {}) => {
@@ -1250,8 +1300,13 @@ export default function App() {
           /* Main Content */
           <div className={cn(
             "grid gap-6 transition-all duration-300",
-            isSidebarCollapsed
+            // Grid columns based on sidebar and insights panel collapse state
+            isSidebarCollapsed && isInsightsPanelCollapsed
+              ? "grid-cols-[48px_1fr_48px]"
+              : isSidebarCollapsed && !isInsightsPanelCollapsed
               ? "grid-cols-[48px_minmax(600px,1fr)_minmax(480px,32%)]"
+              : !isSidebarCollapsed && isInsightsPanelCollapsed
+              ? "grid-cols-[260px_1fr_48px]"
               : "grid-cols-[260px_minmax(500px,1fr)_minmax(420px,30%)]"
           )}>
           {/* Sidebar: Conversation List */}
@@ -1299,6 +1354,7 @@ export default function App() {
                   isReprocessing={reprocessingId === selectedConversation.id}
                   messageSourceMap={selectedConversation.messageSourceMap}
                   isGrouped={selectedConversation.isGrouped}
+                  sourceConversationComponents={sourceConversationComponents}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">
@@ -1348,7 +1404,7 @@ export default function App() {
 
           {/* Right Sidebar: AI Summary & Analysis */}
           <aside>
-            {selectedConversation && (
+            {selectedConversation ? (
               <AISummary
                 summary={selectedConversation.aiSummary}
                 analysis={selectedConversation.analysis}
@@ -1364,6 +1420,13 @@ export default function App() {
                 }
                 activeTab={insightsTab}
                 onTabChange={setInsightsTab}
+                isCollapsed={isInsightsPanelCollapsed}
+                onToggleCollapse={handleToggleInsightsPanel}
+              />
+            ) : (
+              <AISummary
+                isCollapsed={isInsightsPanelCollapsed}
+                onToggleCollapse={handleToggleInsightsPanel}
               />
             )}
           </aside>

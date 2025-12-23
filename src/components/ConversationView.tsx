@@ -14,6 +14,7 @@ import { ComponentsView } from "./ComponentsView";
 import { StaticComponentsView } from "./StaticComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
 import { MessagePartView } from "./MessagePartView";
+import { ComponentComparisonView, type ConversationComponentData } from "./ComponentComparisonView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
@@ -35,6 +36,7 @@ interface ConversationViewProps {
   // Grouped conversation data
   messageSourceMap?: Record<string, SourceInfo>;
   isGrouped?: boolean;
+  sourceConversationComponents?: ConversationComponentData[];
 }
 
 export function ConversationView({
@@ -49,7 +51,8 @@ export function ConversationView({
   onReprocessComponents,
   isReprocessing,
   messageSourceMap,
-  isGrouped
+  isGrouped,
+  sourceConversationComponents
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
@@ -416,6 +419,9 @@ export function ConversationView({
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
           <TabsTrigger value="chart">Timeline Chart</TabsTrigger>
+          {isGrouped && sourceConversationComponents && sourceConversationComponents.length > 0 && (
+            <TabsTrigger value="comparison">Component Comparison</TabsTrigger>
+          )}
         </TabsList>
       </div>
 
@@ -758,6 +764,17 @@ export function ConversationView({
           />
         </div>
       </TabsContent>
+
+      {isGrouped && sourceConversationComponents && sourceConversationComponents.length > 0 && (
+        <TabsContent value="comparison" className="flex-1 mt-0 overflow-auto">
+          <div className="border rounded-lg bg-muted/30">
+            <ComponentComparisonView
+              sourceConversations={sourceConversationComponents}
+              componentColors={componentColors}
+            />
+          </div>
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

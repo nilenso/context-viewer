@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ChevronRight, ChevronLeft, Menu } from "lucide-react";
 import Markdown from "react-markdown";
 
 interface AISummaryProps {
@@ -10,15 +11,50 @@ interface AISummaryProps {
   isAnalysisStreaming?: boolean;
   activeTab?: string;
   onTabChange?: (value: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange }: AISummaryProps) {
+export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse }: AISummaryProps) {
   const noContent = !summary && !isSummaryStreaming && !analysis && !isAnalysisStreaming;
+
+  // Collapsed state - show minimal toggle button
+  if (isCollapsed) {
+    return (
+      <div className="flex flex-col items-center py-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleCollapse}
+          className="h-8 w-8 p-0"
+          title="Open insights panel"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+        <span className="text-xs text-muted-foreground mt-2 [writing-mode:vertical-lr] rotate-180">
+          Insights
+        </span>
+      </div>
+    );
+  }
 
   if (noContent) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Insights</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Insights</h2>
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 p-0"
+              title="Collapse insights panel"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
@@ -73,7 +109,20 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Insights</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Insights</h2>
+        {onToggleCollapse && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Collapse insights panel"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
       <Tabs
         value={activeTab || "summary"}
         onValueChange={onTabChange}

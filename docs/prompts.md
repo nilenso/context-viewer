@@ -1474,3 +1474,23 @@ hardcode this color mapping for now, and call out that it's temporary. keep the 
   "tools.advanced.images": "gray",
   "tools.advanced.integrations": "gray"
 }
+
+### Dec 23, 2025 13:35:25
+for a grouped conversation, I want to see another tab for "component comparison", in which, I want to see a grid of waffle charts, one per conversation, titled with its file name. if i have 6 conversations, i want to be able to see a 3x2 grid.
+
+this is so that I can compare them against each other. each waffle chart should have its legend with percentages beside it.
+
+### Dec 23, 2025 13:40:41
+i want an option to hide away the insights panel on the right the same way i can hide away the conversation list panel on left.
+
+### Dec 23, 2025 13:47:09
+in the component-comparison tab, when i sort by name, only the legend is sorted, but in the regular components tab, when i sort by name the colors in the chart are also sorted. i want this behaviour in the comparison tab too. both legend and chart should be sorted.
+
+### Dec 23, 2025 13:53:07
+i want a new sorting strategy called "categories", where the components are grouped by their name. for example, "workflow" (15%), "workflow.task_management" (2%), and "workflow.modes" (1%) are all in the category of workflow. they're grouped by the prefix, separated by dots ".". so, if the sum of all the workflow components is largest, i want to see all the components of that category first. then, i want to see the second largest category, and so on. the list in the legend should still include individual components, but only sorting should be by category, most first. and it should apply in both the legent and the chart.
+
+### Dec 23, 2025 13:55:14
+in each sort option, i want an ascending and descending option
+
+### Dec 23, 2025 14:06:44
+the height of the waffle charts in the comparison tab seems to change based on more legend items being present. when there are fewer items than the height of waffle, then it looks okay. in this image, the right-top and left-bottom look right. the others are a bit squeezed.
