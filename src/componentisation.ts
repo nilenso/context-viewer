@@ -321,6 +321,79 @@ export async function assignComponentColors(
   components: string[],
   config: ComponentisationConfig
 ): Promise<Record<string, string>> {
+  // TEMPORARY: Hardcoded color mapping to avoid AI call during development
+  // TODO: Remove this and use the AI-based coloring below once we're happy with the component structure
+  if (true) {
+    const hardcodedColors: Record<string, string> = {
+      "identity": "gray",
+      "personality": "purple",
+      "personality.guidelines": "purple",
+      "personality.behavior": "purple",
+      "personality.communication": "purple",
+      "personality.autonomy": "purple",
+      "personality.model_steering": "purple",
+      "personality.examples": "purple",
+      "environment": "slate",
+      "environment.platform": "slate",
+      "environment.security": "slate",
+      "environment.sandboxing": "slate",
+      "code_style": "indigo",
+      "code_style.conventions": "indigo",
+      "code_style.quality": "indigo",
+      "code_style.examples": "indigo",
+      "search": "blue",
+      "search.tool_selection": "blue",
+      "search.context_separation": "blue",
+      "search.examples": "blue",
+      "workflow": "emerald",
+      "workflow.task_management": "emerald",
+      "workflow.modes": "emerald",
+      "workflow.git": "emerald",
+      "workflow.git.commands": "emerald",
+      "workflow.git.commits": "emerald",
+      "workflow.examples": "emerald",
+      "project_context": "orange",
+      "project_context.config_files": "orange",
+      "tools": "gray",
+      "tools.policies": "gray",
+      "tools.policies.guidelines": "gray",
+      "tools.policies.model_steering": "gray",
+      "tools.policies.examples": "gray",
+      "tools.description": "gray",
+      "tools.conditions": "gray",
+      "tools.usage": "gray",
+      "tools.schema": "gray",
+      "tools.file": "gray",
+      "tools.file.read": "gray",
+      "tools.file.write": "gray",
+      "tools.file.edit": "gray",
+      "tools.file.search": "gray",
+      "tools.file.directory": "gray",
+      "tools.shell": "gray",
+      "tools.shell.execution": "gray",
+      "tools.shell.background": "gray",
+      "tools.shell.restrictions": "gray",
+      "tools.communication": "gray",
+      "tools.communication.questions": "gray",
+      "tools.communication.notifications": "gray",
+      "tools.advanced": "gray",
+      "tools.advanced.web": "gray",
+      "tools.advanced.agents": "gray",
+      "tools.advanced.notebooks": "gray",
+      "tools.advanced.images": "gray",
+      "tools.advanced.integrations": "gray",
+    };
+
+    // Return colors for the components that exist in the hardcoded mapping
+    const colorMapping: Record<string, string> = {};
+    for (const component of components) {
+      colorMapping[component] = hardcodedColors[component] || "gray";
+    }
+    console.log(`[Componentisation] Using hardcoded colors for ${Object.keys(colorMapping).length} components`);
+    return colorMapping;
+  }
+
+  // AI-based color assignment (currently disabled - see hardcoded mapping above)
   const openai = createOpenAI({
     apiKey: config.apiKey,
   });

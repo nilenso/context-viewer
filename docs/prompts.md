@@ -1398,7 +1398,79 @@ are anthropic models supported in this tool?
 ### Dec 22, 2025 15:08:45
 currently, when grouping conversations, the conversations are appended to appear one after another, and then re-componentisation occurs, and then all the analysis after that occurs.
 
-instead, just merge the conversations with their current segments and components as-is. 
+instead, just merge the conversations with their current segments and components as-is.
 
 ### Dec 22, 2025 15:21:56
 in the waffle chart, it's sorted by the max % tokens first. i also want the ability to sort by name on the left.
+
+### Dec 22, 2025 15:59:50
+ when performing the "analysis" of grouped conversations, share the
+  component composition of each conversation separately, and then the
+  grouped conversation's full analysis.
+
+  and then prompt it to give me a markdown analysis of the patterns that
+  emerge from observing the components' token / % space share in the
+  whole prompt.
+
+### Dec 23, 2025 13:20:30
+hardcode this color mapping for now, and call out that it's temporary. keep the ai code around, just add an `if true` block around it.
+
+{
+  "identity": "gray",
+  "personality": "purple",
+  "personality.guidelines": "purple",
+  "personality.behavior": "purple",
+  "personality.communication": "purple",
+  "personality.autonomy": "purple",
+  "personality.model_steering": "purple",
+  "personality.examples": "purple",
+  "environment": "slate",
+  "environment.platform": "slate",
+  "environment.security": "slate",
+  "environment.sandboxing": "slate",
+  "code_style": "indigo",
+  "code_style.conventions": "indigo",
+  "code_style.quality": "indigo",
+  "code_style.examples": "indigo",
+  "search": "blue",
+  "search.tool_selection": "blue",
+  "search.context_separation": "blue",
+  "search.examples": "blue",
+  "workflow": "emerald",
+  "workflow.task_management": "emerald",
+  "workflow.modes": "emerald",
+  "workflow.git": "emerald",
+  "workflow.git.commands": "emerald",
+  "workflow.git.commits": "emerald",
+  "workflow.examples": "emerald",
+  "project_context": "orange",
+  "project_context.config_files": "orange",
+  "tools": "gray",
+  "tools.policies": "gray",
+  "tools.policies.guidelines": "gray",
+  "tools.policies.model_steering": "gray",
+  "tools.policies.examples": "gray",
+  "tools.description": "gray",
+  "tools.conditions": "gray",
+  "tools.usage": "gray",
+  "tools.schema": "gray",
+  "tools.file": "gray",
+  "tools.file.read": "gray",
+  "tools.file.write": "gray",
+  "tools.file.edit": "gray",
+  "tools.file.search": "gray",
+  "tools.file.directory": "gray",
+  "tools.shell": "gray",
+  "tools.shell.execution": "gray",
+  "tools.shell.background": "gray",
+  "tools.shell.restrictions": "gray",
+  "tools.communication": "gray",
+  "tools.communication.questions": "gray",
+  "tools.communication.notifications": "gray",
+  "tools.advanced": "gray",
+  "tools.advanced.web": "gray",
+  "tools.advanced.agents": "gray",
+  "tools.advanced.notebooks": "gray",
+  "tools.advanced.images": "gray",
+  "tools.advanced.integrations": "gray"
+}
