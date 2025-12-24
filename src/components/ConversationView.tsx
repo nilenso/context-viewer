@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter, ArrowUpNarrowWide, ArrowDownNarrowWide } from "lucide-react";
+import { Maximize2, Minimize2, AlertTriangle, X, Search, ArrowUpDown, Filter, ArrowUpNarrowWide, ArrowDownNarrowWide, Copy, Check, Loader2 } from "lucide-react";
 import { MessageView } from "./MessageView";
 import { ComponentsView } from "./ComponentsView";
 import { StaticComponentsView } from "./StaticComponentsView";
@@ -67,6 +67,9 @@ export function ConversationView({
 
   // Component filter state - starts with all components selected
   const [selectedComponents, setSelectedComponents] = useState<Set<string>>(new Set());
+
+  // Copy to markdown state
+  const [copyStatus, setCopyStatus] = useState<"idle" | "processing" | "copied">("idle");
 
   // Initialize selected components when components prop changes
   useEffect(() => {
@@ -382,6 +385,159 @@ export function ConversationView({
     return sorted;
   }, [conversation.messages, messageFilters, searchQuery, sortBy, componentMapping, components, selectedComponents]);
 
+  // Generate markdown and copy to clipboard
+  const copyToMarkdown = useCallback(async () => {
+    setCopyStatus("processing");
+
+    try {
+      // Build filter description
+      const activeFilters: string[] = [];
+      if (searchQuery.trim()) {
+        activeFilters.push(`Search: "${searchQuery}"`);
+      }
+      if (!messageFilters.has("all")) {
+        const filterNames = Array.from(messageFilters).map(f => f.replace(":", " → "));
+        activeFilters.push(`Message types: ${filterNames.join(", ")}`);
+      }
+      if (components && selectedComponents.size > 0 && selectedComponents.size < components.length) {
+        activeFilters.push(`Components: ${Array.from(selectedComponents).join(", ")}`);
+      }
+
+      // Build sort description
+      const sortDescriptions: Record<string, string> = {
+        "time-asc": "Time (Oldest First)",
+        "time-desc": "Time (Newest First)",
+        "tokens-asc": "Tokens (Low to High)",
+        "tokens-desc": "Tokens (High to Low)",
+      };
+
+      // Get unique filenames from messages
+      const filenames = new Set<string>();
+      if (isGrouped && messageSourceMap) {
+        filteredAndSortedMessages.forEach(({ message }) => {
+          const sourceInfo = messageSourceMap[message.id];
+          if (sourceInfo?.filename) {
+            filenames.add(sourceInfo.filename);
+          }
+        });
+      } else {
+        filenames.add(conversation.messages.length > 0 ? "conversation" : "empty");
+      }
+
+      // Calculate total tokens in filtered view
+      const totalFilteredTokens = filteredAndSortedMessages.reduce((sum, { tokens }) => sum + tokens, 0);
+
+      // Build markdown
+      const lines: string[] = [];
+
+      // Header
+      lines.push("# Export from Context Viewer");
+      lines.push("");
+      lines.push(`**Files:** ${Array.from(filenames).join(", ")}`);
+      lines.push(`**Total tokens (filtered):** ${totalFilteredTokens.toLocaleString()}`);
+      lines.push(`**Sort:** ${sortDescriptions[sortBy]}`);
+      if (activeFilters.length > 0) {
+        lines.push(`**Filters:** ${activeFilters.join(" | ")}`);
+      } else {
+        lines.push("**Filters:** None (showing all)");
+      }
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+
+      // Group messages by source file if grouped conversation
+      let currentFile = "";
+
+      for (const { message, originalIndex, tokens } of filteredAndSortedMessages) {
+        const sourceInfo = isGrouped && messageSourceMap ? messageSourceMap[message.id] : undefined;
+        const filename = sourceInfo?.filename || "conversation";
+
+        // Add file header if file changed
+        if (isGrouped && filename !== currentFile) {
+          currentFile = filename;
+          // Calculate tokens for this file
+          const fileTokens = filteredAndSortedMessages
+            .filter(m => {
+              const mSource = messageSourceMap?.[m.message.id];
+              return (mSource?.filename || "conversation") === filename;
+            })
+            .reduce((sum, m) => sum + m.tokens, 0);
+          lines.push(`# ${filename} (${fileTokens.toLocaleString()} tokens)`);
+          lines.push("");
+        }
+
+        // Message header
+        const msgHeader = isGrouped
+          ? `## ${message.role} #${originalIndex + 1} (${tokens.toLocaleString()} tokens)`
+          : `## ${message.role} #${originalIndex + 1} (${tokens.toLocaleString()} tokens)`;
+        lines.push(msgHeader);
+        lines.push("");
+
+        // Parts
+        for (const part of message.parts) {
+          const partTokens = ("token_count" in part && part.token_count) || 0;
+          const component = componentMapping?.[part.id];
+          const componentStr = component ? ` [${component}]` : "";
+
+          // Part header
+          lines.push(`### ${part.type.toUpperCase()} (${partTokens} tokens)${componentStr}`);
+          lines.push("");
+
+          // Part content
+          if ("text" in part && typeof part.text === "string") {
+            lines.push("```");
+            lines.push(part.text);
+            lines.push("```");
+          } else if (part.type === "tool-call") {
+            const toolPart = part as { toolName: string; input: unknown };
+            lines.push(`**Tool:** ${toolPart.toolName}`);
+            lines.push("");
+            lines.push("**Input:**");
+            lines.push("```json");
+            lines.push(JSON.stringify(toolPart.input, null, 2));
+            lines.push("```");
+          } else if (part.type === "tool-result") {
+            const toolPart = part as { toolName: string; output: unknown; isError?: boolean };
+            lines.push(`**Tool:** ${toolPart.toolName}${toolPart.isError ? " (Error)" : ""}`);
+            lines.push("");
+            lines.push("**Output:**");
+            lines.push("```");
+            lines.push(typeof toolPart.output === "string" ? toolPart.output : JSON.stringify(toolPart.output, null, 2));
+            lines.push("```");
+          } else if (part.type === "image") {
+            lines.push("*[Image content]*");
+          } else if (part.type === "file") {
+            const filePart = part as { filename?: string; mediaType: string };
+            lines.push(`*[File: ${filePart.filename || "unnamed"} (${filePart.mediaType})]*`);
+          }
+          lines.push("");
+        }
+      }
+
+      const markdown = lines.join("\n");
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(markdown);
+
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (error) {
+      console.error("Failed to copy markdown:", error);
+      setCopyStatus("idle");
+    }
+  }, [
+    filteredAndSortedMessages,
+    messageFilters,
+    searchQuery,
+    sortBy,
+    components,
+    selectedComponents,
+    componentMapping,
+    isGrouped,
+    messageSourceMap,
+    conversation.messages.length,
+  ]);
+
   return (
     <Tabs defaultValue="conversation" className="flex flex-col h-full">
       {/* Warnings Banner */}
@@ -603,6 +759,35 @@ export function ConversationView({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>{expandAll ? "Collapse All" : "Expand All"}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Copy as Markdown */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyToMarkdown}
+                    disabled={copyStatus === "processing"}
+                  >
+                    {copyStatus === "processing" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : copyStatus === "copied" ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {copyStatus === "processing"
+                      ? "Copying..."
+                      : copyStatus === "copied"
+                      ? "Copied!"
+                      : "Copy as Markdown"}
+                  </p>
                 </TooltipContent>
               </Tooltip>
 
