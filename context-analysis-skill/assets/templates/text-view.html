@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text View - {{SOURCE}}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            padding: 2rem;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
+        .subtitle { color: #64748b; margin-bottom: 1.5rem; }
+        .part {
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .part-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .part-badge {
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .part-tokens {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        .part-content {
+            padding: 1rem;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .filter-bar {
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .filter-btn:hover { background: #f1f5f9; }
+        .filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{SOURCE}}</h1>
+        <p class="subtitle">{{TOTAL_TOKENS}} tokens total | {{PART_COUNT}} parts</p>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            {{FILTER_BUTTONS}}
+        </div>
+
+        {{PARTS}}
+    </div>
+
+    <script>
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const filter = btn.dataset.filter;
+                document.querySelectorAll('.part').forEach(part => {
+                    if (filter === 'all' || part.dataset.component === filter) {
+                        part.style.display = 'block';
+                    } else {
+                        part.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

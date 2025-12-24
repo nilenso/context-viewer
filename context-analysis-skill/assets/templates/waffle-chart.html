@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waffle Chart - {{SOURCE}}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            padding: 2rem;
+            color: #1e293b;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
+        .subtitle { color: #64748b; margin-bottom: 1.5rem; }
+        .waffle-grid {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 2px;
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 2px;
+            transition: transform 0.1s, box-shadow 0.1s;
+            cursor: pointer;
+        }
+        .cell:hover {
+            transform: scale(1.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        .legend {
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .legend h2 { font-size: 1rem; margin-bottom: 0.75rem; }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0;
+            cursor: pointer;
+        }
+        .legend-item:hover { background: #f1f5f9; }
+        .legend-swatch {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .legend-name { flex: 1; }
+        .legend-stats { color: #64748b; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{SOURCE}}</h1>
+        <p class="subtitle">{{TOTAL_TOKENS}} tokens total</p>
+
+        <div class="waffle-grid">
+            {{CELLS}}
+        </div>
+
+        <div class="legend">
+            <h2>Components</h2>
+            {{LEGEND_ITEMS}}
+        </div>
+    </div>
+
+    <script>
+        // Hover highlighting
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                const comp = cell.dataset.component;
+                if (!comp) return;
+                document.querySelectorAll('.cell').forEach(c => {
+                    c.style.opacity = c.dataset.component === comp ? '1' : '0.3';
+                });
+            });
+            cell.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.cell').forEach(c => {
+                    c.style.opacity = '1';
+                });
+            });
+        });
+
+        // Legend click filtering
+        document.querySelectorAll('.legend-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const comp = item.dataset.component;
+                document.querySelectorAll('.cell').forEach(c => {
+                    c.style.opacity = c.dataset.component === comp ? '1' : '0.1';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
