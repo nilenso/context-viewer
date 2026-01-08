@@ -200,6 +200,7 @@ export function ComponentComparisonView({
 }: ComponentComparisonViewProps) {
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [columnCount, setColumnCount] = useState<number>(3);
 
   const handleSortClick = (field: SortField) => {
     if (sortField === field) {
@@ -230,49 +231,67 @@ export function ComponentComparisonView({
 
   return (
     <div className="p-4">
-      {/* Sort toggle */}
-      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
-        <span>Sort:</span>
-        <button
-          onClick={() => handleSortClick("tokens")}
-          className={cn(
-            "px-1.5 py-0.5 rounded transition-colors flex items-center",
-            sortField === "tokens"
-              ? "bg-gray-200 text-gray-900"
-              : "hover:bg-gray-100"
-          )}
-        >
-          tokens
-          <SortArrow field="tokens" />
-        </button>
-        <button
-          onClick={() => handleSortClick("name")}
-          className={cn(
-            "px-1.5 py-0.5 rounded transition-colors flex items-center",
-            sortField === "name"
-              ? "bg-gray-200 text-gray-900"
-              : "hover:bg-gray-100"
-          )}
-        >
-          name
-          <SortArrow field="name" />
-        </button>
-        <button
-          onClick={() => handleSortClick("category")}
-          className={cn(
-            "px-1.5 py-0.5 rounded transition-colors flex items-center",
-            sortField === "category"
-              ? "bg-gray-200 text-gray-900"
-              : "hover:bg-gray-100"
-          )}
-        >
-          category
-          <SortArrow field="category" />
-        </button>
+      {/* Controls: Sort and Grid columns */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+        <div className="flex items-center gap-1">
+          <span>Sort:</span>
+          <button
+            onClick={() => handleSortClick("tokens")}
+            className={cn(
+              "px-1.5 py-0.5 rounded transition-colors flex items-center",
+              sortField === "tokens"
+                ? "bg-gray-200 text-gray-900"
+                : "hover:bg-gray-100"
+            )}
+          >
+            tokens
+            <SortArrow field="tokens" />
+          </button>
+          <button
+            onClick={() => handleSortClick("name")}
+            className={cn(
+              "px-1.5 py-0.5 rounded transition-colors flex items-center",
+              sortField === "name"
+                ? "bg-gray-200 text-gray-900"
+                : "hover:bg-gray-100"
+            )}
+          >
+            name
+            <SortArrow field="name" />
+          </button>
+          <button
+            onClick={() => handleSortClick("category")}
+            className={cn(
+              "px-1.5 py-0.5 rounded transition-colors flex items-center",
+              sortField === "category"
+                ? "bg-gray-200 text-gray-900"
+                : "hover:bg-gray-100"
+            )}
+          >
+            category
+            <SortArrow field="category" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span>Columns:</span>
+          <select
+            value={columnCount}
+            onChange={(e) => setColumnCount(Number(e.target.value))}
+            className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Grid of waffle charts - 3 columns */}
-      <div className="grid grid-cols-3 gap-6">
+      {/* Grid of waffle charts */}
+      <div
+        className="grid gap-6"
+        style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+      >
         {sourceConversations.map((conv) => (
           <div key={conv.id} className="border rounded-lg p-4 bg-white">
             {/* Filename header */}
@@ -294,7 +313,7 @@ export function ComponentComparisonView({
                 sortField={sortField}
                 sortDirection={sortDirection}
               />
-              <div className="flex-1 min-w-0 max-h-[180px] overflow-y-auto">
+              <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
                 <ComparisonLegend
                   componentTokens={conv.componentTokens}
                   totalTokens={conv.totalTokens}
