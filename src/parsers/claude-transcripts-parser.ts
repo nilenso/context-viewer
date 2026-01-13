@@ -92,10 +92,35 @@ export class ClaudeTranscriptsParser implements Parser {
     // Group assistant entries by message.id to merge streaming chunks
     const mergedEntries = this.mergeAssistantEntries(messageEntries);
 
-    // Transform to standard messages
-    const messages = mergedEntries.map((entry) => this.transformEntry(entry));
+    // First pass: build a map of tool_use_id -> tool_name from all assistant messages
+    const toolCallMap = this.buildToolCallMap(mergedEntries);
+
+    // Second pass: transform to standard messages, using the tool call map
+    const messages = mergedEntries.map((entry) => this.transformEntry(entry, toolCallMap));
 
     return { messages };
+  }
+
+  /**
+   * Build a map from tool_use_id to tool_name by scanning all assistant messages
+   */
+  private buildToolCallMap(entries: ClaudeMessageEntry[]): Map<string, string> {
+    const toolCallMap = new Map<string, string>();
+
+    for (const entry of entries) {
+      if (entry.type !== "assistant") continue;
+
+      const content = entry.message.content;
+      if (!Array.isArray(content)) continue;
+
+      for (const block of content) {
+        if (block.type === "tool_use") {
+          toolCallMap.set(block.id, block.name);
+        }
+      }
+    }
+
+    return toolCallMap;
   }
 
   /**
@@ -199,12 +224,12 @@ export class ClaudeTranscriptsParser implements Parser {
     return merged;
   }
 
-  private transformEntry(entry: ClaudeMessageEntry): Message {
+  private transformEntry(entry: ClaudeMessageEntry, toolCallMap: Map<string, string>): Message {
     const content = entry.message.content;
     const timestamp = entry.timestamp;
 
     if (entry.type === "user") {
-      return this.transformUserEntry(content, timestamp);
+      return this.transformUserEntry(content, timestamp, toolCallMap);
     } else {
       return this.transformAssistantEntry(content, timestamp);
     }
@@ -212,7 +237,8 @@ export class ClaudeTranscriptsParser implements Parser {
 
   private transformUserEntry(
     content: string | ClaudeContent[],
-    timestamp?: string
+    timestamp?: string,
+    toolCallMap?: Map<string, string>
   ): Message {
     // Check if this is a tool result
     if (Array.isArray(content)) {
@@ -230,7 +256,7 @@ export class ClaudeTranscriptsParser implements Parser {
             id: generateId(),
             type: "tool-result" as const,
             toolCallId: tr.tool_use_id,
-            toolName: "", // Not available in this format
+            toolName: toolCallMap?.get(tr.tool_use_id) || "",
             output: tr.content,
           })),
           timestamp,
