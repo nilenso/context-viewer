@@ -725,8 +725,14 @@ export default function App() {
         // Calculate component tokens for this conversation
         const componentTokens: Record<string, number> = {};
         let totalTokens = 0;
+        let turnCount = 0;
 
         for (const message of conv.conversation.messages) {
+          // Count user messages as turns
+          if (message.role === "user") {
+            turnCount++;
+          }
+
           for (const part of message.parts) {
             const component = conv.componentMapping[part.id];
             const tokenCount = ("token_count" in part && part.token_count) || 0;
@@ -745,6 +751,8 @@ export default function App() {
           filename: source.filename,
           componentTokens,
           totalTokens,
+          turnCount,
+          messageCount: conv.conversation.messages.length,
         };
       })
       .filter((data): data is ConversationComponentData => data !== null);

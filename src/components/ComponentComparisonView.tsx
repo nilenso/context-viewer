@@ -11,6 +11,8 @@ export interface ConversationComponentData {
   filename: string;
   componentTokens: Record<string, number>;
   totalTokens: number;
+  turnCount: number; // Number of user messages (turns)
+  messageCount: number; // Total messages
 }
 
 /**
@@ -300,7 +302,7 @@ export function ComponentComparisonView({
                 {conv.filename}
               </h4>
               <p className="text-xs text-muted-foreground">
-                {conv.totalTokens.toLocaleString()} tokens
+                {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages
               </p>
             </div>
 
