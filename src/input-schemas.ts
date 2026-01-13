@@ -265,3 +265,143 @@ export type ClaudeToolUseContent = z.infer<typeof ClaudeToolUseContentSchema>;
 export type ClaudeToolResultContent = z.infer<typeof ClaudeToolResultContentSchema>;
 export type ClaudeImageContent = z.infer<typeof ClaudeImageContentSchema>;
 export type ClaudeContent = z.infer<typeof ClaudeContentSchema>;
+
+// ============================================================================
+// Codex CLI Transcripts Format Schema (JSONL)
+// ============================================================================
+
+// Content types for user messages
+const CodexInputTextContentSchema = z.object({
+  type: z.literal("input_text"),
+  text: z.string(),
+});
+
+// Content types for assistant messages
+const CodexOutputTextContentSchema = z.object({
+  type: z.literal("output_text"),
+  text: z.string(),
+});
+
+// Union of message content types
+const CodexMessageContentSchema = z.union([
+  CodexInputTextContentSchema,
+  CodexOutputTextContentSchema,
+]);
+
+// Message payload (user or assistant message)
+const CodexMessagePayloadSchema = z.object({
+  type: z.literal("message"),
+  role: z.enum(["user", "assistant"]),
+  content: z.array(CodexMessageContentSchema),
+});
+
+// Reasoning summary item
+const CodexReasoningSummarySchema = z.object({
+  type: z.literal("summary_text"),
+  text: z.string(),
+});
+
+// Reasoning payload (agent thinking)
+const CodexReasoningPayloadSchema = z.object({
+  type: z.literal("reasoning"),
+  summary: z.array(CodexReasoningSummarySchema).optional(),
+  content: z.unknown().nullable().optional(),
+  encrypted_content: z.string().optional(),
+});
+
+// Function call payload (tool use)
+const CodexFunctionCallPayloadSchema = z.object({
+  type: z.literal("function_call"),
+  name: z.string(),
+  arguments: z.string(),
+  call_id: z.string(),
+});
+
+// Function call output payload (tool result)
+const CodexFunctionCallOutputPayloadSchema = z.object({
+  type: z.literal("function_call_output"),
+  call_id: z.string(),
+  output: z.string(),
+});
+
+// Union of response_item payload types
+const CodexResponseItemPayloadSchema = z.union([
+  CodexMessagePayloadSchema,
+  CodexReasoningPayloadSchema,
+  CodexFunctionCallPayloadSchema,
+  CodexFunctionCallOutputPayloadSchema,
+]);
+
+// response_item entry
+const CodexResponseItemEntrySchema = z.object({
+  timestamp: z.string(),
+  type: z.literal("response_item"),
+  payload: CodexResponseItemPayloadSchema,
+});
+
+// session_meta entry
+const CodexSessionMetaEntrySchema = z.object({
+  timestamp: z.string(),
+  type: z.literal("session_meta"),
+  payload: z.object({
+    id: z.string().optional(),
+    timestamp: z.string().optional(),
+    cwd: z.string().optional(),
+    originator: z.string().optional(),
+    cli_version: z.string().optional(),
+    instructions: z.string().optional(),
+    source: z.string().optional(),
+    model_provider: z.string().optional(),
+    git: z.object({
+      commit_hash: z.string().optional(),
+      branch: z.string().optional(),
+    }).optional(),
+  }).passthrough(),
+});
+
+// event_msg entry (various event types)
+const CodexEventMsgEntrySchema = z.object({
+  timestamp: z.string(),
+  type: z.literal("event_msg"),
+  payload: z.object({
+    type: z.string(),
+  }).passthrough(),
+});
+
+// turn_context entry
+const CodexTurnContextEntrySchema = z.object({
+  timestamp: z.string(),
+  type: z.literal("turn_context"),
+  payload: z.object({
+    cwd: z.string().optional(),
+    approval_policy: z.string().optional(),
+    model: z.string().optional(),
+    effort: z.string().optional(),
+  }).passthrough(),
+});
+
+// Catch-all for unknown entry types
+const CodexUnknownEntrySchema = z.object({
+  timestamp: z.string(),
+  type: z.string(),
+}).passthrough();
+
+// Union of all entry types
+export const CodexTranscriptEntrySchema = z.union([
+  CodexResponseItemEntrySchema,
+  CodexSessionMetaEntrySchema,
+  CodexEventMsgEntrySchema,
+  CodexTurnContextEntrySchema,
+  CodexUnknownEntrySchema,
+]);
+
+// The full transcript is an array of entries (parsed from JSONL)
+export const CodexTranscriptsInputSchema = z.array(CodexTranscriptEntrySchema);
+
+export type CodexTranscriptsInput = z.infer<typeof CodexTranscriptsInputSchema>;
+export type CodexTranscriptEntry = z.infer<typeof CodexTranscriptEntrySchema>;
+export type CodexResponseItemEntry = z.infer<typeof CodexResponseItemEntrySchema>;
+export type CodexMessagePayload = z.infer<typeof CodexMessagePayloadSchema>;
+export type CodexReasoningPayload = z.infer<typeof CodexReasoningPayloadSchema>;
+export type CodexFunctionCallPayload = z.infer<typeof CodexFunctionCallPayloadSchema>;
+export type CodexFunctionCallOutputPayload = z.infer<typeof CodexFunctionCallOutputPayloadSchema>;

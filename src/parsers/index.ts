@@ -3,6 +3,7 @@ import { ResponsesParser } from "./responses-parser";
 import { CompletionsParser } from "./completions-parser";
 import { ConversationsParser } from "./conversations-parser";
 import { ClaudeTranscriptsParser } from "./claude-transcripts-parser";
+import { CodexTranscriptsParser } from "./codex-transcripts-parser";
 import { PlainTextParser } from "./plain-text-parser";
 
 // Register all parsers
@@ -11,6 +12,7 @@ parserRegistry.register(new ResponsesParser());
 parserRegistry.register(new CompletionsParser());
 parserRegistry.register(new ConversationsParser());
 parserRegistry.register(new ClaudeTranscriptsParser());
+parserRegistry.register(new CodexTranscriptsParser());
 parserRegistry.register(new PlainTextParser());
 
-export { ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, PlainTextParser };
+export { ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, CodexTranscriptsParser, PlainTextParser };
