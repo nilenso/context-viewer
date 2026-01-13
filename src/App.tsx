@@ -779,6 +779,28 @@ export default function App() {
       .filter((data): data is ConversationComponentData => data !== null);
   }, [selectedConversation, conversations]);
 
+  // Build source workflow states for filtered comparison view
+  const sourceWorkflowStates = useMemo(() => {
+    if (!selectedConversation?.isGrouped || !selectedConversation.sourceConversations) {
+      return undefined;
+    }
+
+    return selectedConversation.sourceConversations
+      .map((source) => {
+        const conv = conversations.find((c) => c.id === source.id);
+        if (!conv?.conversation || !conv.componentMapping) {
+          return null;
+        }
+        return {
+          id: source.id,
+          filename: source.filename,
+          conversation: conv.conversation,
+          componentMapping: conv.componentMapping,
+        };
+      })
+      .filter((state): state is NonNullable<typeof state> => state !== null);
+  }, [selectedConversation, conversations]);
+
   useEffect(() => {
     if (conversations.length === 0) {
       setSelectedId(null);
@@ -1407,6 +1429,7 @@ export default function App() {
                   messageSourceMap={selectedConversation.messageSourceMap}
                   isGrouped={selectedConversation.isGrouped}
                   sourceConversationComponents={sourceConversationComponents}
+                  sourceWorkflowStates={sourceWorkflowStates}
                 />
               ) : selectedConversation.status === "pending" ? (
                 <Card className="p-12 text-center">

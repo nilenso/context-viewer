@@ -81,6 +81,7 @@ function sortByCategory(
 interface ComponentComparisonViewProps {
   sourceConversations: ConversationComponentData[];
   componentColors?: Record<string, string>;
+  hasActiveFilters?: boolean;
 }
 
 /**
@@ -219,6 +220,7 @@ function ComparisonLegend({
 export function ComponentComparisonView({
   sourceConversations,
   componentColors,
+  hasActiveFilters,
 }: ComponentComparisonViewProps) {
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -253,6 +255,13 @@ export function ComponentComparisonView({
 
   return (
     <div className="p-4">
+      {/* Filter indicator */}
+      {hasActiveFilters && (
+        <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md mb-4">
+          Filtered view
+        </div>
+      )}
+
       {/* Controls: Sort and Grid columns */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
         <div className="flex items-center gap-1">

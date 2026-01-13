@@ -21,6 +21,14 @@ import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message, SourceInfo } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
+// Minimal workflow state info needed for computing source conversation components
+interface SourceWorkflowState {
+  id: string;
+  filename: string;
+  conversation?: Conversation;
+  componentMapping?: Record<string, string>;
+}
+
 interface ConversationViewProps {
   conversation: Conversation;
   componentMapping?: Record<string, string>;
@@ -37,6 +45,8 @@ interface ConversationViewProps {
   messageSourceMap?: Record<string, SourceInfo>;
   isGrouped?: boolean;
   sourceConversationComponents?: ConversationComponentData[];
+  // Source workflow states for grouped conversations (for filtered comparison)
+  sourceWorkflowStates?: SourceWorkflowState[];
 }
 
 export function ConversationView({
@@ -52,7 +62,8 @@ export function ConversationView({
   isReprocessing,
   messageSourceMap,
   isGrouped,
-  sourceConversationComponents
+  sourceConversationComponents,
+  sourceWorkflowStates,
 }: ConversationViewProps) {
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
@@ -318,6 +329,88 @@ export function ConversationView({
     }
     return undefined;
   }, [conversation.messages]);
+
+  // Helper to check if a part passes the message type filter
+  const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
+    if (messageFilters.has("all")) return true;
+    const filterKey = `${msgRole}:${part.type}`;
+    return messageFilters.has(filterKey);
+  };
+
+  // Compute filtered source conversation components for grouped conversation comparison
+  const filteredSourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
+    // Use pre-computed data if no filters are active or no source states provided
+    if (messageFilters.has("all") || !sourceWorkflowStates || sourceWorkflowStates.length === 0) {
+      return sourceConversationComponents;
+    }
+
+    // Compute filtered data for each source conversation
+    return sourceWorkflowStates
+      .map((source) => {
+        if (!source.conversation || !source.componentMapping) {
+          return null;
+        }
+
+        const componentTokens: Record<string, number> = {};
+        let totalTokens = 0;
+        let turnCount = 0;
+        let firstTimestamp: Date | undefined;
+        let lastTimestamp: Date | undefined;
+
+        for (const message of source.conversation.messages) {
+          // Count user messages as turns (only if they pass filter)
+          const hasUserPartsPassingFilter = message.role === "user" &&
+            message.parts.some(part => partPassesMessageTypeFilter(part, message.role));
+          if (hasUserPartsPassingFilter) {
+            turnCount++;
+          }
+
+          // Track timestamps for duration calculation
+          if (message.timestamp) {
+            const ts = new Date(message.timestamp);
+            if (!isNaN(ts.getTime())) {
+              if (!firstTimestamp || ts < firstTimestamp) {
+                firstTimestamp = ts;
+              }
+              if (!lastTimestamp || ts > lastTimestamp) {
+                lastTimestamp = ts;
+              }
+            }
+          }
+
+          for (const part of message.parts) {
+            // Apply message type filter
+            if (!partPassesMessageTypeFilter(part, message.role)) continue;
+
+            const component = source.componentMapping[part.id];
+            const tokenCount = ("token_count" in part && part.token_count) || 0;
+            totalTokens += tokenCount;
+
+            if (component) {
+              componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+            } else {
+              componentTokens["other"] = (componentTokens["other"] || 0) + tokenCount;
+            }
+          }
+        }
+
+        // Calculate duration if we have both timestamps
+        const durationMs = firstTimestamp && lastTimestamp
+          ? lastTimestamp.getTime() - firstTimestamp.getTime()
+          : undefined;
+
+        return {
+          id: source.id,
+          filename: source.filename,
+          componentTokens,
+          totalTokens,
+          turnCount,
+          messageCount: source.conversation.messages.length,
+          durationMs,
+        };
+      })
+      .filter((item): item is ConversationComponentData => item !== null);
+  }, [sourceWorkflowStates, sourceConversationComponents, messageFilters]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
@@ -588,7 +681,7 @@ export function ConversationView({
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
           <TabsTrigger value="chart">Timeline Chart</TabsTrigger>
-          {isGrouped && sourceConversationComponents && sourceConversationComponents.length > 0 && (
+          {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
             <TabsTrigger value="comparison">Component Comparison</TabsTrigger>
           )}
         </TabsList>
@@ -972,12 +1065,13 @@ export function ConversationView({
         </div>
       </TabsContent>
 
-      {isGrouped && sourceConversationComponents && sourceConversationComponents.length > 0 && (
+      {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
         <TabsContent value="comparison" className="flex-1 mt-0 overflow-auto">
           <div className="border rounded-lg bg-muted/30">
             <ComponentComparisonView
-              sourceConversations={sourceConversationComponents}
+              sourceConversations={filteredSourceConversationComponents}
               componentColors={componentColors}
+              hasActiveFilters={!messageFilters.has("all")}
             />
           </div>
         </TabsContent>
