@@ -1266,6 +1266,28 @@ export default function App() {
     }
   };
 
+  // Handle deleting a conversation (only if not part of any grouped conversation)
+  const handleDeleteConversation = (id: string) => {
+    // Check if this conversation is part of any grouped conversation
+    const isPartOfGroup = conversations.some(
+      conv => conv.isGrouped && conv.sourceConversations?.some(s => s.id === id)
+    );
+
+    if (isPartOfGroup) {
+      console.warn("Cannot delete conversation that is part of a grouped conversation");
+      return;
+    }
+
+    // Remove the conversation from the list
+    setConversations(prev => prev.filter(conv => conv.id !== id));
+    // Also remove from fileIdsRef
+    fileIdsRef.current = fileIdsRef.current.filter(fid => fid !== id);
+    // Clear selection if the deleted conversation was selected
+    if (selectedId === id) {
+      setSelectedId(null);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => workflowMutation.mutate(files),
     validator: (file) => {
@@ -1353,6 +1375,7 @@ export default function App() {
               onGroupConversations={handleGroupConversations}
               onClearSelection={handleClearSelection}
               onUngroupConversation={handleUngroupConversation}
+              onDeleteConversation={handleDeleteConversation}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
               onEditComponents={handleOpenComponentsEditor}

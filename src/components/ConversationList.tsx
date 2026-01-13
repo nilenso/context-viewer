@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight, Layers, Ungroup, X } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight, Layers, Ungroup, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -40,6 +40,7 @@ interface ConversationListProps {
   onGroupConversations: () => void;
   onClearSelection: () => void;
   onUngroupConversation: (id: string) => void;
+  onDeleteConversation?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
   onEditComponents?: () => void;
@@ -60,6 +61,7 @@ export function ConversationList({
   onGroupConversations,
   onClearSelection,
   onUngroupConversation,
+  onDeleteConversation,
   onFilesSelected,
   onEditPrompt,
   onEditComponents,
@@ -80,6 +82,18 @@ export function ConversationList({
     c => !c.isGrouped && c.status === 'success'
   );
   const canGroup = selectedIds.size >= 2;
+
+  // Check if a conversation is part of any grouped conversation
+  const isPartOfGroup = (id: string): boolean => {
+    return conversations.some(
+      c => c.isGrouped && c.sourceConversations?.some(s => s.id === id)
+    );
+  };
+
+  // Check if a conversation can be deleted (not grouped and not part of any group)
+  const canDelete = (conversation: WorkflowState): boolean => {
+    return !conversation.isGrouped && !isPartOfGroup(conversation.id);
+  };
 
   // Exit selection mode when selection is cleared
   const handleExitSelectionMode = () => {
@@ -421,6 +435,19 @@ export function ConversationList({
                               title="Ungroup"
                             >
                               <Ungroup className="h-4 w-4 text-purple-600 hover:text-purple-800" />
+                            </div>
+                          )}
+                          {/* Delete button for non-grouped conversations not part of any group */}
+                          {onDeleteConversation && canDelete(conversation) && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteConversation(conversation.id);
+                              }}
+                              className="shrink-0 p-0.5 hover:bg-red-100 rounded cursor-pointer"
+                              title="Remove conversation"
+                            >
+                              <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-600" />
                             </div>
                           )}
                           {(isProcessing || conversation.status === "success") && (
