@@ -201,16 +201,18 @@ export class ClaudeTranscriptsParser implements Parser {
 
   private transformEntry(entry: ClaudeMessageEntry): Message {
     const content = entry.message.content;
+    const timestamp = entry.timestamp;
 
     if (entry.type === "user") {
-      return this.transformUserEntry(content);
+      return this.transformUserEntry(content, timestamp);
     } else {
-      return this.transformAssistantEntry(content);
+      return this.transformAssistantEntry(content, timestamp);
     }
   }
 
   private transformUserEntry(
-    content: string | ClaudeContent[]
+    content: string | ClaudeContent[],
+    timestamp?: string
   ): Message {
     // Check if this is a tool result
     if (Array.isArray(content)) {
@@ -231,6 +233,7 @@ export class ClaudeTranscriptsParser implements Parser {
             toolName: "", // Not available in this format
             output: tr.content,
           })),
+          timestamp,
         };
       }
 
@@ -271,6 +274,7 @@ export class ClaudeTranscriptsParser implements Parser {
         id: generateId(),
         role: "user",
         parts,
+        timestamp,
       };
     }
 
@@ -285,11 +289,13 @@ export class ClaudeTranscriptsParser implements Parser {
           text: content || "",
         },
       ],
+      timestamp,
     };
   }
 
   private transformAssistantEntry(
-    content: string | ClaudeContent[]
+    content: string | ClaudeContent[],
+    timestamp?: string
   ): Message {
     if (typeof content === "string") {
       return {
@@ -302,6 +308,7 @@ export class ClaudeTranscriptsParser implements Parser {
             text: content,
           },
         ],
+        timestamp,
       };
     }
 
@@ -356,6 +363,7 @@ export class ClaudeTranscriptsParser implements Parser {
       id: generateId(),
       role: "assistant",
       parts,
+      timestamp,
     };
   }
 }

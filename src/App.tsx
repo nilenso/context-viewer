@@ -726,11 +726,26 @@ export default function App() {
         const componentTokens: Record<string, number> = {};
         let totalTokens = 0;
         let turnCount = 0;
+        let firstTimestamp: Date | undefined;
+        let lastTimestamp: Date | undefined;
 
         for (const message of conv.conversation.messages) {
           // Count user messages as turns
           if (message.role === "user") {
             turnCount++;
+          }
+
+          // Track timestamps for duration calculation
+          if (message.timestamp) {
+            const ts = new Date(message.timestamp);
+            if (!isNaN(ts.getTime())) {
+              if (!firstTimestamp || ts < firstTimestamp) {
+                firstTimestamp = ts;
+              }
+              if (!lastTimestamp || ts > lastTimestamp) {
+                lastTimestamp = ts;
+              }
+            }
           }
 
           for (const part of message.parts) {
@@ -746,6 +761,11 @@ export default function App() {
           }
         }
 
+        // Calculate duration if we have both timestamps
+        const durationMs = firstTimestamp && lastTimestamp
+          ? lastTimestamp.getTime() - firstTimestamp.getTime()
+          : undefined;
+
         return {
           id: source.id,
           filename: source.filename,
@@ -753,6 +773,7 @@ export default function App() {
           totalTokens,
           turnCount,
           messageCount: conv.conversation.messages.length,
+          durationMs,
         };
       })
       .filter((data): data is ConversationComponentData => data !== null);

@@ -13,6 +13,26 @@ export interface ConversationComponentData {
   totalTokens: number;
   turnCount: number; // Number of user messages (turns)
   messageCount: number; // Total messages
+  durationMs?: number; // Duration in milliseconds (from first to last message)
+}
+
+/**
+ * Format duration in a human-readable format
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  } else if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
 }
 
 /**
@@ -303,6 +323,7 @@ export function ComponentComparisonView({
               </h4>
               <p className="text-xs text-muted-foreground">
                 {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages
+                {conv.durationMs !== undefined && ` · ${formatDuration(conv.durationMs)}`}
               </p>
             </div>
 

@@ -116,6 +116,7 @@ export class CodexTranscriptsParser implements Parser {
       | { id: string; type: "reasoning"; text: string }
       | { id: string; type: "tool-call"; toolCallId: string; toolName: string; input: unknown }
     > = [];
+    let currentAssistantTimestamp: string | undefined;
     let pendingToolCalls: Map<string, { toolName: string; input: unknown }> = new Map();
 
     const flushAssistantMessage = () => {
@@ -124,13 +125,16 @@ export class CodexTranscriptsParser implements Parser {
           id: generateId(),
           role: "assistant",
           parts: currentAssistantParts,
+          timestamp: currentAssistantTimestamp,
         });
         currentAssistantParts = [];
+        currentAssistantTimestamp = undefined;
       }
     };
 
     for (const entry of entries) {
       const payload = entry.payload;
+      const timestamp = entry.timestamp;
 
       switch (payload.type) {
         case "message": {
@@ -140,10 +144,14 @@ export class CodexTranscriptsParser implements Parser {
             flushAssistantMessage();
 
             // Transform user message
-            const userMessage = this.transformUserMessage(messagePayload);
+            const userMessage = this.transformUserMessage(messagePayload, timestamp);
             messages.push(userMessage);
           } else {
-            // Assistant message - add text parts
+            // Assistant message - track timestamp of first entry
+            if (!currentAssistantTimestamp) {
+              currentAssistantTimestamp = timestamp;
+            }
+            // Add text parts
             for (const content of messagePayload.content) {
               if (content.type === "output_text") {
                 currentAssistantParts.push({
@@ -159,6 +167,10 @@ export class CodexTranscriptsParser implements Parser {
 
         case "reasoning": {
           const reasoningPayload = payload as CodexReasoningPayload;
+          // Track timestamp of first entry
+          if (!currentAssistantTimestamp) {
+            currentAssistantTimestamp = timestamp;
+          }
           // Extract reasoning text from summary
           if (reasoningPayload.summary) {
             for (const item of reasoningPayload.summary) {
@@ -176,6 +188,10 @@ export class CodexTranscriptsParser implements Parser {
 
         case "function_call": {
           const callPayload = payload as CodexFunctionCallPayload;
+          // Track timestamp of first entry
+          if (!currentAssistantTimestamp) {
+            currentAssistantTimestamp = timestamp;
+          }
           // Parse arguments as JSON if possible
           let input: unknown;
           try {
@@ -219,6 +235,7 @@ export class CodexTranscriptsParser implements Parser {
               toolName,
               output: outputPayload.output,
             }],
+            timestamp,
           });
           break;
         }
@@ -231,7 +248,7 @@ export class CodexTranscriptsParser implements Parser {
     return messages;
   }
 
-  private transformUserMessage(payload: CodexMessagePayload): Message {
+  private transformUserMessage(payload: CodexMessagePayload, timestamp?: string): Message {
     const parts: Array<{ id: string; type: "text"; text: string }> = [];
 
     for (const content of payload.content) {
@@ -257,6 +274,7 @@ export class CodexTranscriptsParser implements Parser {
       id: generateId(),
       role: "user",
       parts,
+      timestamp,
     };
   }
 }

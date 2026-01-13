@@ -69,6 +69,7 @@ export const SystemMessageSchema = z.object({
   id: z.string(),
   role: z.literal("system"),
   parts: z.array(TextPartSchema).nonempty(),
+  timestamp: z.string().optional(),
 });
 
 export const UserMessageSchema = z.object({
@@ -83,6 +84,7 @@ export const UserMessageSchema = z.object({
       ])
     )
     .nonempty(),
+  timestamp: z.string().optional(),
 });
 
 export const AssistantMessageSchema = z.object({
@@ -98,12 +100,14 @@ export const AssistantMessageSchema = z.object({
       ])
     )
     .nonempty(),
+  timestamp: z.string().optional(),
 });
 
 export const ToolMessageSchema = z.object({
   id: z.string(),
   role: z.literal("tool"),
   parts: z.array(ToolResultPartSchema),
+  timestamp: z.string().optional(),
 });
 
 // Discriminated union of all message types
