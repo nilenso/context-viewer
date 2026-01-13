@@ -8,12 +8,17 @@ import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
+// Message type filter in format "role:type" (e.g., "assistant:tool-call")
+type MessageTypeFilter = string;
+
 interface StackedBarChartViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
   components?: string[];
+  // Filters from conversation view
+  messageTypeFilters?: Set<MessageTypeFilter>;
 }
 
 export function StackedBarChartView({
@@ -22,6 +27,7 @@ export function StackedBarChartView({
   componentTimeline,
   componentColors,
   components,
+  messageTypeFilters,
 }: StackedBarChartViewProps) {
   // Track selected component for filtering
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
@@ -29,6 +35,16 @@ export function StackedBarChartView({
   const [hoveredMessageIndex, setHoveredMessageIndex] = useState<number | null>(null);
   // Track pinned message (when user clicks a bar)
   const [pinnedMessageIndex, setPinnedMessageIndex] = useState<number | null>(null);
+
+  // Helper to check if a part passes the message type filter
+  const partPassesFilter = (part: { type: string }, msgRole: string): boolean => {
+    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
+    const filterKey = `${msgRole}:${part.type}`;
+    return messageTypeFilters.has(filterKey);
+  };
+
+  // Check if filters are active
+  const hasActiveFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
 
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
@@ -45,6 +61,7 @@ export function StackedBarChartView({
 
   // Build data for stacked bar chart
   // Each bar represents one message, stacked by component token contribution
+  // Always calculate manually when filters are active
   const chartData = conversation.messages.map((message, msgIndex) => {
     const dataPoint: any = {
       messageIndex: msgIndex + 1, // 1-indexed for display
@@ -52,36 +69,28 @@ export function StackedBarChartView({
     };
 
     let totalTokens = 0;
+    const componentTokens: Record<string, number> = {};
 
-    if (componentTimeline && componentTimeline[msgIndex]) {
-      const snapshot = componentTimeline[msgIndex];
-      totalTokens = snapshot.totalTokens;
+    // Always calculate on the fly to apply filters
+    conversation.messages.forEach((msg, idx) => {
+      if (idx <= msgIndex) {
+        msg.parts.forEach((part) => {
+          // Apply message type filter
+          if (!partPassesFilter(part, msg.role)) return;
 
-      // Add each component's token count to the data point
-      allComponents.forEach((component) => {
-        dataPoint[component] = snapshot.componentTokens[component] || 0;
-      });
-    } else {
-      // Fallback: calculate on the fly
-      const componentTokens: Record<string, number> = {};
+          const component = componentMapping[part.id];
+          if (component) {
+            const tokenCount = ("token_count" in part && part.token_count) || 0;
+            componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+            totalTokens += tokenCount;
+          }
+        });
+      }
+    });
 
-      conversation.messages.forEach((msg, idx) => {
-        if (idx <= msgIndex) {
-          msg.parts.forEach((part) => {
-            const component = componentMapping[part.id];
-            if (component) {
-              const tokenCount = ("token_count" in part && part.token_count) || 0;
-              componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
-              totalTokens += tokenCount;
-            }
-          });
-        }
-      });
-
-      allComponents.forEach((component) => {
-        dataPoint[component] = componentTokens[component] || 0;
-      });
-    }
+    allComponents.forEach((component) => {
+      dataPoint[component] = componentTokens[component] || 0;
+    });
 
     dataPoint.totalTokens = totalTokens;
 
@@ -110,6 +119,13 @@ export function StackedBarChartView({
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6 p-4">
+        {/* Filter indicator */}
+        {hasActiveFilters && (
+          <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
+            Filtered view · {maxTokens.toLocaleString()} tokens
+          </div>
+        )}
+
         {/* Stacked Bar Chart Visualization */}
         <div>
           <h3 className="text-lg font-semibold mb-3">Component Token Distribution Over Time</h3>

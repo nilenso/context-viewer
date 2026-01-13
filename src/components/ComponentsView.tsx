@@ -6,6 +6,9 @@ import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
+// Message type filter in format "role:type" (e.g., "assistant:tool-call")
+type MessageTypeFilter = string;
+
 interface ComponentsViewProps {
   componentMapping?: Record<string, string>;
   conversation: Conversation;
@@ -16,6 +19,8 @@ interface ComponentsViewProps {
   // Static component filter - when set, only show automatic components for parts matching this static component
   staticMapping?: Record<string, string>;
   filterByStaticComponent?: string | null;
+  // Filters from conversation view
+  messageTypeFilters?: Set<MessageTypeFilter>;
 }
 
 export function ComponentsView({
@@ -27,11 +32,19 @@ export function ComponentsView({
   onComponentSelect,
   staticMapping,
   filterByStaticComponent,
+  messageTypeFilters,
 }: ComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
+
+  // Helper to check if a part passes the message type filter
+  const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
+    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
+    const filterKey = `${msgRole}:${part.type}`;
+    return messageTypeFilters.has(filterKey);
+  };
 
   // Get the set of part IDs that match the static component filter
   const filteredPartIds = useMemo(() => {
@@ -57,7 +70,7 @@ export function ComponentsView({
     );
   }
 
-  // Get component data for the current message, filtered by static component if set
+  // Get component data for the current message, filtered by static component and message type
   let componentTokensForOverview: Record<string, number> = {};
   let filteredTokensTotal = 0;
   let fullTokensTotal = 0;
@@ -70,6 +83,9 @@ export function ComponentsView({
         if (component) {
           const tokenCount = ("token_count" in part && part.token_count) || 0;
           fullTokensTotal += tokenCount;
+
+          // Apply message type filter first
+          if (!partPassesMessageTypeFilter(part, message.role)) return;
 
           // Apply static component filter if set
           if (!filteredPartIds || filteredPartIds.has(part.id)) {
@@ -87,12 +103,19 @@ export function ComponentsView({
     onComponentSelect?.(newSelection);
   };
 
+  // Check if message type filters are active
+  const hasMessageTypeFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
+
   return (
     <div className="p-4">
       {/* Filter indicator */}
-      {filterByStaticComponent && (
-        <div className="mb-3 text-sm text-muted-foreground">
-          Filtering by <strong className="text-foreground">{getStaticComponentLabel(filterByStaticComponent)}</strong>
+      {(filterByStaticComponent || hasMessageTypeFilters) && (
+        <div className="mb-3 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
+          {hasMessageTypeFilters && "Filtered view"}
+          {hasMessageTypeFilters && filterByStaticComponent && " · "}
+          {filterByStaticComponent && (
+            <>Filtering by <strong>{getStaticComponentLabel(filterByStaticComponent)}</strong></>
+          )}
           {" · "}{filteredTokensTotal.toLocaleString()} tokens
         </div>
       )}

@@ -8,12 +8,17 @@ import {
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
 
+// Message type filter in format "role:type" (e.g., "assistant:tool-call")
+type MessageTypeFilter = string;
+
 interface StaticComponentsViewProps {
   conversation: Conversation;
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
   selectedComponent?: string | null;
   onComponentSelect?: (component: string | null) => void;
+  // Filters from conversation view
+  messageTypeFilters?: Set<MessageTypeFilter>;
 }
 
 export function StaticComponentsView({
@@ -22,11 +27,19 @@ export function StaticComponentsView({
   staticTimeline,
   selectedComponent,
   onComponentSelect,
+  messageTypeFilters,
 }: StaticComponentsViewProps) {
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
+
+  // Helper to check if a part passes the message type filter
+  const partPassesFilter = (part: { type: string }, msgRole: string): boolean => {
+    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
+    const filterKey = `${msgRole}:${part.type}`;
+    return messageTypeFilters.has(filterKey);
+  };
 
   if (!staticMapping || Object.keys(staticMapping).length === 0) {
     return (
@@ -39,37 +52,44 @@ export function StaticComponentsView({
     );
   }
 
-  // Get component data for the current message from timeline
+  // Get component data for the current message, applying filters
   let componentTokens: Record<string, number> = {};
   let totalTokens = 0;
 
-  if (staticTimeline && staticTimeline[currentMessageIndex]) {
-    const snapshot = staticTimeline[currentMessageIndex];
-    componentTokens = snapshot.componentTokens;
-    totalTokens = snapshot.totalTokens;
-  } else {
-    // Fallback: calculate on the fly if timeline not available
-    conversation.messages.forEach((message, msgIndex) => {
-      if (msgIndex <= currentMessageIndex) {
-        message.parts.forEach((part) => {
-          const component = staticMapping[part.id];
-          if (component) {
-            const tokenCount = ("token_count" in part && part.token_count) || 0;
-            componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
-            totalTokens += tokenCount;
-          }
-        });
-      }
-    });
-  }
+  // Always calculate with filters applied (can't use timeline with filters)
+  conversation.messages.forEach((message, msgIndex) => {
+    if (msgIndex <= currentMessageIndex) {
+      message.parts.forEach((part) => {
+        // Apply message type filter
+        if (!partPassesFilter(part, message.role)) return;
+
+        const component = staticMapping[part.id];
+        if (component) {
+          const tokenCount = ("token_count" in part && part.token_count) || 0;
+          componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+          totalTokens += tokenCount;
+        }
+      });
+    }
+  });
 
   const handleComponentClick = (component: string) => {
     const newSelection = selectedComponent === component ? null : component;
     onComponentSelect?.(newSelection);
   };
 
+  // Check if filters are active
+  const hasActiveFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
+
   return (
     <div className="p-4">
+      {/* Filter indicator */}
+      {hasActiveFilters && (
+        <div className="mb-3 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
+          Filtered view · {totalTokens.toLocaleString()} tokens
+        </div>
+      )}
+
       {/* Timeline Slider */}
       <div className="mb-4 px-2">
         <div className="flex items-center justify-between mb-2">

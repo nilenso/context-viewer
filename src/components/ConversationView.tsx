@@ -855,6 +855,7 @@ export function ConversationView({
                 // Clear auto component selection when static filter changes
                 setSelectedAutoComponent(null);
               }}
+              messageTypeFilters={messageFilters}
             />
           </div>
 
@@ -875,6 +876,7 @@ export function ConversationView({
               }}
               staticMapping={staticMapping}
               filterByStaticComponent={selectedStaticComponent}
+              messageTypeFilters={messageFilters}
             />
           </div>
 
@@ -965,6 +967,7 @@ export function ConversationView({
             componentTimeline={componentTimeline}
             componentColors={componentColors}
             components={components}
+            messageTypeFilters={messageFilters}
           />
         </div>
       </TabsContent>
