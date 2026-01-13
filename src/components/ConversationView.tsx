@@ -306,6 +306,19 @@ export function ConversationView({
     }, 0);
   };
 
+  // Calculate conversation start time (first message with a timestamp)
+  const conversationStartTime = useMemo(() => {
+    for (const message of conversation.messages) {
+      if (message.timestamp) {
+        const ts = new Date(message.timestamp);
+        if (!isNaN(ts.getTime())) {
+          return ts;
+        }
+      }
+    }
+    return undefined;
+  }, [conversation.messages]);
+
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
     // Helper to check if a part passes all filters
@@ -792,8 +805,13 @@ export function ConversationView({
               </Tooltip>
 
               {/* Filter summary */}
-              <div className="text-xs text-muted-foreground ml-auto whitespace-nowrap">
-                Showing {filteredAndSortedMessages.length} of {conversation.messages.length}
+              <div className="text-xs text-muted-foreground ml-auto whitespace-nowrap flex items-center gap-3">
+                {conversationStartTime && (
+                  <span title={conversationStartTime.toISOString()}>
+                    Started: {conversationStartTime.toLocaleString()}
+                  </span>
+                )}
+                <span>Showing {filteredAndSortedMessages.length} of {conversation.messages.length}</span>
               </div>
             </div>
           </div>
@@ -812,6 +830,7 @@ export function ConversationView({
                 onComponentClick={handleComponentClick}
                 sourceInfo={isGrouped ? messageSourceMap?.[message.id] : undefined}
                 messageSourceMap={isGrouped ? messageSourceMap : undefined}
+                conversationStartTime={conversationStartTime}
               />
             ))}
           </div>

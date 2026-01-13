@@ -20,10 +20,40 @@ interface MessageViewProps {
   // For grouped conversations
   sourceInfo?: SourceInfo;
   messageSourceMap?: Record<string, SourceInfo>;
+  // For relative time display
+  conversationStartTime?: Date;
 }
 
-export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap }: MessageViewProps) {
+/**
+ * Format relative time from conversation start
+ */
+function formatRelativeTime(startTime: Date, messageTime: Date): string {
+  const diffMs = messageTime.getTime() - startTime.getTime();
+  if (diffMs < 0) return "+0s";
+
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return `+${hours}h ${remainingMinutes}m`;
+  } else if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `+${minutes}m ${remainingSeconds}s`;
+  } else {
+    return `+${seconds}s`;
+  }
+}
+
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap, conversationStartTime }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
+
+  // Calculate relative time if we have timestamps
+  const messageTime = message.timestamp ? new Date(message.timestamp) : undefined;
+  const relativeTime = conversationStartTime && messageTime && !isNaN(messageTime.getTime())
+    ? formatRelativeTime(conversationStartTime, messageTime)
+    : undefined;
 
   // Sync with parent's isExpanded prop
   useEffect(() => {
@@ -113,6 +143,11 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
             </Badge>
           )}
         </div>
+        {relativeTime && (
+          <span className="text-xs text-muted-foreground font-mono">
+            {relativeTime}
+          </span>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent className="p-3 pt-0">
         <div className="space-y-2 mt-2">
