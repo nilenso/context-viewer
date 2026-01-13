@@ -41,6 +41,7 @@ interface ConversationListProps {
   onClearSelection: () => void;
   onUngroupConversation: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
+  onGenerateAnalysis?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
   onEditComponents?: () => void;
@@ -62,6 +63,7 @@ export function ConversationList({
   onClearSelection,
   onUngroupConversation,
   onDeleteConversation,
+  onGenerateAnalysis,
   onFilesSelected,
   onEditPrompt,
   onEditComponents,
@@ -509,28 +511,47 @@ export function ConversationList({
                             const timing = conversation.stepTimings?.[step.key];
                             const isFindComponentsStep = step.key === "finding-components";
                             const isSegmentingStep = step.key === "segmenting";
+                            const isAnalysisStep = step.key === "analysis";
+                            // Analysis step is clickable when conversation is complete but analysis wasn't run
+                            const isAnalysisClickable = isAnalysisStep &&
+                              conversation.status === "success" &&
+                              !conversation.step &&
+                              timing === undefined &&
+                              onGenerateAnalysis;
                             return (
                               <div key={step.key}>
                                 <div className="flex items-center gap-2 text-xs">
-                                  {status === "completed" && (
+                                  {status === "completed" && !isAnalysisClickable && (
                                     <Check className="h-3 w-3 text-green-600" />
                                   )}
                                   {status === "in-progress" && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
                                   )}
-                                  {status === "pending" && (
+                                  {(status === "pending" || isAnalysisClickable) && (
                                     <Circle className="h-3 w-3 text-gray-300" />
                                   )}
-                                  <span
-                                    className={cn(
-                                      "flex-1",
-                                      status === "completed" && "text-green-700",
-                                      status === "in-progress" && "text-blue-700 font-medium",
-                                      status === "pending" && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {step.label}
-                                  </span>
+                                  {isAnalysisClickable ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onGenerateAnalysis(conversation.id);
+                                      }}
+                                      className="flex-1 text-left text-blue-600 hover:text-blue-700 hover:underline"
+                                    >
+                                      {step.label}
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={cn(
+                                        "flex-1",
+                                        status === "completed" && "text-green-700",
+                                        status === "in-progress" && "text-blue-700 font-medium",
+                                        status === "pending" && "text-muted-foreground"
+                                      )}
+                                    >
+                                      {step.label}
+                                    </span>
+                                  )}
                                   {status === "completed" && timing !== undefined && (
                                     <span className="text-gray-500 text-xs">
                                       ({timing}s)

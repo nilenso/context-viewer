@@ -105,7 +105,8 @@ enum WorkflowEvent {
   NewFile = 'new-file',
   ComponentPromptChanged = 'component-prompt-changed',
   SegmentationPromptChanged = 'segmentation-prompt-changed',
-  GroupedConversation = 'grouped-conversation'
+  GroupedConversation = 'grouped-conversation',
+  GenerateAnalysis = 'generate-analysis'
 }
 
 /**
@@ -455,14 +456,16 @@ async function processConversationWorkflow(
 
     // For grouped conversations, skip segmenting, finding-components, and coloring
     // The merged component data is already in ctx from handleGroupConversations
-    // Just generate AI summary in parallel and go directly to analysis
+    // Just generate AI summary in parallel and mark complete (analysis is optional)
     if (event === WorkflowEvent.GroupedConversation) {
-      runner.updateState(ctx, 'analysis');
-      // Generate AI summary in parallel with next steps (fire and forget)
+      // Generate AI summary in parallel (fire and forget)
       createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(summaryResult => {
         ctx.aiSummary = summaryResult.summary;
         if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
       });
+      // Mark complete without running analysis (user can trigger it manually)
+      runner.markComplete(ctx);
+      return;
     }
 
     // For segmentation prompt changed, start from segmenting step
@@ -496,25 +499,38 @@ async function processConversationWorkflow(
         await runner.runActivity(ctx, assignColorsActivity);
       ctx.componentColors = colorResult.colors;
       ctx.stepTimings!.coloring = colorTiming;
+
+      // For new files, mark complete without analysis (user can trigger it manually)
+      if (event === WorkflowEvent.NewFile) {
+        runner.markComplete(ctx);
+        return;
+      }
+
       runner.updateState(ctx, 'analysis');
     }
 
-    // Step 6: Generate analysis (always run)
-    // Clear old analysis if reprocessing
-    if (event === WorkflowEvent.ComponentPromptChanged) {
-      ctx.analysis = '';
-      runner.updateState(ctx, 'analysis');
+    // Step 6: Generate analysis (only for explicit analysis generation or reprocessing)
+    // Run for: GenerateAnalysis, ComponentPromptChanged, SegmentationPromptChanged
+    if (event === WorkflowEvent.GenerateAnalysis ||
+        event === WorkflowEvent.ComponentPromptChanged ||
+        event === WorkflowEvent.SegmentationPromptChanged) {
+      // Clear old analysis if reprocessing
+      if (event === WorkflowEvent.ComponentPromptChanged || event === WorkflowEvent.SegmentationPromptChanged) {
+        ctx.analysis = '';
+        runner.updateState(ctx, 'analysis');
+      }
+
+      runner.startStep(ctx, 'analysis');
+      const { result: analysisResult, timing: analysisTiming } =
+        await runner.runActivity(
+          ctx,
+          createAnalysisActivity(callbacks.onAnalysisChunk)
+        );
+      ctx.analysis = analysisResult.analysis;
+      if (analysisResult.error) ctx.warnings!.push(analysisResult.error);
+      ctx.stepTimings!.analysis = analysisTiming;
     }
 
-    runner.startStep(ctx, 'analysis');
-    const { result: analysisResult, timing: analysisTiming } =
-      await runner.runActivity(
-        ctx,
-        createAnalysisActivity(callbacks.onAnalysisChunk)
-      );
-    ctx.analysis = analysisResult.analysis;
-    if (analysisResult.error) ctx.warnings!.push(analysisResult.error);
-    ctx.stepTimings!.analysis = analysisTiming;
     runner.markComplete(ctx);
 
   } catch (error: any) {
@@ -1073,6 +1089,75 @@ export default function App() {
     }
   };
 
+  // Generate analysis on demand (analysis is optional and not run automatically)
+  const handleGenerateAnalysis = async (id: string) => {
+    const conv = conversations.find(c => c.id === id);
+    if (!conv?.conversation) return;
+
+    setReprocessingId(id);
+
+    try {
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations(prev =>
+          prev.map(c => c.id === id ? { ...c, ...update } : c)
+        );
+      });
+
+      // Initialize workflow context from existing conversation
+      const ctx: WorkflowState = {
+        id,
+        filename: conv.filename,
+        conversation: conv.conversation,
+        summary: conv.summary,
+        aiSummary: conv.aiSummary,
+        components: conv.components,
+        componentMapping: conv.componentMapping,
+        componentTimeline: conv.componentTimeline,
+        componentColors: conv.componentColors,
+        staticMapping: conv.staticMapping,
+        staticTimeline: conv.staticTimeline,
+        staticComponents: conv.staticComponents,
+        analysis: '', // Clear existing analysis
+        config: conv.config || getComponentisationConfig(),
+        warnings: conv.warnings || [],
+        stepTimings: { ...conv.stepTimings },
+        isGrouped: conv.isGrouped,
+        sourceConversations: conv.sourceConversations,
+        messageSourceMap: conv.messageSourceMap,
+      };
+
+      // Run workflow with GenerateAnalysis event
+      await processConversationWorkflow(
+        WorkflowEvent.GenerateAnalysis,
+        ctx,
+        runner,
+        {
+          onAnalysisChunk: (id, chunk) => {
+            setConversations(prev =>
+              prev.map(c =>
+                c.id === id
+                  ? { ...c, analysis: (c.analysis || '') + chunk }
+                  : c
+              )
+            );
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Failed to generate analysis:", error);
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === id
+            ? { ...c, status: "failed", step: undefined, error: "Analysis generation failed" }
+            : c
+        )
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   // Handle multi-selection toggle
   const handleToggleSelection = (id: string, isSelected: boolean) => {
     setSelectedIds(prev => {
@@ -1398,6 +1483,7 @@ export default function App() {
               onClearSelection={handleClearSelection}
               onUngroupConversation={handleUngroupConversation}
               onDeleteConversation={handleDeleteConversation}
+              onGenerateAnalysis={handleGenerateAnalysis}
               onFilesSelected={(files) => workflowMutation.mutate(files)}
               onEditPrompt={handleOpenPromptEditor}
               onEditComponents={handleOpenComponentsEditor}
