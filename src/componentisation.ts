@@ -4,10 +4,21 @@ import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
 
 /**
- * Strip large binary data (images, files) from conversation before sending to AI
+ * Truncate a string to a maximum length, adding an indicator if truncated
+ */
+function truncateContent(content: unknown, maxLength: number = 200): string {
+  const str = typeof content === "string" ? content : JSON.stringify(content);
+  if (str.length <= maxLength) {
+    return str;
+  }
+  return `${str.slice(0, maxLength)}... [TRUNCATED, ${str.length - maxLength} chars stripped]`;
+}
+
+/**
+ * Strip large data (images, files, tool outputs) from conversation before sending to AI
  * This reduces token count significantly while preserving structure for categorization
  */
-function stripBinaryData(conversation: Conversation): Conversation {
+function stripLargeContent(conversation: Conversation): Conversation {
   return {
     ...conversation,
     messages: conversation.messages.map((message): Message => ({
@@ -23,6 +34,18 @@ function stripBinaryData(conversation: Conversation): Conversation {
           return {
             ...part,
             data: "[FILE_DATA_STRIPPED]",
+          };
+        }
+        if (part.type === "tool-result") {
+          return {
+            ...part,
+            output: truncateContent(part.output),
+          };
+        }
+        if (part.type === "tool-call") {
+          return {
+            ...part,
+            input: truncateContent(part.input),
           };
         }
         return part;
@@ -69,7 +92,7 @@ export async function identifyComponents(
   });
 
   // Strip binary data to reduce token count
-  const strippedConversation = stripBinaryData(conversation);
+  const strippedConversation = stripLargeContent(conversation);
   const conversationJson = JSON.stringify(strippedConversation, null, 2);
 
   console.log(`[Componentisation] Calling AI to identify components (model: ${config.model})${customPrompt ? ' with custom prompt' : ''}`);
@@ -219,7 +242,7 @@ export async function mapComponentsToIds(
   const BATCH_SIZE = 20;
 
   // Strip binary data and extract parts with context
-  const strippedConversation = stripBinaryData(conversation);
+  const strippedConversation = stripLargeContent(conversation);
   const allParts = extractPartsWithContext(strippedConversation);
 
   console.log(`[Componentisation] Mapping ${allParts.length} parts in batches of ${BATCH_SIZE} (model: ${config.model})`);

@@ -177,13 +177,11 @@ async function segmentMessagePart(
   customPrompt?: string
 ): Promise<SegmentResult> {
   // Get text content from different part types
+  // Only segment text and reasoning parts - skip tool results as they're usually structured output
   let text: string;
 
   if (part.type === "text" || part.type === "reasoning") {
     text = part.text;
-  } else if (part.type === "tool-result") {
-    // For tool results, use the output as text
-    text = typeof part.output === "string" ? part.output : JSON.stringify(part.output);
   } else {
     console.log(`[Segmentation] Skipping part ${part.id}, type: ${part.type}`);
     return { success: false, skipped: true };
@@ -214,20 +212,11 @@ async function segmentMessagePart(
       token_count: undefined, // Will be recalculated
     };
 
-    // Handle different part types
-    if (part.type === "text" || part.type === "reasoning") {
-      return {
-        ...basePart,
-        text: segment,
-      };
-    } else if (part.type === "tool-result") {
-      return {
-        ...basePart,
-        output: segment, // Put segmented text back into output
-      };
-    }
-
-    return basePart;
+    // Only text and reasoning parts are segmented
+    return {
+      ...basePart,
+      text: segment,
+    };
   });
 
   return { success: true, parts: newParts as Message["parts"] };

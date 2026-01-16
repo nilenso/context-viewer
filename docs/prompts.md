@@ -1778,3 +1778,109 @@ This checks that your `SKILL.md` frontmatter is valid and follows all naming con
 
 > To find navigation and other pages in this documentation, fetch the llms.txt file at: https://agentskills.io/llms.txt
 ```
+
+### Jan 08, 2026 12:35:15
+in the components comparison visualisation, i have a grid of 3 cards right now. i would like to have 4 sometimes, if the charts are small and the width permits it. example image attached where i would like for it to be grid of 4 per row.
+
+### Jan 08, 2026 13:10:42
+give me control of choosing the number of graphs on grid using a drop-down. i want to be able to choose between 1-5.
+
+### Jan 08, 2026 13:12:13
+even if the legend needs to scroll, don't show the scrollbar
+
+### Jan 08, 2026 13:15:24
+increase the height of the cards by 20% to allow longer legends
+
+### Jan 08, 2026 13:16:53
+commit all this, don't commit claude settings
+
+### Jan 12, 2026 12:29:34
+can I change your system prompt? what's the documented way of doing that?
+
+### Jan 13, 2026 12:30:04
+look at /Users/srihari/.codex/sessions/2026/01/12/rollout-2026-01-12T14-56-33-019bb3c8-18f4-7500-b4d8-ab36a5c0b215.jsonl.
+it is very similar to a claude code transcript, but it is a codex transcript.
+
+build support for it in the same way that we built support for claude code's jsonl transcripts.
+
+### Jan 13, 2026 12:36:46
+commit also please
+
+### Jan 13, 2026 13:02:52
+in this component comparison chart, also add the number of turns and the total time (from first to last message of covnersation), next to the token count.
+
+### Jan 13, 2026 13:04:45
+it doesn't show the total time taken, from first to last. do we not parse the timestamps?
+
+### Jan 13, 2026 13:37:11
+also show the beginning of conversation, and relative time from beginning of conversation in the conversation view, at the right end of each message.
+
+### Jan 13, 2026 14:03:08
+i need the ability to delete/remove a conversation from the uploaded conversations pane on the left. only allow deleting if it is not a part of any grouped conversation.
+
+### Jan 13, 2026 14:49:57
+tool results don't have the tool names, and I want them to have tool names. however, the tool names are present in the corresponding tool call part, which would have appeared earlier in the conversation. we have now match the tool call ids in the tool results with their tool calls, and get their names from there.
+
+do this for claude and codex conversation parsing.
+
+### Jan 13, 2026 14:57:42
+i want the waffle charts to respect the filters that I use in the conversation view. 
+for example, if i filter to only include assistant tool calls and texts, then, the waffle charts should depict the components of the filtered message parts only, and show me as though assistant tool calls and texts make up 100% of the conversation. 
+this allows me to filter the conversation by type and component, and then use the waffle charts to drill down further after filtering.
+the static and dynamic waffle charts can remain, so that I can also click on assistant tool calls then, for example to drill down into the components of only tool calls.
+
+### Jan 13, 2026 15:03:10
+i want this filter to also work in the component comparison of grouped conversations
+
+### Jan 13, 2026 15:09:28
+make generation of analysis, the last step of the workflow, optional. make that status update in the conversatiosn pane on the left a link, so that clicking on "Generate analysis" actually runs it, and updates status accordingly. it shouldn't run automatically.
+
+### Jan 13, 2026 15:14:16
+commit this?
+
+### Jan 16, 2026 12:43:59
+i need support for opencode transcripts the same way i have them for claude and codex. here's an example file: /Users/srihari/work/nilenso/swe-bench-pro-task-setup/opus-claude.json
+
+### Jan 16, 2026 12:58:42
+It looks like my browser hangs when I have large files being segmented. I want to know why don't write any code, just tell me why it can happen. 4x250kb files will overwhelm it. ui is unresponsive. then after some time it unfreezes after segmenting.
+
+### Jan 16, 2026 13:00:33
+fix only the main problem
+
+### Jan 16, 2026 13:02:09
+commit the bug fix separately, and the opencode transcript support separately
+
+### Jan 16, 2026 13:05:39
+i see this error. only with one of my files. tell me why it might happen, and I'll consider what I want to do. don't fix anything.
+
+componentisation.ts:104 [Componentisation] Error calling AI for components: AI_APICallError: Your input exceeds the context window of this model. Please adjust your input and try again.
+    at async identifyComponents (componentisation.ts:80:20)
+identifyComponents    @    componentisation.ts:104
+
+### Jan 16, 2026 13:08:08
+This is not true. I feel I thought I built support for long conversations and even possibly ignoring to results for component. I think and I am using even larger files and that works like this file in question is 437KB but 450 KB and 1MB also works.
+
+### Jan 16, 2026 13:10:41
+Look in the history of my prompt.MD file and also commit history. I feel like I stripped some parts of these things and even if I have not stripped the tool results. Maybe I should so consider a plan for that and again do not write any cod
+
+### Jan 16, 2026 13:14:31
+implement tool result stripping, where we keep the first 200 characters, and then ... call out that the rest is stripped. only strip when sending to the llm.
+
+### Jan 16, 2026 13:16:30
+also, don't segment tool results.
+
+### Jan 16, 2026 13:19:26
+this file that was parsing earlier is now failing to parse.
+/Users/srihari/work/nilenso/swe-bench-pro-task-setup/gpt-codex.json 
+
+> gpt-codex.json
+> Cannot read properties of undefined (reading 'length')
+
+### Jan 16, 2026 13:22:19
+commit that support for reasoning, mark it as a bug fix
+
+### Jan 16, 2026 13:23:54
+what else is not commtited?
+
+### Jan 16, 2026 13:24:44
+commit the tool result related fixes, and include the conversation log too.
