@@ -1,5 +1,15 @@
 import type { Conversation, Message } from "./schema";
-import { encoding_for_model } from "tiktoken";
+import { encoding_for_model, type Tiktoken } from "tiktoken";
+
+// Reusable encoder instance - created once, reused for all token counting
+let encoderInstance: Tiktoken | null = null;
+
+function getEncoder(): Tiktoken {
+  if (!encoderInstance) {
+    encoderInstance = encoding_for_model("gpt-4o");
+  }
+  return encoderInstance;
+}
 
 /**
  * Count tokens in a text string using GPT-4 encoding
@@ -7,10 +17,8 @@ import { encoding_for_model } from "tiktoken";
  * @returns The number of tokens
  */
 function countTokens(text: string): number {
-  const enc = encoding_for_model("gpt-4o");
-  const count = enc.encode(text).length;
-  enc.free();
-  return count;
+  const enc = getEncoder();
+  return enc.encode(text).length;
 }
 
 /**
