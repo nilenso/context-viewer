@@ -11,6 +11,7 @@ import {
   type OpenCodeMessage,
   type OpenCodePart,
   type OpenCodeTextPart,
+  type OpenCodeReasoningPart,
   type OpenCodeToolPart,
 } from "../input-schemas";
 
@@ -150,6 +151,7 @@ export class OpenCodeTranscriptsParser implements Parser {
     const messages: Message[] = [];
     const assistantParts: Array<
       | { id: string; type: "text"; text: string }
+      | { id: string; type: "reasoning"; text: string }
       | { id: string; type: "tool-call"; toolCallId: string; toolName: string; input: unknown }
     > = [];
     const toolResultParts: Array<{
@@ -172,6 +174,19 @@ export class OpenCodeTranscriptsParser implements Parser {
           break;
         }
 
+        case "reasoning": {
+          const reasoningPart = part as OpenCodeReasoningPart;
+          // Only add if there's actual text content
+          if (reasoningPart.text) {
+            assistantParts.push({
+              id: generateId(),
+              type: "reasoning",
+              text: reasoningPart.text,
+            });
+          }
+          break;
+        }
+
         case "tool": {
           const toolPart = part as OpenCodeToolPart;
           // Add tool call to assistant parts
@@ -182,14 +197,16 @@ export class OpenCodeTranscriptsParser implements Parser {
             toolName: toolPart.tool,
             input: toolPart.state.input,
           });
-          // Add tool result to separate list
-          toolResultParts.push({
-            id: generateId(),
-            type: "tool-result",
-            toolCallId: toolPart.callID,
-            toolName: toolPart.tool,
-            output: toolPart.state.output,
-          });
+          // Add tool result to separate list (only if output exists)
+          if (toolPart.state.output !== undefined) {
+            toolResultParts.push({
+              id: generateId(),
+              type: "tool-result",
+              toolCallId: toolPart.callID,
+              toolName: toolPart.tool,
+              output: toolPart.state.output,
+            });
+          }
           break;
         }
 

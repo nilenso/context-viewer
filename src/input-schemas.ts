@@ -486,6 +486,17 @@ const OpenCodeTextPartSchema = z.object({
   time: OpenCodeTimeSchema.optional(),
 });
 
+// Reasoning part
+const OpenCodeReasoningPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("reasoning"),
+  text: z.string().optional(),
+  metadata: z.unknown().optional(),
+  time: OpenCodeTimeSchema.optional(),
+});
+
 // Tool part with state containing input/output
 const OpenCodeToolPartSchema = z.object({
   id: z.string(),
@@ -544,6 +555,7 @@ const OpenCodeUnknownPartSchema = z.object({
 // Union of all part types
 const OpenCodePartSchema = z.union([
   OpenCodeTextPartSchema,
+  OpenCodeReasoningPartSchema,
   OpenCodeToolPartSchema,
   OpenCodeStepStartPartSchema,
   OpenCodeStepFinishPartSchema,
@@ -569,6 +581,7 @@ export type OpenCodeMessage = z.infer<typeof OpenCodeMessageSchema>;
 export type OpenCodeMessageInfo = z.infer<typeof OpenCodeMessageInfoSchema>;
 export type OpenCodePart = z.infer<typeof OpenCodePartSchema>;
 export type OpenCodeTextPart = z.infer<typeof OpenCodeTextPartSchema>;
+export type OpenCodeReasoningPart = z.infer<typeof OpenCodeReasoningPartSchema>;
 export type OpenCodeToolPart = z.infer<typeof OpenCodeToolPartSchema>;
 export type OpenCodeStepStartPart = z.infer<typeof OpenCodeStepStartPartSchema>;
 export type OpenCodeStepFinishPart = z.infer<typeof OpenCodeStepFinishPartSchema>;
