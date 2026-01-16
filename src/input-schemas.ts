@@ -405,3 +405,171 @@ export type CodexMessagePayload = z.infer<typeof CodexMessagePayloadSchema>;
 export type CodexReasoningPayload = z.infer<typeof CodexReasoningPayloadSchema>;
 export type CodexFunctionCallPayload = z.infer<typeof CodexFunctionCallPayloadSchema>;
 export type CodexFunctionCallOutputPayload = z.infer<typeof CodexFunctionCallOutputPayloadSchema>;
+
+// ============================================================================
+// OpenCode Transcripts Format Schema (JSON)
+// ============================================================================
+
+// Time object with created/updated/completed timestamps
+const OpenCodeTimeSchema = z.object({
+  created: z.number(),
+  updated: z.number().optional(),
+  completed: z.number().optional(),
+  start: z.number().optional(),
+  end: z.number().optional(),
+});
+
+// Token information
+const OpenCodeTokensSchema = z.object({
+  input: z.number().optional(),
+  output: z.number().optional(),
+  reasoning: z.number().optional(),
+  cache: z.object({
+    read: z.number().optional(),
+    write: z.number().optional(),
+  }).optional(),
+});
+
+// Session info at the top level
+const OpenCodeSessionInfoSchema = z.object({
+  id: z.string(),
+  slug: z.string().optional(),
+  version: z.string().optional(),
+  projectID: z.string().optional(),
+  directory: z.string().optional(),
+  title: z.string().optional(),
+  time: OpenCodeTimeSchema.optional(),
+  summary: z.object({
+    additions: z.number().optional(),
+    deletions: z.number().optional(),
+    files: z.number().optional(),
+  }).optional(),
+});
+
+// Message info
+const OpenCodeMessageInfoSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  role: z.enum(["user", "assistant"]),
+  time: OpenCodeTimeSchema.optional(),
+  parentID: z.string().optional(),
+  modelID: z.string().optional(),
+  providerID: z.string().optional(),
+  mode: z.string().optional(),
+  agent: z.string().optional(),
+  path: z.object({
+    cwd: z.string().optional(),
+    root: z.string().optional(),
+  }).optional(),
+  cost: z.number().optional(),
+  tokens: OpenCodeTokensSchema.optional(),
+  finish: z.string().optional(),
+  summary: z.object({
+    title: z.string().optional(),
+    diffs: z.array(z.unknown()).optional(),
+  }).optional(),
+  model: z.object({
+    providerID: z.string().optional(),
+    modelID: z.string().optional(),
+  }).optional(),
+});
+
+// Part types
+
+// Text part
+const OpenCodeTextPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("text"),
+  text: z.string(),
+  time: OpenCodeTimeSchema.optional(),
+});
+
+// Tool part with state containing input/output
+const OpenCodeToolPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("tool"),
+  callID: z.string(),
+  tool: z.string(),
+  state: z.object({
+    status: z.string().optional(),
+    input: z.unknown().optional(),
+    output: z.unknown().optional(),
+    title: z.string().optional(),
+    metadata: z.unknown().optional(),
+    time: OpenCodeTimeSchema.optional(),
+  }),
+});
+
+// Step start part
+const OpenCodeStepStartPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("step-start"),
+  snapshot: z.string().optional(),
+});
+
+// Step finish part
+const OpenCodeStepFinishPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("step-finish"),
+  reason: z.string().optional(),
+  snapshot: z.string().optional(),
+  cost: z.number().optional(),
+  tokens: OpenCodeTokensSchema.optional(),
+});
+
+// Patch part (git changes)
+const OpenCodePatchPartSchema = z.object({
+  id: z.string(),
+  sessionID: z.string().optional(),
+  messageID: z.string().optional(),
+  type: z.literal("patch"),
+  hash: z.string().optional(),
+  files: z.array(z.string()).optional(),
+});
+
+// Catch-all for unknown part types
+const OpenCodeUnknownPartSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+}).passthrough();
+
+// Union of all part types
+const OpenCodePartSchema = z.union([
+  OpenCodeTextPartSchema,
+  OpenCodeToolPartSchema,
+  OpenCodeStepStartPartSchema,
+  OpenCodeStepFinishPartSchema,
+  OpenCodePatchPartSchema,
+  OpenCodeUnknownPartSchema,
+]);
+
+// Message schema
+const OpenCodeMessageSchema = z.object({
+  info: OpenCodeMessageInfoSchema,
+  parts: z.array(OpenCodePartSchema),
+});
+
+// Full transcript schema
+export const OpenCodeTranscriptsInputSchema = z.object({
+  info: OpenCodeSessionInfoSchema,
+  messages: z.array(OpenCodeMessageSchema),
+});
+
+export type OpenCodeTranscriptsInput = z.infer<typeof OpenCodeTranscriptsInputSchema>;
+export type OpenCodeSessionInfo = z.infer<typeof OpenCodeSessionInfoSchema>;
+export type OpenCodeMessage = z.infer<typeof OpenCodeMessageSchema>;
+export type OpenCodeMessageInfo = z.infer<typeof OpenCodeMessageInfoSchema>;
+export type OpenCodePart = z.infer<typeof OpenCodePartSchema>;
+export type OpenCodeTextPart = z.infer<typeof OpenCodeTextPartSchema>;
+export type OpenCodeToolPart = z.infer<typeof OpenCodeToolPartSchema>;
+export type OpenCodeStepStartPart = z.infer<typeof OpenCodeStepStartPartSchema>;
+export type OpenCodeStepFinishPart = z.infer<typeof OpenCodeStepFinishPartSchema>;
+export type OpenCodePatchPart = z.infer<typeof OpenCodePatchPartSchema>;
