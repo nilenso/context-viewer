@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import type { ComponentTimelineSnapshot } from "./componentisation";
 import { getPrompt } from "./prompts";
+import { stripLargeContent } from "./strip-large-content";
 
 /**
  * Configuration for AI model used in summarization
@@ -51,24 +52,10 @@ export async function generateConversationSummary(
     apiKey: config.apiKey,
   });
 
-  // Create a condensed version of the conversation for the prompt
-  const conversationOverview = {
-    totalMessages: conversation.messages.length,
-    messages: conversation.messages.map((msg, idx) => ({
-      index: idx,
-      role: msg.role,
-      partTypes: msg.parts.map((p) => p.type),
-      textPreview: msg.parts
-        .filter((p) => p.type === "text" || p.type === "reasoning")
-        .map((p) => {
-          const text = p.type === "text" || p.type === "reasoning" ? p.text : "";
-          return text.slice(0, 500); // First 500 chars of each text part
-        })
-        .join(" "),
-    })),
-  };
+  // Strip large content (images, files, truncate tool calls/results) - same as componentisation
+  const strippedConversation = stripLargeContent(conversation);
 
-  const prompt = getPrompt("conversation-summary", { conversationOverview, customPrompt });
+  const prompt = getPrompt("conversation-summary", { conversationOverview: strippedConversation, customPrompt });
 
   try {
     const result = streamText({
