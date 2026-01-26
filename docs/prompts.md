@@ -1890,3 +1890,125 @@ when grouping conversations, i want the ability to select all / none. add that g
 
 ### Jan 26, 2026 06:57:39
 commit this ability
+
+### Jan 26, 2026 07:37:18
+do we parse the models from claude or codex or opencode transcripts
+
+### Jan 26, 2026 07:37:34
+do we send the tool results as a part of the input for summarisation? 
+
+### Jan 26, 2026 07:41:22
+add a card above the ai generated summary in the right column. it has a static summary. it should be a simple table. give the kind of conversation (as identified through schema), model used, number of message, number of turns, and duration of conversation.
+
+### Jan 26, 2026 07:42:38
+tell me the difference between the inputs to summarisation and componentisation. especially wrt tools. tool calls and tool call results. what's included, stripped, and what's not included.
+
+### Jan 26, 2026 07:44:24
+branch off and start a worktree. Use the same mechanisms for both of these. Use the same code too, extracting to a common place if needed. Use what we use for componentisation currently.
+
+### Jan 26, 2026 07:48:31
+commit
+
+### Jan 26, 2026 07:48:34
+commit
+
+### Jan 26, 2026 07:50:03
+merge back to long prompts
+
+### Jan 26, 2026 07:52:53
+look at the exports in:
+  /Users/srihari/work/nilenso/swe-bench-pro-task-setup/exports/c580ebf0_s
+  ubdomain_blocking_opus-codex_20260120_151911.json
+
+  the model i expect (as in the filename) doesn't match the model parsed and shown in this section.
+
+which is wrong?
+
+### Jan 26, 2026 07:53:50
+look at all files in that directory
+
+### Jan 26, 2026 07:55:48
+files have multiple models?
+
+### Jan 26, 2026 07:56:28
+check the filename vs agent field in the export
+
+### Jan 26, 2026 08:01:46
+give me map of agent to count per agent
+
+### Jan 26, 2026 08:05:16
+if format is opencode, add a field for the agent in the summary card
+
+### Jan 26, 2026 08:05:36
+sometimes the summary is stripped like so: 
+
+### Jan 26, 2026 08:08:13
+commit this
+
+### Jan 26, 2026 08:08:36
+does the markdown in the summary tab support tables? how easy is it to add it?
+
+### Jan 26, 2026 08:09:38
+add it
+
+### Jan 26, 2026 08:11:54
+review the way in which we allow prompt customisation from the UI. look at the way it's implemented for summary, segementation and componentisation. i feel like there are redundant implementations, and components not used both in UI and in other parts of implementation. i also want to make analysis customisable in the UI.
+
+do an in-depth review.
+
+### Jan 26, 2026 08:12:17
+AISummary.tsx:22  GET http://localhost:5173/node_modules/.vite/deps/remark-gfm.js?v=68628685 net::ERR_ABORTED 50
+
+### Jan 26, 2026 08:12:35
+re-ran bun run dev, all good
+
+### Jan 26, 2026 08:13:41
+what's the duration of this conversation? /Users/srihari/work/nilenso/swe-bench-pro-task-setup/exports/f631cd44_changelog_gpt-codex_20260120_151911.json 
+
+### Jan 26, 2026 08:20:46
+what would the reprocess handler factory do?
+
+### Jan 26, 2026 08:23:52
+do it. do not remove the dead code around ai coloring. don't add analysis customisation yet. extract the dialog box as a component.
+
+show me the config extraction and what I'll get from it before you go ahead on that.
+
+### Jan 26, 2026 08:25:21
+pass a label
+
+### Jan 26, 2026 08:26:00
+why does clicking generate-summary re-run componentisation?
+
+### Jan 26, 2026 08:27:27
+uh, sorry, i meant generate analysis. 
+
+### Jan 26, 2026 08:29:33
+fix the bug, but branch off into another worktree.
+
+### Jan 26, 2026 08:31:07
+merge this back into long-prompts
+
+### Jan 26, 2026 08:31:34
+implement the customisation for analysis.
+
+### Jan 26, 2026 08:34:00
+pass in the summary-card details of model, agent, format, etc. into the summary ai prompt.
+
+### Jan 26, 2026 08:37:23
+review your workflow here, and see what took extra time compared to the "one line change" that analysis customisation will be.
+
+### Jan 26, 2026 08:38:27
+i thought prompt.ts is a single declarative prompt config?
+
+### Jan 26, 2026 08:39:20
+okay, commit the refactor
+
+### Jan 26, 2026 08:42:35
+"Analysis will appear after componentization completes..."
+this is incorrect, fix to provide a link to run.
+
+### Jan 26, 2026 08:44:26
+what are the inputs to analysis?
+
+### Jan 26, 2026 08:52:34
+filtering in the component comparison from the conversation... only works for the filters on message type, not on component?
