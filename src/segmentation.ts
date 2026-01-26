@@ -2,30 +2,7 @@ import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
-
-/**
- * Configuration for AI model used in segmentation
- */
-interface SegmentationConfig {
-  apiKey: string;
-  model: string;
-}
-
-/**
- * Get segmentation configuration from environment variables
- */
-export function getSegmentationConfig(): SegmentationConfig | null {
-  const apiKey = import.meta.env.VITE_AI_API_KEY;
-  const model = import.meta.env.VITE_AI_MODEL || "gpt-4o-mini";
-
-  if (!apiKey) {
-    console.log("[Segmentation] No API key configured, skipping segmentation");
-    return null;
-  }
-
-  console.log(`[Segmentation] Config loaded: model=${model}`);
-  return { apiKey, model };
-}
+import { getAIConfig, type AIConfig } from "./ai-config";
 
 /**
  * Identify message parts that are greater than 500 tokens
@@ -63,7 +40,7 @@ function identifyLargeParts(conversation: Conversation): Array<{
  */
 async function segmentTextWithAI(
   text: string,
-  config: SegmentationConfig,
+  config: AIConfig,
   customPrompt?: string
 ): Promise<string[]> {
   const openai = createOpenAI({
@@ -173,7 +150,7 @@ type SegmentResult =
  */
 async function segmentMessagePart(
   part: Message["parts"][number],
-  config: SegmentationConfig,
+  config: AIConfig,
   customPrompt?: string
 ): Promise<SegmentResult> {
   // Get text content from different part types
@@ -233,10 +210,9 @@ export async function segmentConversation(
 ): Promise<{ conversation: Conversation; error?: string }> {
   console.log("[Segmentation] Starting segmentation process");
 
-  const config = getSegmentationConfig();
+  const config = getAIConfig("Segmentation");
 
   if (!config) {
-    console.log("[Segmentation] No config, returning original conversation");
     return { conversation, error: "Segmentation: No API key configured" };
   }
 

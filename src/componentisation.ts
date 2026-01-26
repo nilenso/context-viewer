@@ -3,30 +3,18 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
+import { getAIConfig, type AIConfig } from "./ai-config";
 
 /**
  * Configuration for AI model used in componentisation
+ * Re-exported for backwards compatibility
  */
-interface ComponentisationConfig {
-  apiKey: string;
-  model: string;
-}
+export type ComponentisationConfig = AIConfig;
 
 /**
  * Get componentisation configuration from environment variables
  */
-export function getComponentisationConfig(): ComponentisationConfig | null {
-  const apiKey = import.meta.env.VITE_AI_API_KEY;
-  const model = import.meta.env.VITE_AI_MODEL || "gpt-4o-mini";
-
-  if (!apiKey) {
-    console.log("[Componentisation] No API key configured, skipping componentisation");
-    return null;
-  }
-
-  console.log(`[Componentisation] Config loaded: model=${model}`);
-  return { apiKey, model };
-}
+export const getComponentisationConfig = () => getAIConfig("Componentisation");
 
 /**
  * Identify components in a conversation using AI

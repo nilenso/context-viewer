@@ -24,10 +24,8 @@ import { ConversationView } from "./components/ConversationView";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./components/ui/dialog";
-import { Textarea } from "./components/ui/textarea";
-import { Button as UIButton } from "./components/ui/button";
-import { Clock, Loader2, AlertCircle, Upload } from "lucide-react";
+import { PromptEditorDialog } from "./components/PromptEditorDialog";
+import { Clock, Loader2, Upload, AlertCircle } from "lucide-react";
 import { cn } from "./lib/utils";
 import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt, getDefaultSummaryPrompt } from "./prompts";
 
@@ -993,184 +991,134 @@ export default function App() {
     setIsInsightsPanelCollapsed(prev => !prev);
   };
 
-  const handleReprocessComponents = async (options: { customPrompt?: string; customComponents?: string[] } = {}) => {
-    if (!selectedConversation?.conversation) return;
+  // Helper: Build base context from selected conversation
+  const buildBaseContext = (conv: WorkflowState): WorkflowState => ({
+    id: conv.id,
+    filename: conv.filename,
+    conversation: conv.conversation,
+    summary: conv.summary,
+    metadata: conv.metadata,
+    aiSummary: conv.aiSummary,
+    analysis: conv.analysis,
+    components: conv.components,
+    componentMapping: conv.componentMapping,
+    componentTimeline: conv.componentTimeline,
+    componentColors: conv.componentColors,
+    staticComponents: conv.staticComponents,
+    staticMapping: conv.staticMapping,
+    staticTimeline: conv.staticTimeline,
+    customSummaryPrompt: conv.customSummaryPrompt,
+    customSegmentationPrompt: conv.customSegmentationPrompt,
+    customPrompt: conv.customPrompt,
+    config: conv.config || getComponentisationConfig(),
+    warnings: [],
+    stepTimings: { ...conv.stepTimings },
+  });
 
-    const id = selectedConversation.id;
-    setReprocessingId(id);
-
-    try {
-      // Create workflow runner
-      const runner = new WorkflowRunner((id, update) => {
-        setConversations(prev =>
-          prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
-        );
-      });
-
-      // Initialize workflow context from existing conversation
-      // Preserve existing component data until new ones are generated
-      const ctx: WorkflowState = {
-        id,
-        filename: selectedConversation.filename,
-        conversation: selectedConversation.conversation,
-        summary: selectedConversation.summary,
-        metadata: selectedConversation.metadata,
-        aiSummary: selectedConversation.aiSummary,
-        components: selectedConversation.components,
-        componentMapping: selectedConversation.componentMapping,
-        componentTimeline: selectedConversation.componentTimeline,
-        componentColors: selectedConversation.componentColors,
-        analysis: selectedConversation.analysis,
-        customSummaryPrompt: selectedConversation.customSummaryPrompt,
-        customPrompt: options.customPrompt,
-        customComponents: options.customComponents,
-        config: getComponentisationConfig(),
-        warnings: [],
-        stepTimings: { ...selectedConversation.stepTimings }
-      };
-
-      // Run workflow with ComponentPromptChanged event
-      await processConversationWorkflow(
-        WorkflowEvent.ComponentPromptChanged,
-        ctx,
-        runner,
-        {
-          onAnalysisChunk: (id, chunk) => {
-            setConversations(prev =>
-              prev.map(conv =>
-                conv.id === id
-                  ? { ...conv, analysis: (conv.analysis || '') + chunk }
-                  : conv
-              )
-            );
-          }
-        }
-      );
-    } catch (error) {
-      console.error("Failed to reprocess components:", error);
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? { ...conv, status: "failed", step: undefined, error: "Reprocessing failed" }
-            : conv
-        )
-      );
-    } finally {
-      setReprocessingId(null);
-    }
+  // Helper: Standard analysis chunk callback
+  const onAnalysisChunk = (id: string, chunk: string) => {
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.id === id ? { ...conv, analysis: (conv.analysis || '') + chunk } : conv
+      )
+    );
   };
 
-  // Reprocess segmentation with a custom prompt using workflow
-  const handleReprocessSegmentation = async (options: { customSegmentationPrompt?: string } = {}) => {
-    if (!selectedConversation?.conversation) return;
-
-    const id = selectedConversation.id;
-    setReprocessingId(id);
-
-    try {
-      // Create workflow runner
-      const runner = new WorkflowRunner((id, update) => {
-        setConversations(prev =>
-          prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
-        );
-      });
-
-      // Initialize workflow context from existing conversation
-      // We need to use the original (un-segmented) conversation for re-segmentation
-      // For now, we'll use the current conversation - in a more advanced implementation,
-      // we'd want to store the original pre-segmentation conversation
-      const ctx: WorkflowState = {
-        id,
-        filename: selectedConversation.filename,
-        conversation: selectedConversation.conversation,
-        summary: selectedConversation.summary,
-        metadata: selectedConversation.metadata,
-        aiSummary: selectedConversation.aiSummary,
-        components: selectedConversation.components,
-        componentMapping: selectedConversation.componentMapping,
-        componentTimeline: selectedConversation.componentTimeline,
-        componentColors: selectedConversation.componentColors,
-        analysis: selectedConversation.analysis,
-        customSummaryPrompt: selectedConversation.customSummaryPrompt,
-        customSegmentationPrompt: options.customSegmentationPrompt,
-        config: getComponentisationConfig(),
-        warnings: [],
-        stepTimings: { ...selectedConversation.stepTimings }
-      };
-
-      // Run workflow with SegmentationPromptChanged event
-      await processConversationWorkflow(
-        WorkflowEvent.SegmentationPromptChanged,
-        ctx,
-        runner,
-        {
-          onAnalysisChunk: (id, chunk) => {
-            setConversations(prev =>
-              prev.map(conv =>
-                conv.id === id
-                  ? { ...conv, analysis: (conv.analysis || '') + chunk }
-                  : conv
-              )
-            );
-          }
-        }
-      );
-    } catch (error) {
-      console.error("Failed to reprocess segmentation:", error);
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id
-            ? { ...conv, status: "failed", step: undefined, error: "Reprocessing failed" }
-            : conv
-        )
-      );
-    } finally {
-      setReprocessingId(null);
-    }
+  // Helper: Standard summary chunk callback
+  const onSummaryChunk = (id: string, chunk: string) => {
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.id === id ? { ...conv, aiSummary: (conv.aiSummary || '') + chunk } : conv
+      )
+    );
   };
 
-  // Reprocess AI summary with a custom prompt using workflow
+  // Factory: Create a reprocess handler
+  const createReprocessHandler = <T extends Record<string, unknown>>(
+    event: WorkflowEvent,
+    contextModifier: (ctx: WorkflowState, options: T) => void,
+    callbacks: WorkflowCallbacks,
+    errorMessage: string
+  ) => {
+    return async (options: T = {} as T) => {
+      if (!selectedConversation?.conversation) return;
+
+      const id = selectedConversation.id;
+      setReprocessingId(id);
+
+      try {
+        const runner = new WorkflowRunner((id, update) => {
+          setConversations(prev =>
+            prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
+          );
+        });
+
+        const ctx = buildBaseContext(selectedConversation);
+        contextModifier(ctx, options);
+
+        await processConversationWorkflow(event, ctx, runner, callbacks);
+      } catch (error) {
+        console.error(`Failed to reprocess: ${errorMessage}`, error);
+        setConversations(prev =>
+          prev.map(conv =>
+            conv.id === id
+              ? { ...conv, status: "failed", step: undefined, error: errorMessage }
+              : conv
+          )
+        );
+      } finally {
+        setReprocessingId(null);
+      }
+    };
+  };
+
+  // Reprocess handlers using the factory
+  const handleReprocessComponents = createReprocessHandler<{ customPrompt?: string; customComponents?: string[] }>(
+    WorkflowEvent.ComponentPromptChanged,
+    (ctx, options) => {
+      ctx.customPrompt = options.customPrompt;
+      ctx.customComponents = options.customComponents;
+    },
+    { onAnalysisChunk },
+    "Component reprocessing failed"
+  );
+
+  const handleReprocessSegmentation = createReprocessHandler<{ customSegmentationPrompt?: string }>(
+    WorkflowEvent.SegmentationPromptChanged,
+    (ctx, options) => {
+      ctx.customSegmentationPrompt = options.customSegmentationPrompt;
+    },
+    { onAnalysisChunk },
+    "Segmentation reprocessing failed"
+  );
+
+  // Summary handler has special logic for regenerating analysis
   const handleReprocessSummary = async (options: { customSummaryPrompt?: string } = {}) => {
     if (!selectedConversation?.conversation) return;
 
     const id = selectedConversation.id;
-    setReprocessingId(id);
     const shouldRegenerateAnalysis =
       !!selectedConversation.analysis ||
       selectedConversation.stepTimings?.analysis !== undefined;
 
+    setReprocessingId(id);
+
     try {
-      // Create workflow runner
       const runner = new WorkflowRunner((id, update) => {
         setConversations(prev =>
           prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
         );
       });
 
-      const ctx: WorkflowState = {
-        id,
-        filename: selectedConversation.filename,
-        conversation: selectedConversation.conversation,
-        summary: selectedConversation.summary,
-        metadata: selectedConversation.metadata,
-        aiSummary: '',
-        analysis: shouldRegenerateAnalysis ? '' : selectedConversation.analysis,
-        components: selectedConversation.components,
-        componentMapping: selectedConversation.componentMapping,
-        componentTimeline: selectedConversation.componentTimeline,
-        componentColors: selectedConversation.componentColors,
-        staticComponents: selectedConversation.staticComponents,
-        staticMapping: selectedConversation.staticMapping,
-        staticTimeline: selectedConversation.staticTimeline,
-        warnings: [],
-        stepTimings: {
-          ...selectedConversation.stepTimings,
-          summary: undefined,
-          ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
-        },
-        customSummaryPrompt: options.customSummaryPrompt,
-        regenerateAnalysis: shouldRegenerateAnalysis,
-        config: selectedConversation.config || getComponentisationConfig(),
+      const ctx = buildBaseContext(selectedConversation);
+      ctx.aiSummary = '';
+      ctx.analysis = shouldRegenerateAnalysis ? '' : ctx.analysis;
+      ctx.customSummaryPrompt = options.customSummaryPrompt;
+      ctx.regenerateAnalysis = shouldRegenerateAnalysis;
+      ctx.stepTimings = {
+        ...ctx.stepTimings,
+        summary: undefined,
+        ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
       };
 
       await processConversationWorkflow(
@@ -1178,26 +1126,8 @@ export default function App() {
         ctx,
         runner,
         {
-          onSummaryChunk: (id, chunk) => {
-            setConversations(prev =>
-              prev.map(conv =>
-                conv.id === id
-                  ? { ...conv, aiSummary: (conv.aiSummary || '') + chunk }
-                  : conv
-              )
-            );
-          },
-          onAnalysisChunk: shouldRegenerateAnalysis
-            ? (id, chunk) => {
-              setConversations(prev =>
-                prev.map(conv =>
-                  conv.id === id
-                    ? { ...conv, analysis: (conv.analysis || '') + chunk }
-                    : conv
-                )
-              );
-            }
-            : undefined,
+          onSummaryChunk,
+          onAnalysisChunk: shouldRegenerateAnalysis ? onAnalysisChunk : undefined,
         }
       );
     } catch (error) {
@@ -1724,157 +1654,54 @@ export default function App() {
         )}
       </div>
 
-      {/* Prompt Editor Dialog */}
-      <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Component Identification Prompt</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <p className="text-sm text-muted-foreground">
-              Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components.
-            </p>
-            <Textarea
-              value={editingPrompt}
-              onChange={(e) => setEditingPrompt(e.target.value)}
-              placeholder="Enter your componentisation prompt..."
-              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-              <span>This will re-run componentisation, visualization, and analysis</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <UIButton
-              variant="outline"
-              onClick={() => setIsPromptDialogOpen(false)}
-            >
-              Cancel
-            </UIButton>
-            <UIButton
-              onClick={handleApplyPrompt}
-              disabled={!editingPrompt.trim()}
-            >
-              Apply & Reprocess
-            </UIButton>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Prompt Editor Dialogs */}
+      <PromptEditorDialog
+        open={isPromptDialogOpen}
+        onOpenChange={setIsPromptDialogOpen}
+        title="Edit Component Identification Prompt"
+        description="Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components."
+        value={editingPrompt}
+        onChange={setEditingPrompt}
+        onApply={handleApplyPrompt}
+        placeholder="Enter your componentisation prompt..."
+        warningText="This will re-run componentisation, visualization, and analysis"
+      />
 
-      {/* Components Editor Dialog */}
-      <Dialog open={isComponentsDialogOpen} onOpenChange={setIsComponentsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Components</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <p className="text-sm text-muted-foreground">
-              Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components.
-            </p>
-            <Textarea
-              value={editingComponents}
-              onChange={(e) => setEditingComponents(e.target.value)}
-              placeholder="Enter components (one per line)..."
-              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-              <span>This will re-run component mapping, visualization, and analysis (skipping component identification)</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <UIButton
-              variant="outline"
-              onClick={() => setIsComponentsDialogOpen(false)}
-            >
-              Cancel
-            </UIButton>
-            <UIButton
-              onClick={handleApplyComponents}
-              disabled={!editingComponents.trim()}
-            >
-              Apply & Reprocess
-            </UIButton>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PromptEditorDialog
+        open={isComponentsDialogOpen}
+        onOpenChange={setIsComponentsDialogOpen}
+        title="Edit Components"
+        description="Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components."
+        value={editingComponents}
+        onChange={setEditingComponents}
+        onApply={handleApplyComponents}
+        placeholder="Enter components (one per line)..."
+        warningText="This will re-run component mapping, visualization, and analysis (skipping component identification)"
+      />
 
-      {/* Segmentation Prompt Editor Dialog */}
-      <Dialog open={isSegmentationPromptDialogOpen} onOpenChange={setIsSegmentationPromptDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Segmentation Prompt</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <p className="text-sm text-muted-foreground">
-              Customize the prompt used to segment large text parts into smaller semantic chunks. The AI will use this prompt to identify where to split long content.
-            </p>
-            <Textarea
-              value={editingSegmentationPrompt}
-              onChange={(e) => setEditingSegmentationPrompt(e.target.value)}
-              placeholder="Enter your segmentation prompt..."
-              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-              <span>This will re-run segmentation, componentisation, visualization, and analysis</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <UIButton
-              variant="outline"
-              onClick={() => setIsSegmentationPromptDialogOpen(false)}
-            >
-              Cancel
-            </UIButton>
-            <UIButton
-              onClick={handleApplySegmentationPrompt}
-              disabled={!editingSegmentationPrompt.trim()}
-            >
-              Apply & Reprocess
-            </UIButton>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PromptEditorDialog
+        open={isSegmentationPromptDialogOpen}
+        onOpenChange={setIsSegmentationPromptDialogOpen}
+        title="Edit Segmentation Prompt"
+        description="Customize the prompt used to segment large text parts into smaller semantic chunks. The AI will use this prompt to identify where to split long content."
+        value={editingSegmentationPrompt}
+        onChange={setEditingSegmentationPrompt}
+        onApply={handleApplySegmentationPrompt}
+        placeholder="Enter your segmentation prompt..."
+        warningText="This will re-run segmentation, componentisation, visualization, and analysis"
+      />
 
-      {/* Summary Prompt Editor Dialog */}
-      <Dialog open={isSummaryPromptDialogOpen} onOpenChange={setIsSummaryPromptDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Summary Prompt</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <p className="text-sm text-muted-foreground">
-              Customize the prompt used to generate the AI summary. The summary feeds into context analysis.
-            </p>
-            <Textarea
-              value={editingSummaryPrompt}
-              onChange={(e) => setEditingSummaryPrompt(e.target.value)}
-              placeholder="Enter your summary prompt..."
-              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-              <span>This will re-run the AI summary and any dependent analysis</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <UIButton
-              variant="outline"
-              onClick={() => setIsSummaryPromptDialogOpen(false)}
-            >
-              Cancel
-            </UIButton>
-            <UIButton
-              onClick={handleApplySummaryPrompt}
-              disabled={!editingSummaryPrompt.trim()}
-            >
-              Apply & Reprocess
-            </UIButton>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PromptEditorDialog
+        open={isSummaryPromptDialogOpen}
+        onOpenChange={setIsSummaryPromptDialogOpen}
+        title="Edit Summary Prompt"
+        description="Customize the prompt used to generate the AI summary. The summary feeds into context analysis."
+        value={editingSummaryPrompt}
+        onChange={setEditingSummaryPrompt}
+        onApply={handleApplySummaryPrompt}
+        placeholder="Enter your summary prompt..."
+        warningText="This will re-run the AI summary and any dependent analysis"
+      />
     </div>
   );
 }

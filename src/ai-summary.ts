@@ -4,30 +4,7 @@ import type { Conversation } from "./schema";
 import type { ComponentTimelineSnapshot } from "./componentisation";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-
-/**
- * Configuration for AI model used in summarization
- */
-interface SummaryConfig {
-  apiKey: string;
-  model: string;
-}
-
-/**
- * Get summary configuration from environment variables
- */
-export function getSummaryConfig(): SummaryConfig | null {
-  const apiKey = import.meta.env.VITE_AI_API_KEY;
-  const model = import.meta.env.VITE_AI_MODEL || "gpt-4o-mini";
-
-  if (!apiKey) {
-    console.log("[AI Summary] No API key configured, skipping AI summary");
-    return null;
-  }
-
-  console.log(`[AI Summary] Config loaded: model=${model}`);
-  return { apiKey, model };
-}
+import { getAIConfig } from "./ai-config";
 
 /**
  * Generate a streaming AI summary of the conversation
@@ -41,10 +18,9 @@ export async function generateConversationSummary(
 ): Promise<{ summary: string; error?: string }> {
   console.log("[AI Summary] Starting summary generation");
 
-  const config = getSummaryConfig();
+  const config = getAIConfig("AI Summary");
 
   if (!config) {
-    console.log("[AI Summary] No config, skipping summary");
     return { summary: "", error: "AI Summary: No API key configured" };
   }
 
@@ -123,10 +99,9 @@ export async function generateContextAnalysis(
 ): Promise<{ analysis: string; error?: string }> {
   console.log("[Context Analysis] Starting analysis generation");
 
-  const config = getSummaryConfig();
+  const config = getAIConfig("Context Analysis");
 
   if (!config) {
-    console.log("[Context Analysis] No config, skipping analysis");
     return { analysis: "", error: "Context Analysis: No API key configured" };
   }
 

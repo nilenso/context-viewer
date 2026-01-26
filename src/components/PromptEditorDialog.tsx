@@ -1,0 +1,66 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertCircle } from "lucide-react";
+
+interface PromptEditorDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+  onApply: () => void;
+  placeholder?: string;
+  warningText: string;
+  applyButtonText?: string;
+}
+
+export function PromptEditorDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  value,
+  onChange,
+  onApply,
+  placeholder = "Enter your prompt...",
+  warningText,
+  applyButtonText = "Apply & Reprocess",
+}: PromptEditorDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <p className="text-sm text-muted-foreground">{description}</p>
+          <Textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
+          />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>{warningText}</span>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onApply} disabled={!value.trim()}>
+            {applyButtonText}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
