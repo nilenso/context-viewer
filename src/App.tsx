@@ -520,8 +520,8 @@ async function processConversationWorkflow(
       runner.updateState(ctx, 'finding-components');
     }
 
-    // Step 4: Find components (skip for grouped conversations - data already merged)
-    if (event !== WorkflowEvent.GroupedConversation) {
+    // Step 4: Find components (skip for grouped conversations and analysis-only)
+    if (event !== WorkflowEvent.GroupedConversation && event !== WorkflowEvent.GenerateAnalysis) {
       runner.startStep(ctx, 'finding-components');
       const { result: componentResult, timing: componentTiming } =
         await runner.runActivity(ctx, findComponentsActivity);
