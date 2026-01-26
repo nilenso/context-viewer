@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronRight, ChevronLeft, Menu } from "lucide-react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ConversationMetadataCard } from "./ConversationMetadataCard";
 import type { ConversationMetadata } from "../parser";
 import type { Conversation } from "../schema";
@@ -74,6 +75,7 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
   const renderMarkdown = (content?: string, isStreaming?: boolean) => (
     <div className="text-sm text-foreground/90">
       <Markdown
+        remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ node, ...props }) => (
             <h3 className="text-base font-semibold mt-3 mb-2 first:mt-0" {...props} />
@@ -101,6 +103,18 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
           ),
           em: ({ node, ...props }) => (
             <em className="italic" {...props} />
+          ),
+          table: ({ node, ...props }) => (
+            <table className="w-full border-collapse my-2" {...props} />
+          ),
+          thead: ({ node, ...props }) => (
+            <thead className="bg-muted/50" {...props} />
+          ),
+          th: ({ node, ...props }) => (
+            <th className="border border-border px-2 py-1 text-left font-medium" {...props} />
+          ),
+          td: ({ node, ...props }) => (
+            <td className="border border-border px-2 py-1" {...props} />
           ),
         }}
       >
