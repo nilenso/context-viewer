@@ -35,9 +35,30 @@ ${text}
   "conversation-summary": {
     key: "conversation-summary",
     description: "Generates a high-level summary of the entire conversation",
-    template: ({ conversationOverview, customPrompt }) => {
+    template: ({ conversationOverview, customPrompt, metadata, stats }) => {
       const userPrompt = customPrompt || getDefaultSummaryPrompt();
-      return `${userPrompt}
+
+      // Build metadata section if available
+      let metadataSection = "";
+      if (metadata || stats) {
+        const lines: string[] = [];
+        if (metadata?.parserName) lines.push(`Format: ${metadata.parserName}`);
+        if (metadata?.agent) lines.push(`Agent: ${metadata.agent}`);
+        if (metadata?.model) lines.push(`Model: ${metadata.model}`);
+        if (stats?.messageCount) lines.push(`Messages: ${stats.messageCount}`);
+        if (stats?.turnCount) lines.push(`Turns: ${stats.turnCount}`);
+        if (stats?.durationMs) {
+          const seconds = Math.floor(stats.durationMs / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const remainingSeconds = seconds % 60;
+          lines.push(`Duration: ${minutes}m ${remainingSeconds}s`);
+        }
+        if (lines.length > 0) {
+          metadataSection = `\n\nConversation Metadata:\n${lines.join("\n")}\n`;
+        }
+      }
+
+      return `${userPrompt}${metadataSection}
 
 Conversation:
 ${JSON.stringify(conversationOverview, null, 2)}`;
@@ -84,7 +105,9 @@ ${componentsJson}`,
   "context-analysis": {
     key: "context-analysis",
     description: "Analyzes conversation context to find opportunities for improvement",
-    template: ({ conversationSummary, componentDataCSV }) => `You are analyzing a conversation to identify opportunities for improving context relevance and efficiency.
+    template: ({ conversationSummary, componentDataCSV, customPrompt }) => {
+      const userPrompt = customPrompt || getDefaultAnalysisPrompt();
+      return `${userPrompt}
 
 ## Conversation Summary
 ${conversationSummary}
@@ -92,24 +115,8 @@ ${conversationSummary}
 ## Component Distribution Over Time (CSV)
 This shows how different context components grew throughout the conversation:
 
-${componentDataCSV}
-
-## Your Task
-Analyze this data and provide insights in markdown format covering:
-
-1. **Context Growth Patterns**: What patterns do you see in how context accumulated? Which components dominated?
-
-2. **Redundancy & Efficiency**: Are there signs of redundant context? Which components could potentially be reduced or optimized?
-
-3. **Context Relevance**: Based on the conversation goal, which components seem most/least relevant? Are there disproportionate allocations?
-
-4. **Recommendations**: Specific, actionable suggestions for improving context management in similar conversations. Focus on:
-   - Components to reduce or eliminate
-   - Better segmentation strategies
-   - Context retrieval improvements
-   - Memory optimization opportunities
-
-Keep your analysis practical and focused on improving context relevance. Use clear headings, bullet points, and be specific about which components you're referring to.`,
+${componentDataCSV}`;
+    },
   },
 };
 
@@ -244,4 +251,28 @@ export function getDefaultSummaryPrompt(): string {
 
 Keep it brief and to the point. Use simple markdown text formatting only (headings, paragraphs, lists, bold).
 Do not use code blocks, tables, or complex formatting.`;
+}
+
+/**
+ * Get the default (user-editable) context analysis prompt
+ * This is the part shown in the UI without the data sections
+ */
+export function getDefaultAnalysisPrompt(): string {
+  return `You are analyzing a conversation to identify opportunities for improving context relevance and efficiency.
+
+Analyze the data below and provide insights in markdown format covering:
+
+1. **Context Growth Patterns**: What patterns do you see in how context accumulated? Which components dominated?
+
+2. **Redundancy & Efficiency**: Are there signs of redundant context? Which components could potentially be reduced or optimized?
+
+3. **Context Relevance**: Based on the conversation goal, which components seem most/least relevant? Are there disproportionate allocations?
+
+4. **Recommendations**: Specific, actionable suggestions for improving context management in similar conversations. Focus on:
+   - Components to reduce or eliminate
+   - Better segmentation strategies
+   - Context retrieval improvements
+   - Memory optimization opportunities
+
+Keep your analysis practical and focused on improving context relevance. Use clear headings, bullet points, and be specific about which components you're referring to.`;
 }

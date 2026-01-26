@@ -18,7 +18,7 @@ import {
   type ComponentTimelineSnapshot
 } from "./componentisation";
 import { staticComponentise } from "./static-componentisation";
-import { generateConversationSummary, generateContextAnalysis } from "./ai-summary";
+import { generateConversationSummary, generateContextAnalysis, type ConversationStats } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
 import { ConversationView } from "./components/ConversationView";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
@@ -27,7 +27,7 @@ import { Card } from "./components/ui/card";
 import { PromptEditorDialog } from "./components/PromptEditorDialog";
 import { Clock, Loader2, Upload, AlertCircle } from "lucide-react";
 import { cn } from "./lib/utils";
-import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt, getDefaultSummaryPrompt } from "./prompts";
+import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt, getDefaultSummaryPrompt, getDefaultAnalysisPrompt } from "./prompts";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -60,6 +60,7 @@ interface WorkflowState {
   customPrompt?: string;
   customSegmentationPrompt?: string;
   customSummaryPrompt?: string;
+  customAnalysisPrompt?: string;
   customComponents?: string[];
   regenerateAnalysis?: boolean;
 
@@ -250,16 +251,48 @@ const assignColorsActivity: Activity<{
 };
 
 /**
+ * Calculate conversation stats for the summary prompt
+ */
+function calculateConversationStats(conversation: { messages: Array<{ role: string; timestamp?: string }> }): ConversationStats {
+  const messages = conversation.messages;
+  const messageCount = messages.length;
+  const turnCount = messages.filter((m) => m.role === "user").length;
+
+  let durationMs: number | undefined;
+  let firstTimestamp: Date | undefined;
+  let lastTimestamp: Date | undefined;
+
+  for (const message of messages) {
+    if (message.timestamp) {
+      const ts = new Date(message.timestamp);
+      if (!isNaN(ts.getTime())) {
+        if (!firstTimestamp || ts < firstTimestamp) firstTimestamp = ts;
+        if (!lastTimestamp || ts > lastTimestamp) lastTimestamp = ts;
+      }
+    }
+  }
+
+  if (firstTimestamp && lastTimestamp) {
+    durationMs = lastTimestamp.getTime() - firstTimestamp.getTime();
+  }
+
+  return { messageCount, turnCount, durationMs };
+}
+
+/**
  * Factory: Create summary generation activity with streaming callback
  */
 const createSummaryActivity = (
   onChunk?: (id: string, chunk: string) => void
 ): Activity<{ summary: string; error?: string }> => {
   return async (ctx) => {
+    const stats = calculateConversationStats(ctx.conversation!);
     const result = await generateConversationSummary(
       ctx.conversation!,
       (chunk) => onChunk?.(ctx.id, chunk),
-      ctx.customSummaryPrompt
+      ctx.customSummaryPrompt,
+      ctx.metadata,
+      stats
     );
 
     return {
@@ -285,7 +318,8 @@ const createAnalysisActivity = (
       ctx.componentTimeline!,
       ctx.components,
       ctx.aiSummary,
-      (chunk) => onChunk?.(ctx.id, chunk)
+      (chunk) => onChunk?.(ctx.id, chunk),
+      ctx.customAnalysisPrompt
     );
 
     return {
@@ -681,6 +715,10 @@ export default function App() {
   const [isSummaryPromptDialogOpen, setIsSummaryPromptDialogOpen] = useState(false);
   const [editingSummaryPrompt, setEditingSummaryPrompt] = useState(getDefaultSummaryPrompt());
 
+  // Analysis prompt editor dialog state
+  const [isAnalysisPromptDialogOpen, setIsAnalysisPromptDialogOpen] = useState(false);
+  const [editingAnalysisPrompt, setEditingAnalysisPrompt] = useState(getDefaultAnalysisPrompt());
+
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   const workflowMutation = useMutation({
@@ -981,6 +1019,21 @@ export default function App() {
     }
   };
 
+  // Handle opening the analysis prompt editor
+  const handleOpenAnalysisPromptEditor = () => {
+    const currentPrompt = selectedConversation?.customAnalysisPrompt || getDefaultAnalysisPrompt();
+    setEditingAnalysisPrompt(currentPrompt);
+    setIsAnalysisPromptDialogOpen(true);
+  };
+
+  // Handle applying the edited analysis prompt
+  const handleApplyAnalysisPrompt = async () => {
+    setIsAnalysisPromptDialogOpen(false);
+    if (selectedConversation && selectedConversation.conversation) {
+      await handleGenerateAnalysis(selectedConversation.id, { customAnalysisPrompt: editingAnalysisPrompt });
+    }
+  };
+
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed((prev) => !prev);
@@ -1009,6 +1062,7 @@ export default function App() {
     staticTimeline: conv.staticTimeline,
     customSummaryPrompt: conv.customSummaryPrompt,
     customSegmentationPrompt: conv.customSegmentationPrompt,
+    customAnalysisPrompt: conv.customAnalysisPrompt,
     customPrompt: conv.customPrompt,
     config: conv.config || getComponentisationConfig(),
     warnings: [],
@@ -1145,7 +1199,7 @@ export default function App() {
   };
 
   // Generate analysis on demand (analysis is optional and not run automatically)
-  const handleGenerateAnalysis = async (id: string) => {
+  const handleGenerateAnalysis = async (id: string, options: { customAnalysisPrompt?: string } = {}) => {
     const conv = conversations.find(c => c.id === id);
     if (!conv?.conversation) return;
 
@@ -1176,6 +1230,7 @@ export default function App() {
         staticComponents: conv.staticComponents,
         analysis: '', // Clear existing analysis
         customSummaryPrompt: conv.customSummaryPrompt,
+        customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt,
         config: conv.config || getComponentisationConfig(),
         warnings: conv.warnings || [],
         stepTimings: { ...conv.stepTimings },
@@ -1548,6 +1603,7 @@ export default function App() {
               onEditComponents={handleOpenComponentsEditor}
               onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
               onEditSummaryPrompt={handleOpenSummaryPromptEditor}
+              onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleToggleSidebar}
             />
@@ -1701,6 +1757,18 @@ export default function App() {
         onApply={handleApplySummaryPrompt}
         placeholder="Enter your summary prompt..."
         warningText="This will re-run the AI summary and any dependent analysis"
+      />
+
+      <PromptEditorDialog
+        open={isAnalysisPromptDialogOpen}
+        onOpenChange={setIsAnalysisPromptDialogOpen}
+        title="Edit Analysis Prompt"
+        description="Customize the prompt used to generate context analysis. The analysis identifies patterns, redundancy, and optimization opportunities."
+        value={editingAnalysisPrompt}
+        onChange={setEditingAnalysisPrompt}
+        onApply={handleApplyAnalysisPrompt}
+        placeholder="Enter your analysis prompt..."
+        warningText="This will re-run the context analysis"
       />
     </div>
   );

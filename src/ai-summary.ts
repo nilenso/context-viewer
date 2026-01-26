@@ -2,9 +2,16 @@ import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import type { ComponentTimelineSnapshot } from "./componentisation";
+import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig } from "./ai-config";
+
+export interface ConversationStats {
+  messageCount: number;
+  turnCount: number;
+  durationMs?: number;
+}
 
 /**
  * Generate a streaming AI summary of the conversation
@@ -14,7 +21,9 @@ import { getAIConfig } from "./ai-config";
 export async function generateConversationSummary(
   conversation: Conversation,
   onChunk?: (chunk: string) => void,
-  customPrompt?: string
+  customPrompt?: string,
+  metadata?: ConversationMetadata,
+  stats?: ConversationStats
 ): Promise<{ summary: string; error?: string }> {
   console.log("[AI Summary] Starting summary generation");
 
@@ -31,7 +40,12 @@ export async function generateConversationSummary(
   // Strip large content (images, files, truncate tool calls/results) - same as componentisation
   const strippedConversation = stripLargeContent(conversation);
 
-  const prompt = getPrompt("conversation-summary", { conversationOverview: strippedConversation, customPrompt });
+  const prompt = getPrompt("conversation-summary", {
+    conversationOverview: strippedConversation,
+    customPrompt,
+    metadata,
+    stats
+  });
 
   try {
     const result = streamText({
@@ -95,7 +109,8 @@ export async function generateContextAnalysis(
   componentTimeline: ComponentTimelineSnapshot[],
   components: string[],
   aiSummary: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  customPrompt?: string
 ): Promise<{ analysis: string; error?: string }> {
   console.log("[Context Analysis] Starting analysis generation");
 
@@ -115,6 +130,7 @@ export async function generateContextAnalysis(
   const prompt = getPrompt("context-analysis", {
     conversationSummary: aiSummary,
     componentDataCSV,
+    customPrompt,
   });
 
   try {
