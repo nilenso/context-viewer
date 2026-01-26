@@ -73,6 +73,7 @@ interface ConversationListProps {
   onEditComponents?: () => void;
   onEditSegmentationPrompt?: () => void;
   onEditSummaryPrompt?: () => void;
+  onEditAnalysisPrompt?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -94,6 +95,7 @@ export function ConversationList({
   onEditComponents,
   onEditSegmentationPrompt,
   onEditSummaryPrompt,
+  onEditAnalysisPrompt,
   isCollapsed = false,
   onToggleCollapse,
 }: ConversationListProps) {
@@ -682,6 +684,20 @@ export function ConversationList({
                                         )}
                                       </div>
                                     )}
+                                  {/* Edit prompt link - show below "Generate analysis" step */}
+                                  {isAnalysisStep && onEditAnalysisPrompt && (
+                                    <div className="flex gap-2 ml-5 mt-0.5">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditAnalysisPrompt();
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                      >
+                                        Edit prompt
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
