@@ -339,8 +339,15 @@ export function ConversationView({
 
   // Compute filtered source conversation components for grouped conversation comparison
   const filteredSourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
+    // Check if any filters are active
+    const hasMessageTypeFilters = !messageFilters.has("all");
+    const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
+
     // Use pre-computed data if no filters are active or no source states provided
-    if (messageFilters.has("all") || !sourceWorkflowStates || sourceWorkflowStates.length === 0) {
+    if (!hasMessageTypeFilters && !hasComponentFilters) {
+      return sourceConversationComponents;
+    }
+    if (!sourceWorkflowStates || sourceWorkflowStates.length === 0) {
       return sourceConversationComponents;
     }
 
@@ -360,7 +367,15 @@ export function ConversationView({
         for (const message of source.conversation.messages) {
           // Count user messages as turns (only if they pass filter)
           const hasUserPartsPassingFilter = message.role === "user" &&
-            message.parts.some(part => partPassesMessageTypeFilter(part, message.role));
+            message.parts.some(part => {
+              if (!partPassesMessageTypeFilter(part, message.role)) return false;
+              // Also check component filter for turn counting
+              if (hasComponentFilters) {
+                const partComponent = source.componentMapping![part.id];
+                if (!partComponent || !selectedComponents.has(partComponent)) return false;
+              }
+              return true;
+            });
           if (hasUserPartsPassingFilter) {
             turnCount++;
           }
@@ -383,6 +398,12 @@ export function ConversationView({
             if (!partPassesMessageTypeFilter(part, message.role)) continue;
 
             const component = source.componentMapping[part.id];
+
+            // Apply component filter
+            if (hasComponentFilters) {
+              if (!component || !selectedComponents.has(component)) continue;
+            }
+
             const tokenCount = ("token_count" in part && part.token_count) || 0;
             totalTokens += tokenCount;
 
@@ -410,7 +431,7 @@ export function ConversationView({
         };
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [sourceWorkflowStates, sourceConversationComponents, messageFilters]);
+  }, [sourceWorkflowStates, sourceConversationComponents, messageFilters, components, selectedComponents]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
