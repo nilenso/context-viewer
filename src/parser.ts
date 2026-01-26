@@ -10,6 +10,8 @@ export interface ConversationMetadata {
   model?: string;
   /** Provider name (if available) */
   provider?: string;
+  /** Agent configuration (OpenCode only) */
+  agent?: string;
 }
 
 /**

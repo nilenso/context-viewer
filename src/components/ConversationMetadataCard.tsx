@@ -72,11 +72,22 @@ export function ConversationMetadataCard({
 
   const stats = calculateStats(conversation);
 
-  const rows = [
+  const rows: Array<{ label: string; value: string }> = [
     {
       label: "Format",
       value: metadata?.parserName || "Unknown",
     },
+  ];
+
+  // Add agent field for OpenCode format
+  if (metadata?.agent) {
+    rows.push({
+      label: "Agent",
+      value: metadata.agent,
+    });
+  }
+
+  rows.push(
     {
       label: "Model",
       value: metadata?.model || "Unknown",
@@ -92,8 +103,8 @@ export function ConversationMetadataCard({
     {
       label: "Duration",
       value: stats.durationMs ? formatDuration(stats.durationMs) : "N/A",
-    },
-  ];
+    }
+  );
 
   return (
     <Card>

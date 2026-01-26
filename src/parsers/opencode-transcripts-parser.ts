@@ -46,34 +46,44 @@ export class OpenCodeTranscriptsParser implements Parser {
     const d = data as Record<string, unknown>;
     if (!Array.isArray(d.messages)) return {};
 
-    // Find the first assistant message with model info
+    let model: string | undefined;
+    let provider: string | undefined;
+    let agent: string | undefined;
+
+    // Find the first message with model/agent info
     for (const msg of d.messages) {
       if (typeof msg !== "object" || msg === null) continue;
       const m = msg as Record<string, unknown>;
       if (typeof m.info !== "object" || m.info === null) continue;
 
       const info = m.info as Record<string, unknown>;
-      if (info.role !== "assistant") continue;
 
-      // Extract model info
-      const modelID = info.modelID as string | undefined;
-      const providerID = info.providerID as string | undefined;
-
-      // Also check nested model object
-      if (typeof info.model === "object" && info.model !== null) {
-        const modelObj = info.model as Record<string, unknown>;
-        return {
-          model: modelID || (modelObj.modelID as string | undefined),
-          provider: providerID || (modelObj.providerID as string | undefined),
-        };
+      // Extract agent from any message (usually present on all)
+      if (!agent && typeof info.agent === "string") {
+        agent = info.agent;
       }
 
-      if (modelID || providerID) {
-        return { model: modelID, provider: providerID };
+      // Extract model info from assistant messages
+      if (info.role === "assistant" && !model) {
+        const modelID = info.modelID as string | undefined;
+        const providerID = info.providerID as string | undefined;
+
+        // Also check nested model object
+        if (typeof info.model === "object" && info.model !== null) {
+          const modelObj = info.model as Record<string, unknown>;
+          model = modelID || (modelObj.modelID as string | undefined);
+          provider = providerID || (modelObj.providerID as string | undefined);
+        } else if (modelID || providerID) {
+          model = modelID;
+          provider = providerID;
+        }
       }
+
+      // Stop if we found everything
+      if (model && agent) break;
     }
 
-    return {};
+    return { model, provider, agent };
   }
   canParse(data: unknown): boolean {
     // Must be an object with info and messages
