@@ -623,8 +623,6 @@ export default function App() {
 
   // Sidebar collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [isSidebarLocked, setIsSidebarLocked] = useState(false);
 
   // Insights panel collapse state
   const [isInsightsPanelCollapsed, setIsInsightsPanelCollapsed] = useState(false);
@@ -920,36 +918,7 @@ export default function App() {
 
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
-    if (isSidebarCollapsed) {
-      // Expanding: unlock and expand
-      setIsSidebarLocked(false);
-      setIsSidebarCollapsed(false);
-      setIsSidebarHovered(false);
-    } else {
-      // Collapsing
-      setIsSidebarCollapsed(true);
-      setIsSidebarLocked(false);
-      setIsSidebarHovered(false);
-    }
-  };
-
-  const handleLockSidebar = () => {
-    // Lock sidebar open: expand it and keep it locked
-    setIsSidebarCollapsed(false);
-    setIsSidebarLocked(true);
-    setIsSidebarHovered(false);
-  };
-
-  const handleSidebarMouseEnter = () => {
-    if (isSidebarCollapsed && !isSidebarLocked) {
-      setIsSidebarHovered(true);
-    }
-  };
-
-  const handleSidebarMouseLeave = () => {
-    if (isSidebarCollapsed && !isSidebarLocked) {
-      setIsSidebarHovered(false);
-    }
+    setIsSidebarCollapsed((prev) => !prev);
   };
 
   // Insights panel toggle handler
@@ -1473,11 +1442,7 @@ export default function App() {
               : "grid-cols-[260px_minmax(500px,1fr)_minmax(420px,30%)]"
           )}>
           {/* Sidebar: Conversation List */}
-          <aside
-            className="relative"
-            onMouseEnter={handleSidebarMouseEnter}
-            onMouseLeave={handleSidebarMouseLeave}
-          >
+          <aside className="relative">
             <ConversationList
               conversations={conversations}
               selectedId={selectedId}
@@ -1496,9 +1461,6 @@ export default function App() {
               onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleToggleSidebar}
-              onLockSidebar={handleLockSidebar}
-              isHovered={isSidebarHovered}
-              isLocked={isSidebarLocked}
             />
           </aside>
 

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, ChevronsRight, Layers, Ungroup, X, Trash2 } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, Layers, Ungroup, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -49,9 +49,6 @@ interface ConversationListProps {
   onEditSegmentationPrompt?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
-  onLockSidebar?: () => void;
-  isHovered?: boolean;
-  isLocked?: boolean;
 }
 
 export function ConversationList({
@@ -72,9 +69,6 @@ export function ConversationList({
   onEditSegmentationPrompt,
   isCollapsed = false,
   onToggleCollapse,
-  onLockSidebar,
-  isHovered = false,
-  isLocked = false,
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(new Set());
@@ -161,38 +155,34 @@ export function ConversationList({
     return "pending";
   };
 
-  // When collapsed, show minimal UI (just hamburger when not hovered)
-  if (isCollapsed && !isHovered) {
+  // When collapsed, show minimal UI
+  if (isCollapsed) {
     return (
-      <div className="h-full flex flex-col bg-background border rounded-md transition-all duration-200 w-12">
-        {/* Collapsed header with hamburger */}
-        <div className="flex items-center justify-center p-3 border-b">
+      <div className="h-full flex flex-col items-center bg-background border rounded-md transition-all duration-200 w-12 py-3">
+        <div className="flex items-center justify-center">
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggleCollapse}
             className="h-8 w-8 p-0"
-            title="Open sidebar"
+            title="Open conversations panel"
           >
             <Menu className="h-4 w-4" />
           </Button>
         </div>
+        <span className="text-xs text-muted-foreground mt-2 [writing-mode:vertical-lr] rotate-180">
+          Conversations
+        </span>
       </div>
     );
   }
 
-  // When collapsed but hovered, show full content as overlay
-  const isOverlay = isCollapsed && isHovered;
-
   if (conversations.length === 0) {
     return (
-      <div className={cn(
-        "space-y-3",
-        isOverlay && "absolute left-0 top-0 w-[280px] shadow-xl z-50 bg-background border rounded-md p-4"
-      )}>
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
-          {onToggleCollapse && !isOverlay && !isLocked && (
+          {onToggleCollapse && (
             <Button
               variant="ghost"
               size="sm"
@@ -201,28 +191,6 @@ export function ConversationList({
               title="Collapse sidebar"
             >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-          {onToggleCollapse && isLocked && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 p-0"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-          {isOverlay && onLockSidebar && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLockSidebar}
-              className="h-8 w-8 p-0"
-              title="Lock sidebar open"
-            >
-              <ChevronsRight className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -249,10 +217,7 @@ export function ConversationList({
   }
 
   return (
-    <div className={cn(
-      "space-y-3",
-      isOverlay && "absolute left-0 top-0 w-[280px] shadow-xl z-50 bg-background border rounded-md p-4 h-full flex flex-col"
-    )}>
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
         <div className="flex items-center gap-1">
@@ -279,7 +244,7 @@ export function ConversationList({
               <X className="h-4 w-4" />
             </Button>
           )}
-          {onToggleCollapse && !isOverlay && !isLocked && (
+          {onToggleCollapse && (
             <Button
               variant="ghost"
               size="sm"
@@ -288,28 +253,6 @@ export function ConversationList({
               title="Collapse sidebar"
             >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-          {onToggleCollapse && isLocked && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 p-0"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
-          {isOverlay && onLockSidebar && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLockSidebar}
-              className="h-8 w-8 p-0"
-              title="Lock sidebar open"
-            >
-              <ChevronsRight className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -347,15 +290,14 @@ export function ConversationList({
           </Button>
         </div>
       )}
-      <div
-        {...getRootProps()}
-        className={cn(
-          "border-2 border-dashed rounded-md transition-colors",
-          isDragActive && "border-primary bg-primary/5",
-          !isDragActive && "border-border",
-          isOverlay && "flex-1 flex flex-col"
-        )}
-      >
+        <div
+          {...getRootProps()}
+          className={cn(
+            "border-2 border-dashed rounded-md transition-colors",
+            isDragActive && "border-primary bg-primary/5",
+            !isDragActive && "border-border"
+          )}
+        >
         <input {...getInputProps()} />
         <div className="relative">
           <ScrollArea className="h-[calc(100vh-14rem)]">
