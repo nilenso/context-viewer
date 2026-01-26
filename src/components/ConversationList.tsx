@@ -116,8 +116,8 @@ export function ConversationList({
     noClick: conversations.length > 0, // Disable click when there are conversations
   });
 
-  const toggleProgress = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleProgress = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setCollapsedProgress((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -335,6 +335,9 @@ export function ConversationList({
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isProcessing || conversation.status === "success") {
+                          toggleProgress(conversation.id);
+                        }
                         if (isSelectionMode && isSelectable) {
                           onToggleSelection(conversation.id, !isSelected);
                         } else {
