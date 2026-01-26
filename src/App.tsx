@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
-import { parserRegistry } from "./parser";
+import { parserRegistry, type ConversationMetadata } from "./parser";
 import "./parsers";
 import type { Conversation, SourceInfo, Message } from "./schema";
 import {
@@ -68,6 +68,7 @@ interface WorkflowState {
   // Core data
   conversation?: Conversation;
   summary?: ConversationSummary;
+  metadata?: ConversationMetadata;
   aiSummary?: string;
   analysis?: string;
 
@@ -161,12 +162,13 @@ const parseFileContent = (text: string, filename: string): unknown => {
 const parseActivity: Activity<{
   conversation: Conversation;
   summary: ConversationSummary;
+  metadata: ConversationMetadata;
 }> = async (ctx) => {
   const text = await ctx.file!.text();
   const data = parseFileContent(text, ctx.file!.name);
-  const conversation = parserRegistry.parse(data);
+  const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
   const summary = summarizeConversation(conversation);
-  return { conversation, summary };
+  return { conversation, summary, metadata };
 };
 
 /**
@@ -330,6 +332,7 @@ class WorkflowRunner {
       step,
       conversation: ctx.conversation,
       summary: ctx.summary,
+      metadata: ctx.metadata,
       customSummaryPrompt: ctx.customSummaryPrompt,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
@@ -352,6 +355,7 @@ class WorkflowRunner {
     this.setState(ctx.id, {
       conversation: ctx.conversation,
       summary: ctx.summary,
+      metadata: ctx.metadata,
       aiSummary: ctx.aiSummary,
       customSummaryPrompt: ctx.customSummaryPrompt,
       components: ctx.components,
@@ -376,6 +380,7 @@ class WorkflowRunner {
     this.setState(ctx.id, {
       conversation: ctx.conversation,
       summary: ctx.summary,
+      metadata: ctx.metadata,
       aiSummary: ctx.aiSummary,
       customSummaryPrompt: ctx.customSummaryPrompt,
       components: ctx.components,
@@ -448,6 +453,7 @@ async function processConversationWorkflow(
       const { result, timing } = await runner.runActivity(ctx, parseActivity);
       ctx.conversation = result.conversation;
       ctx.summary = result.summary;
+      ctx.metadata = result.metadata;
       ctx.stepTimings!.parsing = timing;
       runner.updateState(ctx, 'counting-tokens');
     }
@@ -627,6 +633,7 @@ async function runWorkflows(
         status: ctx.conversation ? 'success' : 'failed',
         conversation: ctx.conversation,
         summary: ctx.summary,
+        metadata: ctx.metadata,
         aiSummary: ctx.aiSummary,
         components: ctx.components,
         componentMapping: ctx.componentMapping,
@@ -1000,6 +1007,7 @@ export default function App() {
         filename: selectedConversation.filename,
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
+        metadata: selectedConversation.metadata,
         aiSummary: selectedConversation.aiSummary,
         components: selectedConversation.components,
         componentMapping: selectedConversation.componentMapping,
@@ -1069,6 +1077,7 @@ export default function App() {
         filename: selectedConversation.filename,
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
+        metadata: selectedConversation.metadata,
         aiSummary: selectedConversation.aiSummary,
         components: selectedConversation.components,
         componentMapping: selectedConversation.componentMapping,
@@ -1136,6 +1145,7 @@ export default function App() {
         filename: selectedConversation.filename,
         conversation: selectedConversation.conversation,
         summary: selectedConversation.summary,
+        metadata: selectedConversation.metadata,
         aiSummary: '',
         analysis: shouldRegenerateAnalysis ? '' : selectedConversation.analysis,
         components: selectedConversation.components,
@@ -1218,6 +1228,7 @@ export default function App() {
         filename: conv.filename,
         conversation: conv.conversation,
         summary: conv.summary,
+        metadata: conv.metadata,
         aiSummary: conv.aiSummary,
         components: conv.components,
         componentMapping: conv.componentMapping,
@@ -1692,6 +1703,8 @@ export default function App() {
                 onTabChange={setInsightsTab}
                 isCollapsed={isInsightsPanelCollapsed}
                 onToggleCollapse={handleToggleInsightsPanel}
+                metadata={selectedConversation.metadata}
+                conversation={selectedConversation.conversation}
               />
             ) : (
               <AISummary

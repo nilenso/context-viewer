@@ -26,6 +26,8 @@ const generateId = () => `${++idCounter}`;
  * 3. Validate output with ConversationSchema
  */
 export class ConversationsParser implements Parser {
+  name = "OpenAI Conversations";
+
   canParse(data: unknown): boolean {
     const result = ConversationsInputSchema.safeParse(data);
     if (!result.success) return false;

@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import type { Parser } from "../parser";
+import type { Parser, ConversationMetadata } from "../parser";
 import {
   ConversationSchema,
   type Conversation,
@@ -36,6 +36,45 @@ const generateId = () => `${++idCounter}`;
  * - Has step-start/step-finish/patch parts for tracking git state
  */
 export class OpenCodeTranscriptsParser implements Parser {
+  name = "OpenCode";
+
+  extractMetadata(data: unknown): Partial<ConversationMetadata> {
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
+      return {};
+    }
+
+    const d = data as Record<string, unknown>;
+    if (!Array.isArray(d.messages)) return {};
+
+    // Find the first assistant message with model info
+    for (const msg of d.messages) {
+      if (typeof msg !== "object" || msg === null) continue;
+      const m = msg as Record<string, unknown>;
+      if (typeof m.info !== "object" || m.info === null) continue;
+
+      const info = m.info as Record<string, unknown>;
+      if (info.role !== "assistant") continue;
+
+      // Extract model info
+      const modelID = info.modelID as string | undefined;
+      const providerID = info.providerID as string | undefined;
+
+      // Also check nested model object
+      if (typeof info.model === "object" && info.model !== null) {
+        const modelObj = info.model as Record<string, unknown>;
+        return {
+          model: modelID || (modelObj.modelID as string | undefined),
+          provider: providerID || (modelObj.providerID as string | undefined),
+        };
+      }
+
+      if (modelID || providerID) {
+        return { model: modelID, provider: providerID };
+      }
+    }
+
+    return {};
+  }
   canParse(data: unknown): boolean {
     // Must be an object with info and messages
     if (typeof data !== "object" || data === null) return false;

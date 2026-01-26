@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import type { Parser } from "../parser";
+import type { Parser, ConversationMetadata } from "../parser";
 import {
   ConversationSchema,
   type Conversation,
@@ -35,6 +35,43 @@ const generateId = () => `${++idCounter}`;
  * - Function calls use "function_call" and "function_call_output" types
  */
 export class CodexTranscriptsParser implements Parser {
+  name = "Codex CLI";
+
+  extractMetadata(data: unknown): Partial<ConversationMetadata> {
+    if (!Array.isArray(data)) return {};
+
+    let model: string | undefined;
+    let provider: string | undefined;
+
+    for (const entry of data) {
+      if (typeof entry !== "object" || entry === null) continue;
+      const e = entry as Record<string, unknown>;
+
+      // Check session_meta for provider
+      if (e.type === "session_meta" && e.payload) {
+        const payload = e.payload as Record<string, unknown>;
+        if (payload.model_provider && typeof payload.model_provider === "string") {
+          provider = payload.model_provider;
+        }
+      }
+
+      // Check turn_context for model
+      if (e.type === "turn_context" && e.payload) {
+        const payload = e.payload as Record<string, unknown>;
+        if (payload.model && typeof payload.model === "string") {
+          model = payload.model;
+        }
+      }
+
+      // If we found both, we can stop
+      if (model && provider) break;
+    }
+
+    return {
+      model,
+      provider: provider || "OpenAI",
+    };
+  }
   canParse(data: unknown): boolean {
     // Must be an array
     if (!Array.isArray(data)) return false;

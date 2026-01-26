@@ -3,6 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronRight, ChevronLeft, Menu } from "lucide-react";
 import Markdown from "react-markdown";
+import { ConversationMetadataCard } from "./ConversationMetadataCard";
+import type { ConversationMetadata } from "../parser";
+import type { Conversation } from "../schema";
 
 interface AISummaryProps {
   summary?: string;
@@ -13,9 +16,11 @@ interface AISummaryProps {
   onTabChange?: (value: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  metadata?: ConversationMetadata;
+  conversation?: Conversation;
 }
 
-export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse }: AISummaryProps) {
+export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse, metadata, conversation }: AISummaryProps) {
   const noContent = !summary && !isSummaryStreaming && !analysis && !isAnalysisStreaming;
 
   // Collapsed state - show minimal toggle button
@@ -123,6 +128,10 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
           </Button>
         )}
       </div>
+
+      {/* Static metadata card */}
+      <ConversationMetadataCard metadata={metadata} conversation={conversation} />
+
       <Tabs
         value={activeTab || "summary"}
         onValueChange={onTabChange}

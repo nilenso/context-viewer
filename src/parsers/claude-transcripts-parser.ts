@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import type { Parser } from "../parser";
+import type { Parser, ConversationMetadata } from "../parser";
 import {
   ConversationSchema,
   type Conversation,
@@ -31,6 +31,28 @@ const generateId = () => `${++idCounter}`;
  * that share the same message.id but have different uuids.
  */
 export class ClaudeTranscriptsParser implements Parser {
+  name = "Claude Code";
+
+  extractMetadata(data: unknown): Partial<ConversationMetadata> {
+    if (!Array.isArray(data)) return {};
+
+    // Find the first assistant message with a model field
+    for (const entry of data) {
+      if (typeof entry !== "object" || entry === null) continue;
+      const e = entry as Record<string, unknown>;
+      if (e.type === "assistant" && e.message) {
+        const msg = e.message as Record<string, unknown>;
+        if (msg.model && typeof msg.model === "string") {
+          return {
+            model: msg.model,
+            provider: "Anthropic",
+          };
+        }
+      }
+    }
+
+    return { provider: "Anthropic" };
+  }
   canParse(data: unknown): boolean {
     // Must be an array
     if (!Array.isArray(data)) return false;

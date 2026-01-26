@@ -6,6 +6,8 @@ import type { Conversation } from "../schema";
  * Converts plain text content into a conversation with a single system message.
  */
 export class PlainTextParser implements Parser {
+  name = "Plain Text";
+
   /**
    * Check if data is plain text (a string that isn't structured data)
    */
