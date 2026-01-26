@@ -39,6 +39,7 @@ interface ConversationListProps {
   onToggleSelection: (id: string, isSelected: boolean) => void;
   onGroupConversations: () => void;
   onClearSelection: () => void;
+  onSelectAll: (ids: string[]) => void;
   onUngroupConversation: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
   onGenerateAnalysis?: (id: string) => void;
@@ -61,6 +62,7 @@ export function ConversationList({
   onToggleSelection,
   onGroupConversations,
   onClearSelection,
+  onSelectAll,
   onUngroupConversation,
   onDeleteConversation,
   onGenerateAnalysis,
@@ -316,6 +318,17 @@ export function ConversationList({
       {/* Selection mode toolbar */}
       {isSelectionMode && (
         <div className="flex items-center gap-2 px-2 py-2 bg-blue-50 border border-blue-200 rounded-md">
+          <Checkbox
+            checked={selectedIds.size === selectableConversations.length && selectableConversations.length > 0}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                onSelectAll(selectableConversations.map(c => c.id));
+              } else {
+                onClearSelection();
+              }
+            }}
+            className="shrink-0"
+          />
           <span className="text-xs text-blue-700 flex-1">
             {selectedIds.size} selected
           </span>

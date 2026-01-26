@@ -1176,6 +1176,11 @@ export default function App() {
     setSelectedIds(new Set());
   };
 
+  // Select all conversations
+  const handleSelectAll = (ids: string[]) => {
+    setSelectedIds(new Set(ids));
+  };
+
   // Create a grouped conversation from selected conversations
   const handleGroupConversations = async () => {
     if (selectedIds.size < 2) return;
@@ -1481,6 +1486,7 @@ export default function App() {
               onToggleSelection={handleToggleSelection}
               onGroupConversations={handleGroupConversations}
               onClearSelection={handleClearSelection}
+              onSelectAll={handleSelectAll}
               onUngroupConversation={handleUngroupConversation}
               onDeleteConversation={handleDeleteConversation}
               onGenerateAnalysis={handleGenerateAnalysis}
