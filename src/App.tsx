@@ -702,9 +702,16 @@ export default function App() {
         },
         (completed) => {
           // Update the conversation in place as each file completes
+          // Preserve aiSummary and analysis if they're being streamed in parallel
           setConversations((prev) =>
             prev.map((conv) =>
-              conv.id === completed.id ? completed : conv
+              conv.id === completed.id
+                ? {
+                    ...completed,
+                    aiSummary: completed.aiSummary || conv.aiSummary,
+                    analysis: completed.analysis || conv.analysis,
+                  }
+                : conv
             )
           );
         },
