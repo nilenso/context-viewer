@@ -19,9 +19,11 @@ interface AISummaryProps {
   onToggleCollapse?: () => void;
   metadata?: ConversationMetadata;
   conversation?: Conversation;
+  onGenerateAnalysis?: () => void;
+  canGenerateAnalysis?: boolean;
 }
 
-export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse, metadata, conversation }: AISummaryProps) {
+export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse, metadata, conversation, onGenerateAnalysis, canGenerateAnalysis }: AISummaryProps) {
   const noContent = !summary && !isSummaryStreaming && !analysis && !isAnalysisStreaming;
 
   // Collapsed state - show minimal toggle button
@@ -185,9 +187,19 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
             <CardContent className="pt-6">
               {analysis || isAnalysisStreaming ? (
                 renderMarkdown(analysis, isAnalysisStreaming)
+              ) : canGenerateAnalysis && onGenerateAnalysis ? (
+                <div className="text-sm text-muted-foreground">
+                  <p className="mb-2">Analysis is ready to generate.</p>
+                  <button
+                    onClick={onGenerateAnalysis}
+                    className="text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    Generate analysis
+                  </button>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Analysis will appear after componentization completes...
+                  Analysis will be available after componentization completes.
                 </p>
               )}
             </CardContent>

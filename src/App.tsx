@@ -1698,6 +1698,12 @@ export default function App() {
                 onToggleCollapse={handleToggleInsightsPanel}
                 metadata={selectedConversation.metadata}
                 conversation={selectedConversation.conversation}
+                onGenerateAnalysis={() => handleGenerateAnalysis(selectedConversation.id)}
+                canGenerateAnalysis={
+                  selectedConversation.status === "success" &&
+                  !!selectedConversation.components?.length &&
+                  !selectedConversation.analysis
+                }
               />
             ) : (
               <AISummary
