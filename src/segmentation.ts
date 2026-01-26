@@ -3,17 +3,62 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
 import { getAIConfig, type AIConfig } from "./ai-config";
+import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+
+// Helper to log with optional conversation context
+function log(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "segmenting" as ProcessingPhase,
+      "info",
+      message,
+      data,
+    );
+  } else {
+    if (data !== undefined) {
+      console.log(`[Segmentation] ${message}`, data);
+    } else {
+      console.log(`[Segmentation] ${message}`);
+    }
+  }
+}
+
+function logError(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "segmenting" as ProcessingPhase,
+      "error",
+      message,
+      data,
+    );
+  } else {
+    console.error(`[Segmentation] ${message}`, data);
+  }
+}
 
 /**
  * Identify message parts that are greater than 500 tokens
  */
-function identifyLargeParts(conversation: Conversation): Array<{
+function identifyLargeParts(
+  conversation: Conversation,
+  conversationId?: string,
+): Array<{
   messageIndex: number;
   partIndex: number;
   part: Message["parts"][number];
 }> {
   const threshold = 500;
-  console.log(`[Segmentation] Using fixed threshold: ${threshold} tokens`);
+  log(conversationId, `Using fixed threshold: ${threshold} tokens`);
 
   const largeParts: Array<{
     messageIndex: number;
@@ -25,13 +70,19 @@ function identifyLargeParts(conversation: Conversation): Array<{
     message.parts.forEach((part, partIndex) => {
       const tokenCount = ("token_count" in part && part.token_count) || 0;
       if (tokenCount > threshold) {
-        console.log(`[Segmentation] Found large part: message ${messageIndex}, part ${partIndex}, tokens: ${tokenCount}`);
+        log(
+          conversationId,
+          `Found large part: message ${messageIndex}, part ${partIndex}, tokens: ${tokenCount}`,
+        );
         largeParts.push({ messageIndex, partIndex, part });
       }
     });
   });
 
-  console.log(`[Segmentation] Found ${largeParts.length} large parts (>${threshold} tokens)`);
+  log(
+    conversationId,
+    `Found ${largeParts.length} large parts (>${threshold} tokens)`,
+  );
   return largeParts;
 }
 
@@ -41,13 +92,17 @@ function identifyLargeParts(conversation: Conversation): Array<{
 async function segmentTextWithAI(
   text: string,
   config: AIConfig,
-  customPrompt?: string
+  customPrompt?: string,
+  conversationId?: string,
 ): Promise<string[]> {
   const openai = createOpenAI({
     apiKey: config.apiKey,
   });
 
-  console.log(`[Segmentation] Calling AI to segment text (${text.length} chars, model: ${config.model})${customPrompt ? ' with custom prompt' : ''}`);
+  log(
+    conversationId,
+    `Calling AI to segment text (${text.length} chars, model: ${config.model})${customPrompt ? " with custom prompt" : ""}`,
+  );
 
   const prompt = getPrompt("segmentation", { text, customPrompt });
 
@@ -57,26 +112,30 @@ async function segmentTextWithAI(
       prompt,
     });
 
-    console.log(`[Segmentation] AI response: ${result.text}`);
+    log(conversationId, `AI response: ${result.text.substring(0, 200)}...`);
 
     // Parse the JSON response
     const jsonMatch = result.text.match(/\[.*\]/s);
     if (!jsonMatch) {
-      console.log("[Segmentation] No JSON array found in response");
+      log(conversationId, "No JSON array found in response");
       return [];
     }
 
     const substrings = JSON.parse(jsonMatch[0]);
 
     if (!Array.isArray(substrings)) {
-      console.log("[Segmentation] Parsed result is not an array");
+      log(conversationId, "Parsed result is not an array");
       return [];
     }
 
-    console.log(`[Segmentation] Parsed ${substrings.length} split patterns:`, substrings);
+    log(
+      conversationId,
+      `Parsed ${substrings.length} split patterns`,
+      substrings,
+    );
     return substrings;
   } catch (error) {
-    console.error("[Segmentation] Error calling AI:", error);
+    logError(conversationId, "Error calling AI", error);
     return [];
   }
 }
@@ -89,14 +148,14 @@ async function segmentTextWithAI(
 function preprocessPattern(pattern: string): string {
   // Remove ^ anchor (start of line) from inside lookaheads
   // (?=^...) -> (?=...)
-  let processed = pattern.replace(/\(\?=\^/g, '(?=');
+  let processed = pattern.replace(/\(\?=\^/g, "(?=");
 
   // Remove $ anchor (end of line) from inside lookaheads
   // ...\\s*$) -> ...\\s*)
-  processed = processed.replace(/\$\)/g, ')');
+  processed = processed.replace(/\$\)/g, ")");
 
   // Also handle \s*$ patterns
-  processed = processed.replace(/\\s\*\$/g, '\\s*');
+  processed = processed.replace(/\\s\*\$/g, "\\s*");
 
   return processed;
 }
@@ -106,7 +165,11 @@ function preprocessPattern(pattern: string): string {
  * Returns the parts of the text separated by the patterns
  * Supports positive lookahead patterns like (?=<tag>)
  */
-function splitTextBySubstrings(text: string, substrings: string[]): string[] {
+function splitTextBySubstrings(
+  text: string,
+  substrings: string[],
+  conversationId?: string,
+): string[] {
   if (substrings.length === 0) {
     return [text];
   }
@@ -116,18 +179,16 @@ function splitTextBySubstrings(text: string, substrings: string[]): string[] {
     const processedPatterns = substrings.map(preprocessPattern);
 
     // Combine all patterns into a single regex with alternation
-    const combinedPattern = processedPatterns.join('|');
+    const combinedPattern = processedPatterns.join("|");
     const regex = new RegExp(combinedPattern);
 
     // Split using the combined regex
     const parts = text.split(regex);
 
     // Filter out empty strings and trim whitespace
-    return parts
-      .map(part => part.trim())
-      .filter(part => part.length > 0);
+    return parts.map((part) => part.trim()).filter((part) => part.length > 0);
   } catch (error) {
-    console.error('[Segmentation] Regex error:', error);
+    logError(conversationId, "Regex error", error);
     // Fallback: return the original text if regex fails
     return [text];
   }
@@ -151,7 +212,8 @@ type SegmentResult =
 async function segmentMessagePart(
   part: Message["parts"][number],
   config: AIConfig,
-  customPrompt?: string
+  customPrompt?: string,
+  conversationId?: string,
 ): Promise<SegmentResult> {
   // Get text content from different part types
   // Only segment text and reasoning parts - skip tool results as they're usually structured output
@@ -160,26 +222,40 @@ async function segmentMessagePart(
   if (part.type === "text" || part.type === "reasoning") {
     text = part.text;
   } else {
-    console.log(`[Segmentation] Skipping part ${part.id}, type: ${part.type}`);
+    log(conversationId, `Skipping part ${part.id}, type: ${part.type}`);
     return { success: false, skipped: true };
   }
 
-  console.log(`[Segmentation] Processing part ${part.id}, type: ${part.type}, text length: ${text.length}`);
-  const substrings = await segmentTextWithAI(text, config, customPrompt);
+  log(
+    conversationId,
+    `Processing part ${part.id}, type: ${part.type}, text length: ${text.length}`,
+  );
+  const substrings = await segmentTextWithAI(
+    text,
+    config,
+    customPrompt,
+    conversationId,
+  );
 
   if (substrings.length === 0) {
-    console.log(`[Segmentation] No substrings returned for part ${part.id}`);
+    log(conversationId, `No substrings returned for part ${part.id}`);
     return { success: false, error: true };
   }
 
-  const segments = splitTextBySubstrings(text, substrings);
+  const segments = splitTextBySubstrings(text, substrings, conversationId);
 
   if (segments.length <= 1) {
-    console.log(`[Segmentation] Split resulted in ${segments.length} segment(s), not segmenting`);
+    log(
+      conversationId,
+      `Split resulted in ${segments.length} segment(s), not segmenting`,
+    );
     return { success: false, skipped: true };
   }
 
-  console.log(`[Segmentation] Successfully split part ${part.id} into ${segments.length} segments`);
+  log(
+    conversationId,
+    `Successfully split part ${part.id} into ${segments.length} segments`,
+  );
 
   // Create new parts with child IDs
   const newParts = segments.map((segment, index) => {
@@ -206,9 +282,10 @@ async function segmentMessagePart(
 export async function segmentConversation(
   conversation: Conversation,
   onProgress?: (processed: number, total: number) => void,
-  customPrompt?: string
+  customPrompt?: string,
+  conversationId?: string,
 ): Promise<{ conversation: Conversation; error?: string }> {
-  console.log("[Segmentation] Starting segmentation process");
+  log(conversationId, "Starting segmentation process");
 
   const config = getAIConfig("Segmentation");
 
@@ -216,19 +293,27 @@ export async function segmentConversation(
     return { conversation, error: "Segmentation: No API key configured" };
   }
 
-  const largeParts = identifyLargeParts(conversation);
+  const largeParts = identifyLargeParts(conversation, conversationId);
 
   if (largeParts.length === 0) {
-    console.log("[Segmentation] No large parts to segment, returning original conversation");
+    log(
+      conversationId,
+      "No large parts to segment, returning original conversation",
+    );
     return { conversation };
   }
 
   // Process all large parts in parallel
   const segmentationPromises = largeParts.map(
     async ({ messageIndex, partIndex, part }) => {
-      const result = await segmentMessagePart(part, config, customPrompt);
+      const result = await segmentMessagePart(
+        part,
+        config,
+        customPrompt,
+        conversationId,
+      );
       return { messageIndex, partIndex, result };
-    }
+    },
   );
 
   // Track progress and collect actual failures (not skips)
@@ -238,7 +323,7 @@ export async function segmentConversation(
   const results = await Promise.all(
     segmentationPromises.map(async (promise) => {
       const { messageIndex, partIndex, result } = await promise;
-      if (!result.success && 'error' in result && result.error) {
+      if (!result.success && "error" in result && result.error) {
         errorCount++;
       }
       if (result.success) {
@@ -247,11 +332,14 @@ export async function segmentConversation(
       completed++;
       onProgress?.(completed, largeParts.length);
       return { messageIndex, partIndex, result };
-    })
+    }),
   );
 
   // Build a map of replacements
-  const replacements = new Map<string, Array<{ partIndex: number; segments: Message["parts"] }>>();
+  const replacements = new Map<
+    string,
+    Array<{ partIndex: number; segments: Message["parts"] }>
+  >();
 
   for (const { messageIndex, partIndex, result } of results) {
     if (!result.success) continue;
@@ -319,7 +407,7 @@ export async function segmentConversation(
   if (errorCount > 0) {
     return {
       conversation: newConversation,
-      error: `Segmentation: Failed to segment ${errorCount} of ${processedCount} parts (API error)`
+      error: `Segmentation: Failed to segment ${errorCount} of ${processedCount} parts (API error)`,
     };
   }
 

@@ -22,7 +22,9 @@ import {
   Ungroup,
   X,
   Trash2,
+  Maximize2,
 } from "lucide-react";
+import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -105,6 +107,10 @@ export function ConversationList({
   );
   // Selection mode - when true, show checkboxes
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // Expanded view modal state
+  const [expandedConversationId, setExpandedConversationId] = useState<
+    string | null
+  >(null);
 
   // Count of selectable conversations (non-grouped, success status)
   const selectableConversations = conversations.filter(
@@ -459,6 +465,20 @@ export function ConversationList({
                               ? "Grouped"
                               : conversation.filename}
                           </span>
+                          {/* Expand button to open workflow detail modal */}
+                          {(conversation.status === "processing" ||
+                            conversation.status === "success") && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedConversationId(conversation.id);
+                              }}
+                              className="shrink-0 p-0.5 hover:bg-accent rounded cursor-pointer"
+                              title="View workflow details"
+                            >
+                              <Maximize2 className="h-4 w-4 text-gray-500 hover:text-gray-700" />
+                            </div>
+                          )}
                           {/* Ungroup button for grouped conversations */}
                           {conversation.isGrouped &&
                             conversation.status === "success" &&
@@ -749,6 +769,34 @@ export function ConversationList({
           </div>
         )}
       </div>
+
+      {/* Workflow Detail Modal */}
+      {expandedConversationId &&
+        (() => {
+          const expandedConversation = conversations.find(
+            (c) => c.id === expandedConversationId,
+          );
+          if (!expandedConversation) return null;
+          return (
+            <WorkflowDetailModal
+              isOpen={true}
+              onClose={() => setExpandedConversationId(null)}
+              conversationId={expandedConversation.id}
+              filename={expandedConversation.filename}
+              status={expandedConversation.status}
+              currentStep={expandedConversation.step}
+              stepTimings={expandedConversation.stepTimings}
+              aiSummary={expandedConversation.aiSummary}
+              warnings={expandedConversation.warnings}
+              onEditPrompt={onEditPrompt}
+              onEditComponents={onEditComponents}
+              onEditSegmentationPrompt={onEditSegmentationPrompt}
+              onEditSummaryPrompt={onEditSummaryPrompt}
+              onEditAnalysisPrompt={onEditAnalysisPrompt}
+              onGenerateAnalysis={onGenerateAnalysis}
+            />
+          );
+        })()}
     </div>
   );
 }

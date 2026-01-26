@@ -6,6 +6,88 @@ import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig } from "./ai-config";
+import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+
+// Helper to log with optional conversation context
+function logSummary(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "summary" as ProcessingPhase,
+      "info",
+      message,
+      data,
+    );
+  } else {
+    if (data !== undefined) {
+      console.log(`[AI Summary] ${message}`, data);
+    } else {
+      console.log(`[AI Summary] ${message}`);
+    }
+  }
+}
+
+function logSummaryError(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "summary" as ProcessingPhase,
+      "error",
+      message,
+      data,
+    );
+  } else {
+    console.error(`[AI Summary] ${message}`, data);
+  }
+}
+
+function logAnalysis(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "analysis" as ProcessingPhase,
+      "info",
+      message,
+      data,
+    );
+  } else {
+    if (data !== undefined) {
+      console.log(`[Context Analysis] ${message}`, data);
+    } else {
+      console.log(`[Context Analysis] ${message}`);
+    }
+  }
+}
+
+function logAnalysisError(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "analysis" as ProcessingPhase,
+      "error",
+      message,
+      data,
+    );
+  } else {
+    console.error(`[Context Analysis] ${message}`, data);
+  }
+}
 
 export interface ConversationStats {
   messageCount: number;
@@ -23,9 +105,10 @@ export async function generateConversationSummary(
   onChunk?: (chunk: string) => void,
   customPrompt?: string,
   metadata?: ConversationMetadata,
-  stats?: ConversationStats
+  stats?: ConversationStats,
+  conversationId?: string,
 ): Promise<{ summary: string; error?: string }> {
-  console.log("[AI Summary] Starting summary generation");
+  logSummary(conversationId, "Starting summary generation");
 
   const config = getAIConfig("AI Summary");
 
@@ -44,7 +127,7 @@ export async function generateConversationSummary(
     conversationOverview: strippedConversation,
     customPrompt,
     metadata,
-    stats
+    stats,
   });
 
   try {
@@ -61,11 +144,12 @@ export async function generateConversationSummary(
       onChunk?.(chunk);
     }
 
-    console.log(`[AI Summary] Generated summary (${fullText.length} chars)`);
+    logSummary(conversationId, `Generated summary (${fullText.length} chars)`);
     return { summary: fullText };
   } catch (error) {
-    console.error("[AI Summary] Error generating summary:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    logSummaryError(conversationId, "Error generating summary", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return { summary: "", error: `AI Summary: ${errorMessage}` };
   }
 }
@@ -76,7 +160,7 @@ export async function generateConversationSummary(
 function generateComponentCSV(
   componentTimeline: ComponentTimelineSnapshot[],
   components: string[],
-  conversation: Conversation
+  conversation: Conversation,
 ): string {
   // CSV header
   const header = ["Message", "Total Tokens", ...components].join(",");
@@ -88,9 +172,10 @@ function generateComponentCSV(
       snapshot.totalTokens.toString(),
       ...components.map((component) => {
         const tokens = snapshot.componentTokens[component] || 0;
-        const percentage = snapshot.totalTokens > 0
-          ? ((tokens / snapshot.totalTokens) * 100).toFixed(1)
-          : "0.0";
+        const percentage =
+          snapshot.totalTokens > 0
+            ? ((tokens / snapshot.totalTokens) * 100).toFixed(1)
+            : "0.0";
         return `${tokens} (${percentage}%)`;
       }),
     ];
@@ -110,9 +195,10 @@ export async function generateContextAnalysis(
   components: string[],
   aiSummary: string,
   onChunk?: (chunk: string) => void,
-  customPrompt?: string
+  customPrompt?: string,
+  conversationId?: string,
 ): Promise<{ analysis: string; error?: string }> {
-  console.log("[Context Analysis] Starting analysis generation");
+  logAnalysis(conversationId, "Starting analysis generation");
 
   const config = getAIConfig("Context Analysis");
 
@@ -125,7 +211,11 @@ export async function generateContextAnalysis(
   });
 
   // Generate CSV of component data over time
-  const componentDataCSV = generateComponentCSV(componentTimeline, components, conversation);
+  const componentDataCSV = generateComponentCSV(
+    componentTimeline,
+    components,
+    conversation,
+  );
 
   const prompt = getPrompt("context-analysis", {
     conversationSummary: aiSummary,
@@ -147,11 +237,15 @@ export async function generateContextAnalysis(
       onChunk?.(chunk);
     }
 
-    console.log(`[Context Analysis] Generated analysis (${fullText.length} chars)`);
+    logAnalysis(
+      conversationId,
+      `Generated analysis (${fullText.length} chars)`,
+    );
     return { analysis: fullText };
   } catch (error) {
-    console.error("[Context Analysis] Error generating analysis:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    logAnalysisError(conversationId, "Error generating analysis", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return { analysis: "", error: `Context Analysis: ${errorMessage}` };
   }
 }
