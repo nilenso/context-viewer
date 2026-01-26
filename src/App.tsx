@@ -29,7 +29,7 @@ import { Textarea } from "./components/ui/textarea";
 import { Button as UIButton } from "./components/ui/button";
 import { Clock, Loader2, AlertCircle, Upload } from "lucide-react";
 import { cn } from "./lib/utils";
-import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt } from "./prompts";
+import { getDefaultComponentIdentificationPrompt, getDefaultSegmentationPrompt, getDefaultSummaryPrompt } from "./prompts";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -37,7 +37,7 @@ const generateId = () =>
     : `id-${Math.random().toString(16).slice(2)}`;
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
-type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "finding-components" | "coloring" | "analysis";
+type ProcessingStep = "parsing" | "counting-tokens" | "segmenting" | "summary" | "finding-components" | "coloring" | "analysis";
 
 /**
  * Represents workflow state for processing a conversation file.
@@ -61,7 +61,9 @@ interface WorkflowState {
   config?: any;
   customPrompt?: string;
   customSegmentationPrompt?: string;
+  customSummaryPrompt?: string;
   customComponents?: string[];
+  regenerateAnalysis?: boolean;
 
   // Core data
   conversation?: Conversation;
@@ -105,6 +107,7 @@ enum WorkflowEvent {
   NewFile = 'new-file',
   ComponentPromptChanged = 'component-prompt-changed',
   SegmentationPromptChanged = 'segmentation-prompt-changed',
+  SummaryPromptChanged = 'summary-prompt-changed',
   GroupedConversation = 'grouped-conversation',
   GenerateAnalysis = 'generate-analysis'
 }
@@ -255,7 +258,8 @@ const createSummaryActivity = (
   return async (ctx) => {
     const result = await generateConversationSummary(
       ctx.conversation!,
-      (chunk) => onChunk?.(ctx.id, chunk)
+      (chunk) => onChunk?.(ctx.id, chunk),
+      ctx.customSummaryPrompt
     );
 
     return {
@@ -326,6 +330,7 @@ class WorkflowRunner {
       step,
       conversation: ctx.conversation,
       summary: ctx.summary,
+      customSummaryPrompt: ctx.customSummaryPrompt,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
@@ -348,6 +353,7 @@ class WorkflowRunner {
       conversation: ctx.conversation,
       summary: ctx.summary,
       aiSummary: ctx.aiSummary,
+      customSummaryPrompt: ctx.customSummaryPrompt,
       components: ctx.components,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
@@ -371,6 +377,7 @@ class WorkflowRunner {
       conversation: ctx.conversation,
       summary: ctx.summary,
       aiSummary: ctx.aiSummary,
+      customSummaryPrompt: ctx.customSummaryPrompt,
       components: ctx.components,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
@@ -409,6 +416,32 @@ async function processConversationWorkflow(
 ): Promise<void> {
 
   try {
+    if (event === WorkflowEvent.SummaryPromptChanged) {
+      ctx.aiSummary = '';
+      runner.startStep(ctx, 'summary');
+      const { result: summaryResult, timing: summaryTiming } =
+        await runner.runActivity(ctx, createSummaryActivity(callbacks.onSummaryChunk));
+      ctx.aiSummary = summaryResult.summary;
+      if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
+      ctx.stepTimings!.summary = summaryTiming;
+
+      if (ctx.regenerateAnalysis) {
+        ctx.analysis = '';
+        runner.startStep(ctx, 'analysis');
+        const { result: analysisResult, timing: analysisTiming } =
+          await runner.runActivity(
+            ctx,
+            createAnalysisActivity(callbacks.onAnalysisChunk)
+          );
+        ctx.analysis = analysisResult.analysis;
+        if (analysisResult.error) ctx.warnings!.push(analysisResult.error);
+        ctx.stepTimings!.analysis = analysisTiming;
+      }
+
+      runner.markComplete(ctx);
+      return;
+    }
+
     // Step 1: Parse (only for new files)
     if (event === WorkflowEvent.NewFile) {
       runner.startStep(ctx, 'parsing');
@@ -638,6 +671,10 @@ export default function App() {
   // Segmentation prompt editor dialog state
   const [isSegmentationPromptDialogOpen, setIsSegmentationPromptDialogOpen] = useState(false);
   const [editingSegmentationPrompt, setEditingSegmentationPrompt] = useState(getDefaultSegmentationPrompt());
+
+  // Summary prompt editor dialog state
+  const [isSummaryPromptDialogOpen, setIsSummaryPromptDialogOpen] = useState(false);
+  const [editingSummaryPrompt, setEditingSummaryPrompt] = useState(getDefaultSummaryPrompt());
 
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
@@ -916,6 +953,22 @@ export default function App() {
     }
   };
 
+  // Handle opening the summary prompt editor
+  const handleOpenSummaryPromptEditor = () => {
+    // Get the prompt from the selected conversation if it exists, otherwise use default
+    const currentPrompt = selectedConversation?.customSummaryPrompt || getDefaultSummaryPrompt();
+    setEditingSummaryPrompt(currentPrompt);
+    setIsSummaryPromptDialogOpen(true);
+  };
+
+  // Handle applying the edited summary prompt
+  const handleApplySummaryPrompt = async () => {
+    setIsSummaryPromptDialogOpen(false);
+    if (selectedConversation && selectedConversation.conversation) {
+      await handleReprocessSummary({ customSummaryPrompt: editingSummaryPrompt });
+    }
+  };
+
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed((prev) => !prev);
@@ -953,6 +1006,7 @@ export default function App() {
         componentTimeline: selectedConversation.componentTimeline,
         componentColors: selectedConversation.componentColors,
         analysis: selectedConversation.analysis,
+        customSummaryPrompt: selectedConversation.customSummaryPrompt,
         customPrompt: options.customPrompt,
         customComponents: options.customComponents,
         config: getComponentisationConfig(),
@@ -1021,6 +1075,7 @@ export default function App() {
         componentTimeline: selectedConversation.componentTimeline,
         componentColors: selectedConversation.componentColors,
         analysis: selectedConversation.analysis,
+        customSummaryPrompt: selectedConversation.customSummaryPrompt,
         customSegmentationPrompt: options.customSegmentationPrompt,
         config: getComponentisationConfig(),
         warnings: [],
@@ -1050,6 +1105,90 @@ export default function App() {
         prev.map((conv) =>
           conv.id === id
             ? { ...conv, status: "failed", step: undefined, error: "Reprocessing failed" }
+            : conv
+        )
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
+  // Reprocess AI summary with a custom prompt using workflow
+  const handleReprocessSummary = async (options: { customSummaryPrompt?: string } = {}) => {
+    if (!selectedConversation?.conversation) return;
+
+    const id = selectedConversation.id;
+    setReprocessingId(id);
+    const shouldRegenerateAnalysis =
+      !!selectedConversation.analysis ||
+      selectedConversation.stepTimings?.analysis !== undefined;
+
+    try {
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations(prev =>
+          prev.map(conv => conv.id === id ? { ...conv, ...update } : conv)
+        );
+      });
+
+      const ctx: WorkflowState = {
+        id,
+        filename: selectedConversation.filename,
+        conversation: selectedConversation.conversation,
+        summary: selectedConversation.summary,
+        aiSummary: '',
+        analysis: shouldRegenerateAnalysis ? '' : selectedConversation.analysis,
+        components: selectedConversation.components,
+        componentMapping: selectedConversation.componentMapping,
+        componentTimeline: selectedConversation.componentTimeline,
+        componentColors: selectedConversation.componentColors,
+        staticComponents: selectedConversation.staticComponents,
+        staticMapping: selectedConversation.staticMapping,
+        staticTimeline: selectedConversation.staticTimeline,
+        warnings: [],
+        stepTimings: {
+          ...selectedConversation.stepTimings,
+          summary: undefined,
+          ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
+        },
+        customSummaryPrompt: options.customSummaryPrompt,
+        regenerateAnalysis: shouldRegenerateAnalysis,
+        config: selectedConversation.config || getComponentisationConfig(),
+      };
+
+      await processConversationWorkflow(
+        WorkflowEvent.SummaryPromptChanged,
+        ctx,
+        runner,
+        {
+          onSummaryChunk: (id, chunk) => {
+            setConversations(prev =>
+              prev.map(conv =>
+                conv.id === id
+                  ? { ...conv, aiSummary: (conv.aiSummary || '') + chunk }
+                  : conv
+              )
+            );
+          },
+          onAnalysisChunk: shouldRegenerateAnalysis
+            ? (id, chunk) => {
+              setConversations(prev =>
+                prev.map(conv =>
+                  conv.id === id
+                    ? { ...conv, analysis: (conv.analysis || '') + chunk }
+                    : conv
+                )
+              );
+            }
+            : undefined,
+        }
+      );
+    } catch (error) {
+      console.error("Failed to reprocess summary:", error);
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === id
+            ? { ...conv, status: "failed", step: undefined, error: "Summary reprocessing failed" }
             : conv
         )
       );
@@ -1088,6 +1227,7 @@ export default function App() {
         staticTimeline: conv.staticTimeline,
         staticComponents: conv.staticComponents,
         analysis: '', // Clear existing analysis
+        customSummaryPrompt: conv.customSummaryPrompt,
         config: conv.config || getComponentisationConfig(),
         warnings: conv.warnings || [],
         stepTimings: { ...conv.stepTimings },
@@ -1459,6 +1599,7 @@ export default function App() {
               onEditPrompt={handleOpenPromptEditor}
               onEditComponents={handleOpenComponentsEditor}
               onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
+              onEditSummaryPrompt={handleOpenSummaryPromptEditor}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={handleToggleSidebar}
             />
@@ -1670,6 +1811,44 @@ export default function App() {
             <UIButton
               onClick={handleApplySegmentationPrompt}
               disabled={!editingSegmentationPrompt.trim()}
+            >
+              Apply & Reprocess
+            </UIButton>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Summary Prompt Editor Dialog */}
+      <Dialog open={isSummaryPromptDialogOpen} onOpenChange={setIsSummaryPromptDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Summary Prompt</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <p className="text-sm text-muted-foreground">
+              Customize the prompt used to generate the AI summary. The summary feeds into context analysis.
+            </p>
+            <Textarea
+              value={editingSummaryPrompt}
+              onChange={(e) => setEditingSummaryPrompt(e.target.value)}
+              placeholder="Enter your summary prompt..."
+              className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>This will re-run the AI summary and any dependent analysis</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <UIButton
+              variant="outline"
+              onClick={() => setIsSummaryPromptDialogOpen(false)}
+            >
+              Cancel
+            </UIButton>
+            <UIButton
+              onClick={handleApplySummaryPrompt}
+              disabled={!editingSummaryPrompt.trim()}
             >
               Apply & Reprocess
             </UIButton>

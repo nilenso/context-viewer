@@ -35,17 +35,13 @@ ${text}
   "conversation-summary": {
     key: "conversation-summary",
     description: "Generates a high-level summary of the entire conversation",
-    template: ({ conversationOverview }) => `Analyze this conversation and provide a concise summary covering:
-
-1. Goal: What is the main objective or task being discussed?
-2. Turns: How many meaningful exchanges occurred? What was the flow?
-3. Result: What was accomplished or concluded?
-
-Keep it brief and to the point. Use simple markdown text formatting only (headings, paragraphs, lists, bold).
-Do not use code blocks, tables, or complex formatting.
+    template: ({ conversationOverview, customPrompt }) => {
+      const userPrompt = customPrompt || getDefaultSummaryPrompt();
+      return `${userPrompt}
 
 Conversation:
-${JSON.stringify(conversationOverview, null, 2)}`,
+${JSON.stringify(conversationOverview, null, 2)}`;
+    },
   },
 
   "component-identification": {
@@ -233,4 +229,19 @@ Only give me the top level sections to split the text into coherent topical chun
 Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
 
 Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]`;
+}
+
+/**
+ * Get the default (user-editable) conversation summary prompt
+ * This is the part shown in the UI without the conversation content
+ */
+export function getDefaultSummaryPrompt(): string {
+  return `Analyze this conversation and provide a concise summary covering:
+
+1. Goal: What is the main objective or task being discussed?
+2. Turns: How many meaningful exchanges occurred? What was the flow?
+3. Result: What was accomplished or concluded?
+
+Keep it brief and to the point. Use simple markdown text formatting only (headings, paragraphs, lists, bold).
+Do not use code blocks, tables, or complex formatting.`;
 }

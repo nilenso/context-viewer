@@ -186,7 +186,10 @@ export function ConversationList({
       if (conversation.aiSummary && conversation.aiSummary.length > 0) {
         return "completed";
       }
-      if (conversation.status === "processing" && currentStepIndex >= stepIndex) {
+      if (
+        conversation.status === "processing" &&
+        currentStepIndex >= stepIndex
+      ) {
         return "in-progress";
       }
       return "pending";
@@ -228,7 +231,7 @@ export function ConversationList({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+          <h2 className="text-lg font-semibold">Conversations</h2>
           {onToggleCollapse && (
             <Button
               variant="ghost"
@@ -268,7 +271,7 @@ export function ConversationList({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Uploaded Conversations</h2>
+        <h2 className="text-lg font-semibold">Conversations</h2>
         <div className="flex items-center gap-1">
           {/* Selection mode toggle */}
           {!isSelectionMode && selectableConversations.length >= 2 && (

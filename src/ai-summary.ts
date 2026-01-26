@@ -35,7 +35,8 @@ export function getSummaryConfig(): SummaryConfig | null {
  */
 export async function generateConversationSummary(
   conversation: Conversation,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  customPrompt?: string
 ): Promise<{ summary: string; error?: string }> {
   console.log("[AI Summary] Starting summary generation");
 
@@ -67,7 +68,7 @@ export async function generateConversationSummary(
     })),
   };
 
-  const prompt = getPrompt("conversation-summary", { conversationOverview });
+  const prompt = getPrompt("conversation-summary", { conversationOverview, customPrompt });
 
   try {
     const result = streamText({

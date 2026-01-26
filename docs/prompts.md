@@ -1884,3 +1884,9 @@ what else is not commtited?
 
 ### Jan 16, 2026 13:24:44
 commit the tool result related fixes, and include the conversation log too.
+
+### Jan 26, 2026 06:54:44
+when grouping conversations, i want the ability to select all / none. add that grouping checkbox in the same box as the group button.
+
+### Jan 26, 2026 06:57:39
+commit this ability
