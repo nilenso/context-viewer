@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, AlertTriangle, Menu, ChevronLeft, Layers, Ungroup, X, Trash2 } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Clock, Upload, ChevronRight, Check, Circle, Play, AlertTriangle, Menu, ChevronLeft, Layers, Ungroup, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
@@ -485,8 +485,11 @@ export function ConversationList({
                                   {status === "in-progress" && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
                                   )}
-                                  {(status === "pending" || isAnalysisClickable) && (
+                                  {status === "pending" && !isAnalysisClickable && (
                                     <Circle className="h-3 w-3 text-gray-300" />
+                                  )}
+                                  {isAnalysisClickable && (
+                                    <Play className="h-3 w-3 text-blue-600" />
                                   )}
                                   {isAnalysisClickable ? (
                                     <button
