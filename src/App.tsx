@@ -2025,6 +2025,7 @@ export default function App() {
                 onUngroupConversation={handleUngroupConversation}
                 onDeleteConversation={handleDeleteConversation}
                 onGenerateAnalysis={handleGenerateAnalysis}
+                onGenerateSummary={handleGenerateSummary}
                 onFilesSelected={(files) => workflowMutation.mutate(files)}
                 onEditPrompt={handleOpenPromptEditor}
                 onEditComponents={handleOpenComponentsEditor}

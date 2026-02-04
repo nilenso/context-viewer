@@ -70,6 +70,7 @@ interface ConversationListProps {
   onUngroupConversation: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
   onGenerateAnalysis?: (id: string) => void;
+  onGenerateSummary?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
   onEditPrompt?: () => void;
   onEditComponents?: () => void;
@@ -93,6 +94,7 @@ export function ConversationList({
   onUngroupConversation,
   onDeleteConversation,
   onGenerateAnalysis,
+  onGenerateSummary,
   onFilesSelected,
   onEditPrompt,
   onEditComponents,
@@ -400,10 +402,9 @@ export function ConversationList({
                         "border-purple-200 bg-purple-50/30",
                     )}
                   >
-                    <Button
-                      variant="ghost"
+                    <div
                       className={cn(
-                        "w-full justify-start text-left h-auto py-3 px-3",
+                        "w-full text-left py-3 px-3 hover:bg-accent/50 rounded-t-md transition-colors",
                         selectedId === conversation.id && "hover:bg-blue-50",
                       )}
                       onClick={(e) => {
@@ -573,7 +574,7 @@ export function ConversationList({
                             )}
                         </div>
                       </div>
-                    </Button>
+                    </div>
 
                     {/* Progress Checklist */}
                     {isExpanded &&
@@ -594,6 +595,13 @@ export function ConversationList({
                               const isSummaryStep = step.key === "summary";
                               const isAnalysisStep = step.key === "analysis";
                               const isColoringStep = step.key === "coloring";
+                              // Summary step is clickable when conversation is complete but summary wasn't run
+                              const isSummaryClickable =
+                                isSummaryStep &&
+                                conversation.status === "success" &&
+                                !conversation.step &&
+                                timing === undefined &&
+                                onGenerateSummary;
                               // Analysis step is clickable when conversation is complete but analysis wasn't run
                               const isAnalysisClickable =
                                 isAnalysisStep &&
@@ -601,28 +609,33 @@ export function ConversationList({
                                 !conversation.step &&
                                 timing === undefined &&
                                 onGenerateAnalysis;
+                              const isClickable = isSummaryClickable || isAnalysisClickable;
                               return (
                                 <div key={step.key}>
                                   <div className="flex items-center gap-2 text-xs">
                                     {status === "completed" &&
-                                      !isAnalysisClickable && (
+                                      !isClickable && (
                                         <Check className="h-3 w-3 text-green-600" />
                                       )}
                                     {status === "in-progress" && (
                                       <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
                                     )}
                                     {status === "pending" &&
-                                      !isAnalysisClickable && (
+                                      !isClickable && (
                                         <Circle className="h-3 w-3 text-gray-300" />
                                       )}
-                                    {isAnalysisClickable && (
+                                    {isClickable && (
                                       <Play className="h-3 w-3 text-blue-600" />
                                     )}
-                                    {isAnalysisClickable ? (
+                                    {isClickable ? (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onGenerateAnalysis(conversation.id);
+                                          if (isSummaryClickable) {
+                                            onGenerateSummary!(conversation.id);
+                                          } else {
+                                            onGenerateAnalysis!(conversation.id);
+                                          }
                                         }}
                                         className="flex-1 text-left text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -812,6 +825,7 @@ export function ConversationList({
               onEditAnalysisPrompt={onEditAnalysisPrompt}
               onEditColoringPrompt={onEditColoringPrompt}
               onGenerateAnalysis={onGenerateAnalysis}
+              onGenerateSummary={onGenerateSummary}
             />
           );
         })()}

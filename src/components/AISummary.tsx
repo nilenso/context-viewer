@@ -65,10 +65,14 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
             </Button>
           )}
         </div>
+
+        {/* Static metadata card - always show */}
+        <ConversationMetadataCard metadata={metadata} conversation={conversation} />
+
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              Summary and analysis will appear here once processing begins...
+              Summary and analysis will appear here once generated...
             </p>
           </CardContent>
         </Card>

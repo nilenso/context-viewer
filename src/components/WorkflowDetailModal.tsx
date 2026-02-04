@@ -103,6 +103,7 @@ interface WorkflowDetailModalProps {
   onEditAnalysisPrompt?: () => void;
   onEditColoringPrompt?: () => void;
   onGenerateAnalysis?: (id: string) => void;
+  onGenerateSummary?: (id: string) => void;
 }
 
 export function WorkflowDetailModal({
@@ -122,6 +123,7 @@ export function WorkflowDetailModal({
   onEditAnalysisPrompt,
   onEditColoringPrompt,
   onGenerateAnalysis,
+  onGenerateSummary,
 }: WorkflowDetailModalProps) {
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<ProcessingStep>>(
@@ -210,6 +212,13 @@ export function WorkflowDetailModal({
     stepStatus: "pending" | "in-progress" | "completed" | "not-run",
     stepKey: ProcessingStep,
   ) => {
+    const isSummaryClickable =
+      stepKey === "summary" &&
+      status === "success" &&
+      !currentStep &&
+      stepTimings?.summary === undefined &&
+      onGenerateSummary;
+
     const isAnalysisClickable =
       stepKey === "analysis" &&
       status === "success" &&
@@ -217,7 +226,7 @@ export function WorkflowDetailModal({
       stepTimings?.analysis === undefined &&
       onGenerateAnalysis;
 
-    if (isAnalysisClickable) {
+    if (isSummaryClickable || isAnalysisClickable) {
       return <Play className="h-4 w-4 text-blue-600" />;
     }
 
@@ -290,12 +299,21 @@ export function WorkflowDetailModal({
               const isExpanded = expandedSteps.has(step.key);
               const legacyTiming = stepTimings?.[step.key];
 
+              const isSummaryClickable =
+                step.key === "summary" &&
+                status === "success" &&
+                !currentStep &&
+                stepTimings?.summary === undefined &&
+                onGenerateSummary;
+
               const isAnalysisClickable =
                 step.key === "analysis" &&
                 status === "success" &&
                 !currentStep &&
                 stepTimings?.analysis === undefined &&
                 onGenerateAnalysis;
+
+              const isClickable = isSummaryClickable || isAnalysisClickable;
 
               const isFindComponentsStep = step.key === "finding-components";
               const isSegmentingStep = step.key === "segmenting";
@@ -326,11 +344,15 @@ export function WorkflowDetailModal({
                         {getStatusIcon(stepStatus, step.key)}
                         <div className="flex-1 text-left">
                           <div className="flex items-center gap-2">
-                            {isAnalysisClickable ? (
+                            {isClickable ? (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onGenerateAnalysis(conversationId);
+                                  if (isSummaryClickable) {
+                                    onGenerateSummary!(conversationId);
+                                  } else {
+                                    onGenerateAnalysis!(conversationId);
+                                  }
                                 }}
                                 className="font-medium text-sm text-blue-600 hover:text-blue-700 hover:underline"
                               >
