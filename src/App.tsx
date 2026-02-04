@@ -2239,7 +2239,7 @@ export default function App() {
       {/* Header Banner */}
       <header className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-4 mb-6">
         <h1 className="text-xl font-semibold flex items-center gap-2 text-slate-700">
-          <img src="/nilenso-logo.svg" alt="Nilenso" className="h-5 w-auto" />
+          <img src={`${import.meta.env.BASE_URL}nilenso-logo.svg`} alt="Nilenso" className="h-5 w-auto" />
           <span className="font-normal text-slate-400">/</span>
           <span>context-viewer</span>
         </h1>

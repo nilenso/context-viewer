@@ -46,7 +46,7 @@ interface PresetIndex {
  */
 export async function loadPresetIndex(): Promise<PresetSummary[]> {
   try {
-    const response = await fetch("/presets/index.json");
+    const response = await fetch(`${import.meta.env.BASE_URL}presets/index.json`);
     if (!response.ok) {
       console.error(`Failed to load preset index: ${response.status}`);
       return [];
@@ -64,7 +64,7 @@ export async function loadPresetIndex(): Promise<PresetSummary[]> {
  */
 export async function loadPreset(id: string): Promise<PresetConfig | null> {
   try {
-    const response = await fetch(`/presets/${id}.json`);
+    const response = await fetch(`${import.meta.env.BASE_URL}presets/${id}.json`);
     if (!response.ok) {
       console.error(`Failed to load preset ${id}: ${response.status}`);
       return null;
