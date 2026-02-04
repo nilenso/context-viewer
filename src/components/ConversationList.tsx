@@ -24,7 +24,9 @@ import {
   Trash2,
   Maximize2,
   Download,
+  Pause,
 } from "lucide-react";
+import { ApiKeyInput } from "./ApiKeyInput";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +34,7 @@ import {
   SUPPORTED_EXTENSIONS_TEXT,
 } from "@/lib/file-formats";
 
-type ConversationStatus = "pending" | "processing" | "success" | "failed";
+type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
 type ProcessingStep =
   | "parsing"
   | "counting-tokens"
@@ -58,6 +60,7 @@ interface WorkflowState {
   error?: string;
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
+  pausedAtStep?: ProcessingStep;
   // Grouped conversation data
   isGrouped?: boolean;
   sourceConversations?: Array<{ id: string; filename: string }>;
@@ -86,6 +89,9 @@ interface ConversationListProps {
   onExportSession?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  pausedWorkflowCount?: number;
+  onApiKeyChange?: (hasKey: boolean) => void;
+  onResumeWorkflows?: () => void;
 }
 
 export function ConversationList({
@@ -111,6 +117,9 @@ export function ConversationList({
   onExportSession,
   isCollapsed = false,
   onToggleCollapse,
+  pausedWorkflowCount = 0,
+  onApiKeyChange,
+  onResumeWorkflows,
 }: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(
@@ -180,9 +189,20 @@ export function ConversationList({
   const getStepStatus = (
     conversation: WorkflowState,
     stepKey: ProcessingStep,
-  ): "pending" | "in-progress" | "completed" => {
+  ): "pending" | "in-progress" | "completed" | "paused" => {
     if (conversation.status === "failed") return "pending";
     if (conversation.status === "pending") return "pending";
+
+    // Handle paused-for-api-key status
+    if (conversation.status === "paused-for-api-key") {
+      const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
+      const pausedAtIndex = processingSteps.findIndex(
+        (s) => s.key === conversation.pausedAtStep,
+      );
+      if (stepIndex < pausedAtIndex) return "completed";
+      if (stepIndex === pausedAtIndex) return "paused";
+      return "pending";
+    }
 
     const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
     const currentStepIndex = processingSteps.findIndex(
@@ -364,6 +384,16 @@ export function ConversationList({
           </Button>
         </div>
       )}
+
+      {/* API Key Input */}
+      {onApiKeyChange && onResumeWorkflows && (
+        <ApiKeyInput
+          onApiKeyChange={onApiKeyChange}
+          pausedWorkflowCount={pausedWorkflowCount}
+          onResumeWorkflows={onResumeWorkflows}
+        />
+      )}
+
       <div
         {...getRootProps()}
         className={cn(
@@ -467,6 +497,10 @@ export function ConversationList({
                             conversation.status === "failed" && (
                               <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                             )}
+                          {!conversation.isGrouped &&
+                            conversation.status === "paused-for-api-key" && (
+                              <Pause className="h-4 w-4 shrink-0 text-amber-600" />
+                            )}
                           <span
                             className="font-medium text-sm truncate flex-1 min-w-0"
                             title={conversation.filename}
@@ -477,7 +511,8 @@ export function ConversationList({
                           </span>
                           {/* Expand button to open workflow detail modal */}
                           {(conversation.status === "processing" ||
-                            conversation.status === "success") && (
+                            conversation.status === "success" ||
+                            conversation.status === "paused-for-api-key") && (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -505,7 +540,8 @@ export function ConversationList({
                               </div>
                             )}
                           {(isProcessing ||
-                            conversation.status === "success") && (
+                            conversation.status === "success" ||
+                            conversation.status === "paused-for-api-key") && (
                             <div
                               onClick={(e) =>
                                 toggleProgress(conversation.id, e)
@@ -568,6 +604,15 @@ export function ConversationList({
                             </Badge>
                           )}
 
+                          {conversation.status === "paused-for-api-key" && (
+                            <Badge
+                              variant="outline"
+                              className="self-start text-xs border-amber-500 text-amber-700 bg-amber-50"
+                            >
+                              Waiting for API key
+                            </Badge>
+                          )}
+
                           {conversation.status === "success" &&
                             !conversation.step &&
                             conversation.warnings && (
@@ -585,7 +630,7 @@ export function ConversationList({
 
                     {/* Progress Checklist */}
                     {isExpanded &&
-                      (isProcessing || conversation.status === "success") && (
+                      (isProcessing || conversation.status === "success" || conversation.status === "paused-for-api-key") && (
                         <div className="px-3 pb-3 pt-1 border-t">
                           <div className="space-y-1">
                             {processingSteps.map((step) => {
@@ -631,6 +676,9 @@ export function ConversationList({
                                       !isClickable && (
                                         <Circle className="h-3 w-3 text-gray-300" />
                                       )}
+                                    {status === "paused" && (
+                                      <Pause className="h-3 w-3 text-amber-600" />
+                                    )}
                                     {isClickable && (
                                       <Play className="h-3 w-3 text-blue-600" />
                                     )}
@@ -658,6 +706,8 @@ export function ConversationList({
                                             "text-blue-700 font-medium",
                                           status === "pending" &&
                                             "text-muted-foreground",
+                                          status === "paused" &&
+                                            "text-amber-700 font-medium",
                                         )}
                                       >
                                         {step.label}

@@ -57,13 +57,18 @@ import {
   SUPPORTED_EXTENSIONS_TEXT,
 } from "./lib/file-formats";
 import { buildSessionExport, downloadExport } from "./lib/export-builder";
+import {
+  SessionExportSchema,
+  FileExportSchema,
+} from "./lib/export-schema";
+import { hasApiKey, setRuntimeApiKey } from "./ai-config";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Math.random().toString(16).slice(2)}`;
 
-type ConversationStatus = "pending" | "processing" | "success" | "failed";
+type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
 type ProcessingStep =
   | "parsing"
   | "counting-tokens"
@@ -123,6 +128,7 @@ interface WorkflowState {
   // Tracking
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
+  pausedAtStep?: ProcessingStep;
 
   // Grouped conversation data
   isGrouped?: boolean;
@@ -150,6 +156,7 @@ enum WorkflowEvent {
   GroupedConversation = "grouped-conversation",
   GenerateAnalysis = "generate-analysis",
   GenerateSummary = "generate-summary",
+  ResumeFromApiKeyPause = "resume-from-api-key-pause",
 }
 
 /**
@@ -305,6 +312,25 @@ function calculateConversationStats(conversation: {
   }
 
   return { messageCount, turnCount, durationMs };
+}
+
+/**
+ * Extract component mapping from parts that have embedded component field.
+ * Used when importing Context Viewer exports where component is stored on each part.
+ */
+function extractComponentMappingFromParts(
+  conversation: Conversation,
+): Record<string, string> {
+  const mapping: Record<string, string> = {};
+  for (const message of conversation.messages) {
+    for (const part of message.parts) {
+      // Parts from Context Viewer export have component embedded
+      if ("component" in part && part.component) {
+        mapping[part.id] = part.component as string;
+      }
+    }
+  }
+  return mapping;
 }
 
 /**
@@ -482,6 +508,25 @@ class WorkflowRunner {
   markFailed(id: string, error: string) {
     this.setState(id, { status: "failed", step: undefined, error });
   }
+
+  /**
+   * Mark workflow as paused waiting for API key
+   */
+  markPausedForApiKey(ctx: WorkflowState, nextStep: ProcessingStep) {
+    this.setState(ctx.id, {
+      conversation: ctx.conversation,
+      summary: ctx.summary,
+      metadata: ctx.metadata,
+      staticComponents: ctx.staticComponents,
+      staticMapping: ctx.staticMapping,
+      staticTimeline: ctx.staticTimeline,
+      warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+      stepTimings: ctx.stepTimings,
+      status: "paused-for-api-key",
+      step: undefined,
+      pausedAtStep: nextStep,
+    });
+  }
 }
 
 // ============================================================================
@@ -529,6 +574,45 @@ async function processConversationWorkflow(
       return;
     }
 
+    // Resume from API key pause - continue from segmenting step
+    if (event === WorkflowEvent.ResumeFromApiKeyPause) {
+      // Step 3: Segment
+      runner.startStep(ctx, "segmenting");
+      const { result: segmentResult, timing: segmentTiming } =
+        await runner.runActivity(ctx, segmentActivity, "segmenting");
+
+      ctx.conversation = segmentResult.conversation;
+      if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
+      ctx.stepTimings!.segmenting = segmentTiming;
+
+      runner.updateState(ctx, "finding-components");
+
+      // Step 4: Find components
+      runner.startStep(ctx, "finding-components");
+      const { result: componentResult, timing: componentTiming } =
+        await runner.runActivity(
+          ctx,
+          findComponentsActivity,
+          "finding-components",
+        );
+      ctx.components = componentResult.components;
+      ctx.componentMapping = componentResult.mapping;
+      ctx.componentTimeline = componentResult.timeline;
+      if (componentResult.error) ctx.warnings!.push(componentResult.error);
+      ctx.stepTimings!["finding-components"] = componentTiming;
+      runner.updateState(ctx, "coloring");
+
+      // Step 5: Assign colors
+      runner.startStep(ctx, "coloring");
+      const { result: colorResult, timing: colorTiming } =
+        await runner.runActivity(ctx, assignColorsActivity, "coloring");
+      ctx.componentColors = colorResult.colors;
+      ctx.stepTimings!.coloring = colorTiming;
+
+      runner.markComplete(ctx);
+      return;
+    }
+
     // Step 1: Parse (only for new files)
     if (event === WorkflowEvent.NewFile) {
       runner.startStep(ctx, "parsing");
@@ -541,6 +625,38 @@ async function processConversationWorkflow(
       ctx.summary = result.summary;
       ctx.metadata = result.metadata;
       ctx.stepTimings!.parsing = timing;
+
+      // Check if this is a pre-processed Context Viewer import
+      const isPreProcessed = result.metadata.parserName === "Context Viewer";
+      if (isPreProcessed) {
+        // Extract componentMapping from parts (component field on each part)
+        const componentMapping = extractComponentMappingFromParts(
+          ctx.conversation,
+        );
+        const components = [...new Set(Object.values(componentMapping))];
+
+        // Use pre-computed data from metadata
+        ctx.componentColors = result.metadata.componentColors;
+        ctx.aiSummary = result.metadata.aiSummary;
+        ctx.analysis = result.metadata.analysis;
+        ctx.components = components;
+        ctx.componentMapping = componentMapping;
+
+        // Rebuild computed fields (timelines)
+        ctx.componentTimeline = buildComponentTimeline(
+          ctx.conversation,
+          componentMapping,
+        );
+        const staticResult = staticComponentise(ctx.conversation);
+        ctx.staticComponents = staticResult.components;
+        ctx.staticMapping = staticResult.mapping;
+        ctx.staticTimeline = staticResult.timeline;
+
+        // Skip AI workflow, mark as success
+        runner.markComplete(ctx);
+        return;
+      }
+
       runner.updateState(ctx, "counting-tokens");
     }
 
@@ -563,6 +679,12 @@ async function processConversationWorkflow(
       ctx.staticComponents = staticResult.result.staticComponents;
       ctx.staticMapping = staticResult.result.staticMapping;
       ctx.staticTimeline = staticResult.result.staticTimeline;
+
+      // Check if API key is available before AI steps
+      if (!hasApiKey()) {
+        runner.markPausedForApiKey(ctx, "segmenting");
+        return;
+      }
 
       runner.updateState(ctx, "segmenting");
     }
@@ -845,6 +967,22 @@ export default function App() {
   const [isPresetLoading, setIsPresetLoading] = useState(false);
 
   const fileIdsRef = useRef<Map<number, string>>(new Map());
+
+  // Pending groups from SessionExport import
+  // Maps old file IDs to file indices, plus the groups to recreate
+  const pendingSessionImportRef = useRef<{
+    oldIdToIndex: Map<string, number>;
+    groups: Array<{ id: string; name: string; fileIds: string[] }>;
+  } | null>(null);
+
+  // API key state
+  const [hasApiKeyState, setHasApiKeyState] = useState(() => hasApiKey());
+
+  // Count paused workflows
+  const pausedWorkflowCount = useMemo(
+    () => conversations.filter((c) => c.status === "paused-for-api-key").length,
+    [conversations]
+  );
 
   // Load preset index on mount
   useEffect(() => {
@@ -1649,6 +1787,55 @@ export default function App() {
     }
   };
 
+  // Handle resuming paused workflows after API key is entered
+  const handleResumeWorkflowsWithApiKey = async () => {
+    const pausedWorkflows = conversations.filter(
+      (c) => c.status === "paused-for-api-key"
+    );
+
+    for (const conv of pausedWorkflows) {
+      if (!conv.conversation) continue;
+
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...update } : c))
+        );
+      });
+
+      // Initialize workflow context from paused conversation
+      const ctx: WorkflowState = {
+        id: conv.id,
+        filename: conv.filename,
+        conversation: conv.conversation,
+        summary: conv.summary,
+        metadata: conv.metadata,
+        staticComponents: conv.staticComponents,
+        staticMapping: conv.staticMapping,
+        staticTimeline: conv.staticTimeline,
+        config: conv.config || getComponentisationConfig(),
+        warnings: conv.warnings || [],
+        stepTimings: { ...conv.stepTimings },
+      };
+
+      // Run workflow with ResumeFromApiKeyPause event
+      processConversationWorkflow(
+        WorkflowEvent.ResumeFromApiKeyPause,
+        ctx,
+        runner,
+        {
+          onSummaryChunk: onSummaryChunk,
+          onAnalysisChunk: onAnalysisChunk,
+        }
+      );
+    }
+  };
+
+  // Handle API key change
+  const handleApiKeyChange = (hasKey: boolean) => {
+    setHasApiKeyState(hasKey);
+  };
+
   // Handle multi-selection toggle
   const handleToggleSelection = (id: string, isSelected: boolean) => {
     setSelectedIds((prev) => {
@@ -1911,8 +2098,76 @@ export default function App() {
     downloadExport(exportData);
   };
 
+  // Handle file drop with SessionExport detection
+  const handleFileDrop = async (files: File[]) => {
+    const filesToProcess: File[] = [];
+    // Track mapping from old file IDs to file indices (for session import groups)
+    const oldIdToIndex = new Map<string, number>();
+    let sessionGroups: Array<{ id: string; name: string; fileIds: string[] }> =
+      [];
+
+    for (const file of files) {
+      if (file.name.endsWith(".json")) {
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+
+          // Check if it's a SessionExport (multiple files)
+          const sessionResult = SessionExportSchema.safeParse(data);
+          if (sessionResult.success) {
+            const startIndex = filesToProcess.length;
+            // Create virtual files for each FileExport in the session
+            for (let i = 0; i < sessionResult.data.files.length; i++) {
+              const fileExport = sessionResult.data.files[i];
+              // Track old ID to new index mapping
+              oldIdToIndex.set(fileExport.id, startIndex + i);
+
+              const blob = new Blob([JSON.stringify(fileExport)], {
+                type: "application/json",
+              });
+              const virtualFile = new File(
+                [blob],
+                fileExport.filename + ".json",
+                { type: "application/json" },
+              );
+              filesToProcess.push(virtualFile);
+            }
+            // Store groups to recreate after files are processed
+            sessionGroups = sessionResult.data.groups;
+            continue;
+          }
+
+          // Check if it's a single FileExport
+          const fileResult = FileExportSchema.safeParse(data);
+          if (fileResult.success) {
+            filesToProcess.push(file);
+            continue;
+          }
+        } catch {
+          // JSON parse error, process normally
+        }
+      }
+      // Not a Context Viewer format, process normally
+      filesToProcess.push(file);
+    }
+
+    // Store pending groups info if we have groups to recreate
+    if (sessionGroups.length > 0) {
+      pendingSessionImportRef.current = {
+        oldIdToIndex,
+        groups: sessionGroups,
+      };
+    } else {
+      pendingSessionImportRef.current = null;
+    }
+
+    if (filesToProcess.length > 0) {
+      workflowMutation.mutate(filesToProcess);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (files: File[]) => workflowMutation.mutate(files),
+    onDrop: handleFileDrop,
     validator: createFileValidator(),
     multiple: true,
     noClick: conversations.length > 0, // Only enable click when empty
@@ -2009,6 +2264,9 @@ export default function App() {
                 onExportSession={handleExportSession}
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={handleToggleSidebar}
+                pausedWorkflowCount={pausedWorkflowCount}
+                onApiKeyChange={handleApiKeyChange}
+                onResumeWorkflows={handleResumeWorkflowsWithApiKey}
               />
             </aside>
 

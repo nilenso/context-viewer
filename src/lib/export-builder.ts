@@ -15,7 +15,7 @@ import {
 interface WorkflowState {
   id: string;
   filename: string;
-  status?: "pending" | "processing" | "success" | "failed";
+  status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
   conversation?: Conversation;
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;

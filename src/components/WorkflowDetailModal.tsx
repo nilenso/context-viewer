@@ -91,7 +91,7 @@ interface WorkflowDetailModalProps {
   onClose: () => void;
   conversationId: string;
   filename: string;
-  status?: "pending" | "processing" | "success" | "failed";
+  status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
   currentStep?: ProcessingStep;
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   aiSummary?: string;
