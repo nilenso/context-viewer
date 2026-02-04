@@ -420,6 +420,34 @@ export function ConversationView({
           ? lastTimestamp.getTime() - firstTimestamp.getTime()
           : undefined;
 
+        // Build messageComponents array for workflow view (filtered)
+        const messageComponents: string[] = [];
+        for (const message of source.conversation.messages) {
+          // Check if any part of this message passes the filters
+          let messageComponent: string | null = null;
+          for (const part of message.parts) {
+            // Apply message type filter
+            if (!partPassesMessageTypeFilter(part, message.role)) continue;
+
+            const component = source.componentMapping[part.id];
+
+            // Apply component filter
+            if (hasComponentFilters) {
+              if (!component || !selectedComponents.has(component)) continue;
+            }
+
+            // Found a part that passes filters
+            if (component) {
+              messageComponent = component;
+              break;
+            }
+          }
+          // Only include message if it has parts that pass filters
+          if (messageComponent !== null) {
+            messageComponents.push(messageComponent);
+          }
+        }
+
         return {
           id: source.id,
           filename: source.filename,
@@ -428,6 +456,7 @@ export function ConversationView({
           turnCount,
           messageCount: source.conversation.messages.length,
           durationMs,
+          messageComponents,
         };
       })
       .filter((item): item is ConversationComponentData => item !== null);
