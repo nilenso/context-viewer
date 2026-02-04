@@ -9,6 +9,11 @@
       "id": "workflow-phases",
       "name": "Workflow Phases",
       "description": "For analyzing conversation transcripts with workflow phases"
+    },
+    {
+      "id": "workflow-tasks",
+      "name": "Workflow Tasks",
+      "description": "For analyzing transcripts with granular tasks mapped to tool calls"
     }
   ]
 }
