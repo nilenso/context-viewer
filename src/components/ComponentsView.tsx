@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
+import { WorkflowLegend } from "./ComponentComparisonView";
+import { cn } from "@/lib/utils";
 import { getComponentBgClass } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
@@ -106,6 +108,35 @@ export function ComponentsView({
   // Check if message type filters are active
   const hasMessageTypeFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
 
+  // Compute messageComponents for workflow view (filtered, up to current slider position)
+  const messageComponents = useMemo(() => {
+    const components: string[] = [];
+    conversation.messages.forEach((message, msgIndex) => {
+      if (msgIndex <= currentMessageIndex) {
+        // Find the primary component for this message from first matching part
+        let messageComponent: string | null = null;
+        for (const part of message.parts) {
+          // Apply message type filter
+          if (!partPassesMessageTypeFilter(part, message.role)) continue;
+
+          // Apply static component filter if set
+          if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
+
+          const component = componentMapping[part.id];
+          if (component) {
+            messageComponent = component;
+            break;
+          }
+        }
+        // Only include message if it has parts that pass filters
+        if (messageComponent !== null) {
+          components.push(messageComponent);
+        }
+      }
+    });
+    return components;
+  }, [conversation.messages, currentMessageIndex, componentMapping, filteredPartIds, messageTypeFilters]);
+
   return (
     <div className="p-4">
       {/* Filter indicator */}
@@ -148,6 +179,35 @@ export function ComponentsView({
         getLabel={(component) => component}
         onComponentClick={handleComponentClick}
       />
+
+      {/* Workflow Diagram - horizontal sequence of messages */}
+      {messageComponents.length > 0 && (
+        <div className="mt-6 pt-4 border-t">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3">
+            Workflow ({messageComponents.length} messages)
+          </h4>
+          <div className="flex flex-wrap gap-0.5">
+            {messageComponents.map((component, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "w-3 h-3 rounded-sm flex-shrink-0",
+                  component
+                    ? getComponentBgClass(component, componentColors)
+                    : "bg-gray-200",
+                )}
+                title={`${index + 1}: ${component || "unknown"}`}
+              />
+            ))}
+          </div>
+          <div className="mt-3">
+            <WorkflowLegend
+              messageComponents={messageComponents}
+              componentColors={componentColors}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

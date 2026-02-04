@@ -91,7 +91,7 @@ type ViewMode = "tokens" | "workflow";
  * Message-based workflow waffle chart
  * Each square = one message, colored by its component, in conversation order
  */
-function MessageWorkflowChart({
+export function MessageWorkflowChart({
   messageComponents,
   componentColors,
   squaresPerRow,
@@ -128,7 +128,7 @@ function MessageWorkflowChart({
 /**
  * Shared legend for workflow view - shows unique components used
  */
-function WorkflowLegend({
+export function WorkflowLegend({
   messageComponents,
   componentColors,
 }: {
