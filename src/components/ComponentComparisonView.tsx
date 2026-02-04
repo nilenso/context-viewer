@@ -14,6 +14,7 @@ export interface ConversationComponentData {
   turnCount: number; // Number of user messages (turns)
   messageCount: number; // Total messages
   durationMs?: number; // Duration in milliseconds (from first to last message)
+  messageComponents?: string[]; // Component for each message in order (for workflow view)
 }
 
 /**
@@ -82,6 +83,76 @@ interface ComponentComparisonViewProps {
   sourceConversations: ConversationComponentData[];
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
+}
+
+type ViewMode = "tokens" | "workflow";
+
+/**
+ * Message-based workflow waffle chart
+ * Each square = one message, colored by its component, in conversation order
+ */
+function MessageWorkflowChart({
+  messageComponents,
+  componentColors,
+  squaresPerRow,
+}: {
+  messageComponents: string[];
+  componentColors?: Record<string, string>;
+  squaresPerRow: number;
+}) {
+  return (
+    <div className="flex-shrink-0">
+      <div
+        className="grid gap-0.5"
+        style={{
+          gridTemplateColumns: `repeat(${squaresPerRow}, minmax(0, 1fr))`,
+        }}
+      >
+        {messageComponents.map((component, index) => (
+          <div
+            key={index}
+            className={cn(
+              "w-3 h-3 rounded-sm",
+              component
+                ? getComponentBgClass(component, componentColors)
+                : "bg-gray-200",
+            )}
+            title={`${index + 1}: ${component || "unknown"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Shared legend for workflow view - shows unique components used
+ */
+function WorkflowLegend({
+  messageComponents,
+  componentColors,
+}: {
+  messageComponents: string[];
+  componentColors?: Record<string, string>;
+}) {
+  // Get unique components in order of first appearance
+  const uniqueComponents = [...new Set(messageComponents)].filter(Boolean);
+
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {uniqueComponents.map((component) => (
+        <div key={component} className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "w-3 h-3 rounded-sm flex-shrink-0",
+              getComponentBgClass(component, componentColors),
+            )}
+          />
+          <span className="text-muted-foreground">{component}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -225,6 +296,13 @@ export function ComponentComparisonView({
   const [sortField, setSortField] = useState<SortField>("tokens");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [columnCount, setColumnCount] = useState<number>(3);
+  const [viewMode, setViewMode] = useState<ViewMode>("tokens");
+  const [squaresPerRow, setSquaresPerRow] = useState<number>(20);
+
+  // Check if workflow view is available (any conversation has messageComponents)
+  const hasWorkflowData = sourceConversations.some(
+    (c) => c.messageComponents && c.messageComponents.length > 0,
+  );
 
   const handleSortClick = (field: SortField) => {
     if (sortField === field) {
@@ -262,47 +340,79 @@ export function ComponentComparisonView({
         </div>
       )}
 
-      {/* Controls: Sort and Grid columns */}
+      {/* Controls: View mode, Sort, and Grid columns */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
-        <div className="flex items-center gap-1">
-          <span>Sort:</span>
-          <button
-            onClick={() => handleSortClick("tokens")}
-            className={cn(
-              "px-1.5 py-0.5 rounded transition-colors flex items-center",
-              sortField === "tokens"
-                ? "bg-gray-200 text-gray-900"
-                : "hover:bg-gray-100"
-            )}
-          >
-            tokens
-            <SortArrow field="tokens" />
-          </button>
-          <button
-            onClick={() => handleSortClick("name")}
-            className={cn(
-              "px-1.5 py-0.5 rounded transition-colors flex items-center",
-              sortField === "name"
-                ? "bg-gray-200 text-gray-900"
-                : "hover:bg-gray-100"
-            )}
-          >
-            name
-            <SortArrow field="name" />
-          </button>
-          <button
-            onClick={() => handleSortClick("category")}
-            className={cn(
-              "px-1.5 py-0.5 rounded transition-colors flex items-center",
-              sortField === "category"
-                ? "bg-gray-200 text-gray-900"
-                : "hover:bg-gray-100"
-            )}
-          >
-            category
-            <SortArrow field="category" />
-          </button>
-        </div>
+        {/* View mode toggle */}
+        {hasWorkflowData && (
+          <div className="flex items-center gap-1">
+            <span>View:</span>
+            <button
+              onClick={() => setViewMode("tokens")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors",
+                viewMode === "tokens"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100",
+              )}
+            >
+              tokens
+            </button>
+            <button
+              onClick={() => setViewMode("workflow")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors",
+                viewMode === "workflow"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100",
+              )}
+            >
+              workflow
+            </button>
+          </div>
+        )}
+
+        {/* Sort controls - only for token view */}
+        {viewMode === "tokens" && (
+          <div className="flex items-center gap-1">
+            <span>Sort:</span>
+            <button
+              onClick={() => handleSortClick("tokens")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors flex items-center",
+                sortField === "tokens"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100"
+              )}
+            >
+              tokens
+              <SortArrow field="tokens" />
+            </button>
+            <button
+              onClick={() => handleSortClick("name")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors flex items-center",
+                sortField === "name"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100"
+              )}
+            >
+              name
+              <SortArrow field="name" />
+            </button>
+            <button
+              onClick={() => handleSortClick("category")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors flex items-center",
+                sortField === "category"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100"
+              )}
+            >
+              category
+              <SortArrow field="category" />
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
           <span>Columns:</span>
@@ -316,7 +426,35 @@ export function ComponentComparisonView({
             ))}
           </select>
         </div>
+
+        {/* Squares per row - only for workflow view */}
+        {viewMode === "workflow" && (
+          <div className="flex items-center gap-1">
+            <span>Squares/row:</span>
+            <select
+              value={squaresPerRow}
+              onChange={(e) => setSquaresPerRow(Number(e.target.value))}
+              className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
+            >
+              {[10, 15, 20, 25, 30, 40, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      {/* Shared legend for workflow view */}
+      {viewMode === "workflow" && sourceConversations.length > 0 && sourceConversations[0]?.messageComponents && (
+        <div className="mb-4">
+          <WorkflowLegend
+            messageComponents={sourceConversations.flatMap((c) => c.messageComponents || [])}
+            componentColors={componentColors}
+          />
+        </div>
+      )}
 
       {/* Grid of waffle charts */}
       <div
@@ -338,22 +476,36 @@ export function ComponentComparisonView({
 
             {/* Waffle chart and legend side by side */}
             <div className="flex gap-4">
-              <MiniWaffleChart
-                componentTokens={conv.componentTokens}
-                totalTokens={conv.totalTokens}
-                componentColors={componentColors}
-                sortField={sortField}
-                sortDirection={sortDirection}
-              />
-              <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
-                <ComparisonLegend
-                  componentTokens={conv.componentTokens}
-                  totalTokens={conv.totalTokens}
+              {viewMode === "tokens" ? (
+                <>
+                  <MiniWaffleChart
+                    componentTokens={conv.componentTokens}
+                    totalTokens={conv.totalTokens}
+                    componentColors={componentColors}
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
+                  <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
+                    <ComparisonLegend
+                      componentTokens={conv.componentTokens}
+                      totalTokens={conv.totalTokens}
+                      componentColors={componentColors}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                    />
+                  </div>
+                </>
+              ) : conv.messageComponents ? (
+                <MessageWorkflowChart
+                  messageComponents={conv.messageComponents}
                   componentColors={componentColors}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
+                  squaresPerRow={squaresPerRow}
                 />
-              </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  No workflow data available
+                </div>
+              )}
             </div>
           </div>
         ))}

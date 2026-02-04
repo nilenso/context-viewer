@@ -982,6 +982,7 @@ export default function App() {
         let turnCount = 0;
         let firstTimestamp: Date | undefined;
         let lastTimestamp: Date | undefined;
+        const messageComponents: string[] = [];
 
         for (const message of conv.conversation.messages) {
           // Count user messages as turns
@@ -1002,6 +1003,8 @@ export default function App() {
             }
           }
 
+          // Get the primary component for this message (from first part with a component)
+          let messageComponent = "other";
           for (const part of message.parts) {
             const component = conv.componentMapping[part.id];
             const tokenCount = ("token_count" in part && part.token_count) || 0;
@@ -1010,11 +1013,16 @@ export default function App() {
             if (component) {
               componentTokens[component] =
                 (componentTokens[component] || 0) + tokenCount;
+              // Use the first component found as the message's component
+              if (messageComponent === "other") {
+                messageComponent = component;
+              }
             } else {
               componentTokens["other"] =
                 (componentTokens["other"] || 0) + tokenCount;
             }
           }
+          messageComponents.push(messageComponent);
         }
 
         // Calculate duration if we have both timestamps
@@ -1031,6 +1039,7 @@ export default function App() {
           turnCount,
           messageCount: conv.conversation.messages.length,
           durationMs,
+          messageComponents,
         };
       })
       .filter((data): data is ConversationComponentData => data !== null);
