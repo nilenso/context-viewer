@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -102,6 +101,7 @@ interface WorkflowDetailModalProps {
   onEditSegmentationPrompt?: () => void;
   onEditSummaryPrompt?: () => void;
   onEditAnalysisPrompt?: () => void;
+  onEditColoringPrompt?: () => void;
   onGenerateAnalysis?: (id: string) => void;
 }
 
@@ -120,6 +120,7 @@ export function WorkflowDetailModal({
   onEditSegmentationPrompt,
   onEditSummaryPrompt,
   onEditAnalysisPrompt,
+  onEditColoringPrompt,
   onGenerateAnalysis,
 }: WorkflowDetailModalProps) {
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
@@ -238,7 +239,7 @@ export function WorkflowDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-3xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="truncate">{filename}</span>
@@ -280,7 +281,7 @@ export function WorkflowDetailModal({
           </div>
         )}
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
           <div className="space-y-2 pb-4">
             {processingSteps.map((step) => {
               const stepStatus = getStepStatus(step.key);
@@ -299,6 +300,7 @@ export function WorkflowDetailModal({
               const isFindComponentsStep = step.key === "finding-components";
               const isSegmentingStep = step.key === "segmenting";
               const isSummaryStep = step.key === "summary";
+              const isColoringStep = step.key === "coloring";
               const isAnalysisStep = step.key === "analysis";
 
               return (
@@ -399,6 +401,17 @@ export function WorkflowDetailModal({
                                 )}
                               </div>
                             )}
+                            {isColoringStep && onEditColoringPrompt && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditColoringPrompt();
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
+                              >
+                                Edit prompt
+                              </button>
+                            )}
                             {isAnalysisStep && onEditAnalysisPrompt && (
                               <button
                                 onClick={(e) => {
@@ -472,23 +485,26 @@ export function WorkflowDetailModal({
 
                         {/* Logs for this step */}
                         {stepLogs.length > 0 ? (
-                          <div className="space-y-1 font-mono text-xs max-h-60 overflow-y-auto">
+                          <div className="space-y-1 font-mono text-xs max-h-80 overflow-y-auto">
                             {stepLogs.map((log, index) => (
                               <div
                                 key={index}
                                 className={cn(
-                                  "flex gap-2 py-0.5",
+                                  "py-0.5",
                                   log.level === "error" && "text-red-600",
                                   log.level === "warn" && "text-yellow-600",
                                   log.level === "debug" && "text-gray-400",
                                 )}
                               >
-                                <span className="text-muted-foreground shrink-0">
+                                <span className="text-muted-foreground">
                                   {formatTimestamp(log.timestamp)}
+                                </span>{" "}
+                                <span className="break-words">
+                                  {log.message}
                                 </span>
-                                <span className="break-all">{log.message}</span>
                                 {log.data !== undefined && (
-                                  <span className="text-muted-foreground truncate">
+                                  <span className="text-muted-foreground break-words">
+                                    {" "}
                                     {typeof log.data === "object"
                                       ? JSON.stringify(log.data)
                                       : String(log.data)}
@@ -514,7 +530,7 @@ export function WorkflowDetailModal({
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

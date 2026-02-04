@@ -36,6 +36,7 @@ import {
   getDefaultSegmentationPrompt,
   getDefaultSummaryPrompt,
   getDefaultAnalysisPrompt,
+  getDefaultColoringPrompt,
 } from "./prompts";
 import {
   createConversationLogger,
@@ -90,6 +91,7 @@ interface WorkflowState {
   customSegmentationPrompt?: string;
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
+  customColoringPrompt?: string;
   customComponents?: string[];
   regenerateAnalysis?: boolean;
   presetColors?: Record<string, string>;
@@ -138,6 +140,7 @@ enum WorkflowEvent {
   ComponentPromptChanged = "component-prompt-changed",
   SegmentationPromptChanged = "segmentation-prompt-changed",
   SummaryPromptChanged = "summary-prompt-changed",
+  ColoringPromptChanged = "coloring-prompt-changed",
   GroupedConversation = "grouped-conversation",
   GenerateAnalysis = "generate-analysis",
   GenerateSummary = "generate-summary",
@@ -289,6 +292,7 @@ const assignColorsActivity: Activity<{
     ctx.config,
     ctx.id,
     ctx.presetColors,
+    ctx.customColoringPrompt,
   );
   return { colors };
 };
@@ -621,6 +625,17 @@ async function processConversationWorkflow(
       return;
     }
 
+    // For coloring prompt changed, only re-run the coloring step
+    if (event === WorkflowEvent.ColoringPromptChanged) {
+      runner.startStep(ctx, "coloring");
+      const { result: colorResult, timing: colorTiming } =
+        await runner.runActivity(ctx, assignColorsActivity, "coloring");
+      ctx.componentColors = colorResult.colors;
+      ctx.stepTimings!.coloring = colorTiming;
+      runner.markComplete(ctx);
+      return;
+    }
+
     // For segmentation prompt changed, start from segmenting step
     if (event === WorkflowEvent.SegmentationPromptChanged) {
       runner.startStep(ctx, "segmenting");
@@ -835,6 +850,13 @@ export default function App() {
     useState(false);
   const [editingAnalysisPrompt, setEditingAnalysisPrompt] = useState(
     getDefaultAnalysisPrompt(),
+  );
+
+  // Coloring prompt editor dialog state
+  const [isColoringPromptDialogOpen, setIsColoringPromptDialogOpen] =
+    useState(false);
+  const [editingColoringPrompt, setEditingColoringPrompt] = useState(
+    getDefaultColoringPrompt(),
   );
 
   // Preset state
@@ -1236,6 +1258,66 @@ export default function App() {
     }
   };
 
+  // Handle opening the coloring prompt editor
+  const handleOpenColoringPromptEditor = () => {
+    const currentPrompt =
+      selectedConversation?.customColoringPrompt || getDefaultColoringPrompt();
+    setEditingColoringPrompt(currentPrompt);
+    setIsColoringPromptDialogOpen(true);
+  };
+
+  // Handle applying the edited coloring prompt
+  const handleApplyColoringPrompt = async () => {
+    setIsColoringPromptDialogOpen(false);
+    if (!selectedConversation?.conversation) return;
+
+    const id = selectedConversation.id;
+    setReprocessingId(id);
+
+    try {
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations((prev) =>
+          prev.map((conv) => (conv.id === id ? { ...conv, ...update } : conv)),
+        );
+      });
+
+      const ctx = buildBaseContext(selectedConversation);
+      ctx.customColoringPrompt = editingColoringPrompt;
+
+      await processConversationWorkflow(
+        WorkflowEvent.ColoringPromptChanged,
+        ctx,
+        runner,
+        {},
+      );
+
+      // Store the custom prompt in the conversation state
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? { ...conv, customColoringPrompt: editingColoringPrompt }
+            : conv,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to reprocess coloring:", error);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id
+            ? {
+                ...conv,
+                status: "failed",
+                step: undefined,
+                error: "Coloring reprocessing failed",
+              }
+            : conv,
+        ),
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed((prev) => !prev);
@@ -1265,6 +1347,7 @@ export default function App() {
     customSummaryPrompt: conv.customSummaryPrompt,
     customSegmentationPrompt: conv.customSegmentationPrompt,
     customAnalysisPrompt: conv.customAnalysisPrompt,
+    customColoringPrompt: conv.customColoringPrompt,
     customPrompt: conv.customPrompt,
     config: conv.config || getComponentisationConfig(),
     warnings: [],
@@ -1948,6 +2031,7 @@ export default function App() {
                 onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
                 onEditSummaryPrompt={handleOpenSummaryPromptEditor}
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
+                onEditColoringPrompt={handleOpenColoringPromptEditor}
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={handleToggleSidebar}
               />
@@ -2127,6 +2211,18 @@ export default function App() {
         onApply={handleApplyAnalysisPrompt}
         placeholder="Enter your analysis prompt..."
         warningText="This will re-run the context analysis"
+      />
+
+      <PromptEditorDialog
+        open={isColoringPromptDialogOpen}
+        onOpenChange={setIsColoringPromptDialogOpen}
+        title="Edit Coloring Prompt"
+        description="Customize the prompt used to assign colors to components. Similar components should get the same color for visual grouping."
+        value={editingColoringPrompt}
+        onChange={setEditingColoringPrompt}
+        onApply={handleApplyColoringPrompt}
+        placeholder="Enter your coloring prompt..."
+        warningText="This will re-run color assignment for components"
       />
     </div>
   );

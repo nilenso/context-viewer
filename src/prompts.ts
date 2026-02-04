@@ -90,16 +90,13 @@ just give me a simple json object {id: component}
   "component-coloring": {
     key: "component-coloring",
     description: "Assigns colors to components based on similarity",
-    template: ({ componentsJson }) => `Given this list of components, assign a color to each component.
-Similar kinds of components should get the same color to make it easy to visually group them.
-
-Available colors: orange, emerald, purple, blue, slate, indigo, gray
-
-Return ONLY a valid JSON object mapping each component to a color name.
-Example format: {"component_name": "orange", "another_component": "blue"}
+    template: ({ componentsJson, customPrompt }) => {
+      const userPrompt = customPrompt || getDefaultColoringPrompt();
+      return `${userPrompt}
 
 Components:
-${componentsJson}`,
+${componentsJson}`;
+    },
   },
 
   "context-analysis": {
@@ -275,4 +272,18 @@ Analyze the data below and provide insights in markdown format covering:
    - Memory optimization opportunities
 
 Keep your analysis practical and focused on improving context relevance. Use clear headings, bullet points, and be specific about which components you're referring to.`;
+}
+
+/**
+ * Get the default (user-editable) component coloring prompt
+ * This is the part shown in the UI without the components list
+ */
+export function getDefaultColoringPrompt(): string {
+  return `Given this list of components, assign a color to each component.
+Similar kinds of components should get the same color to make it easy to visually group them.
+
+Available colors: orange, emerald, purple, blue, slate, indigo, gray, cyan, teal, rose, amber, violet, lime, sky
+
+Return ONLY a valid JSON object mapping each component to a color name.
+Example format: {"component_name": "orange", "another_component": "blue"}`;
 }

@@ -76,6 +76,7 @@ interface ConversationListProps {
   onEditSegmentationPrompt?: () => void;
   onEditSummaryPrompt?: () => void;
   onEditAnalysisPrompt?: () => void;
+  onEditColoringPrompt?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -98,6 +99,7 @@ export function ConversationList({
   onEditSegmentationPrompt,
   onEditSummaryPrompt,
   onEditAnalysisPrompt,
+  onEditColoringPrompt,
   isCollapsed = false,
   onToggleCollapse,
 }: ConversationListProps) {
@@ -591,6 +593,7 @@ export function ConversationList({
                                 step.key === "segmenting";
                               const isSummaryStep = step.key === "summary";
                               const isAnalysisStep = step.key === "analysis";
+                              const isColoringStep = step.key === "coloring";
                               // Analysis step is clickable when conversation is complete but analysis wasn't run
                               const isAnalysisClickable =
                                 isAnalysisStep &&
@@ -704,6 +707,20 @@ export function ConversationList({
                                         )}
                                       </div>
                                     )}
+                                  {/* Edit prompt link - show below "Assign colors" step */}
+                                  {isColoringStep && onEditColoringPrompt && (
+                                    <div className="flex gap-2 ml-5 mt-0.5">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditColoringPrompt();
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                      >
+                                        Edit prompt
+                                      </button>
+                                    </div>
+                                  )}
                                   {/* Edit prompt link - show below "Generate analysis" step */}
                                   {isAnalysisStep && onEditAnalysisPrompt && (
                                     <div className="flex gap-2 ml-5 mt-0.5">
@@ -793,6 +810,7 @@ export function ConversationList({
               onEditSegmentationPrompt={onEditSegmentationPrompt}
               onEditSummaryPrompt={onEditSummaryPrompt}
               onEditAnalysisPrompt={onEditAnalysisPrompt}
+              onEditColoringPrompt={onEditColoringPrompt}
               onGenerateAnalysis={onGenerateAnalysis}
             />
           );

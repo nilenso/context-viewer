@@ -382,6 +382,7 @@ export async function assignComponentColors(
   config: ComponentisationConfig,
   conversationId?: string,
   presetColors?: Record<string, string>,
+  customColoringPrompt?: string,
 ): Promise<Record<string, string>> {
   // If preset colors are provided, use them directly
   if (presetColors) {
@@ -407,7 +408,7 @@ export async function assignComponentColors(
     `[Componentisation] Calling AI to assign colors (model: ${config.model})`,
   );
 
-  const prompt = getPrompt("component-coloring", { componentsJson });
+  const prompt = getPrompt("component-coloring", { componentsJson, customPrompt: customColoringPrompt });
 
   try {
     const result = await generateText({
