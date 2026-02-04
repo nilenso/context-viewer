@@ -140,6 +140,7 @@ enum WorkflowEvent {
   SummaryPromptChanged = "summary-prompt-changed",
   GroupedConversation = "grouped-conversation",
   GenerateAnalysis = "generate-analysis",
+  GenerateSummary = "generate-summary",
 }
 
 /**
@@ -583,7 +584,7 @@ async function processConversationWorkflow(
       runner.updateState(ctx, "segmenting");
     }
 
-    // Step 3: Segment + Summary in parallel (only for new files - skip for grouped)
+    // Step 3: Segment (only for new files - skip for grouped)
     if (event === WorkflowEvent.NewFile) {
       runner.startStep(ctx, "segmenting");
       const { result: segmentResult, timing: segmentTiming } =
@@ -593,29 +594,29 @@ async function processConversationWorkflow(
       if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
       ctx.stepTimings!.segmenting = segmentTiming;
 
-      // Generate AI summary in parallel with next steps (fire and forget)
-      createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(
-        (summaryResult) => {
-          ctx.aiSummary = summaryResult.summary;
-          if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
-        },
-      );
-
       runner.updateState(ctx, "finding-components");
     }
 
     // For grouped conversations, skip segmenting, finding-components, and coloring
     // The merged component data is already in ctx from handleGroupConversations
-    // Just generate AI summary in parallel and mark complete (analysis is optional)
+    // Mark complete without running summary/analysis (user can trigger manually)
     if (event === WorkflowEvent.GroupedConversation) {
-      // Generate AI summary in parallel (fire and forget)
-      createSummaryActivity(callbacks.onSummaryChunk)(ctx).then(
-        (summaryResult) => {
-          ctx.aiSummary = summaryResult.summary;
-          if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
-        },
-      );
-      // Mark complete without running analysis (user can trigger it manually)
+      runner.markComplete(ctx);
+      return;
+    }
+
+    // Generate summary on demand
+    if (event === WorkflowEvent.GenerateSummary) {
+      runner.startStep(ctx, "summary");
+      const { result: summaryResult, timing: summaryTiming } =
+        await runner.runActivity(
+          ctx,
+          createSummaryActivity(callbacks.onSummaryChunk),
+          "summary",
+        );
+      ctx.aiSummary = summaryResult.summary;
+      if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
+      ctx.stepTimings!.summary = summaryTiming;
       runner.markComplete(ctx);
       return;
     }
@@ -1492,6 +1493,87 @@ export default function App() {
     }
   };
 
+  // Generate summary on demand (summary is optional and not run automatically)
+  const handleGenerateSummary = async (
+    id: string,
+    options: { customSummaryPrompt?: string } = {},
+  ) => {
+    const conv = conversations.find((c) => c.id === id);
+    if (!conv?.conversation) return;
+
+    setReprocessingId(id);
+
+    try {
+      // Create workflow runner
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...update } : c)),
+        );
+      });
+
+      // Initialize workflow context from existing conversation
+      const ctx: WorkflowState = {
+        id,
+        filename: conv.filename,
+        conversation: conv.conversation,
+        summary: conv.summary,
+        metadata: conv.metadata,
+        aiSummary: "", // Clear existing summary
+        components: conv.components,
+        componentMapping: conv.componentMapping,
+        componentTimeline: conv.componentTimeline,
+        componentColors: conv.componentColors,
+        staticMapping: conv.staticMapping,
+        staticTimeline: conv.staticTimeline,
+        staticComponents: conv.staticComponents,
+        analysis: conv.analysis,
+        customSummaryPrompt:
+          options.customSummaryPrompt || conv.customSummaryPrompt,
+        customAnalysisPrompt: conv.customAnalysisPrompt,
+        config: conv.config || getComponentisationConfig(),
+        warnings: conv.warnings || [],
+        stepTimings: { ...conv.stepTimings },
+        isGrouped: conv.isGrouped,
+        sourceConversations: conv.sourceConversations,
+        messageSourceMap: conv.messageSourceMap,
+      };
+
+      // Run workflow with GenerateSummary event
+      await processConversationWorkflow(
+        WorkflowEvent.GenerateSummary,
+        ctx,
+        runner,
+        {
+          onSummaryChunk: (id, chunk) => {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === id
+                  ? { ...c, aiSummary: (c.aiSummary || "") + chunk }
+                  : c,
+              ),
+            );
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Failed to generate summary:", error);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: "failed",
+                step: undefined,
+                error: "Summary generation failed",
+              }
+            : c,
+        ),
+      );
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   // Handle multi-selection toggle
   const handleToggleSelection = (id: string, isSelected: boolean) => {
     setSelectedIds((prev) => {
@@ -1933,9 +2015,7 @@ export default function App() {
                   analysis={selectedConversation.analysis}
                   isSummaryStreaming={
                     selectedConversation.status === "processing" &&
-                    selectedConversation.step !== "analysis" &&
-                    !!selectedConversation.conversation &&
-                    !selectedConversation.componentColors
+                    selectedConversation.step === "summary"
                   }
                   isAnalysisStreaming={
                     selectedConversation.status === "processing" &&
@@ -1947,6 +2027,14 @@ export default function App() {
                   onToggleCollapse={handleToggleInsightsPanel}
                   metadata={selectedConversation.metadata}
                   conversation={selectedConversation.conversation}
+                  onGenerateSummary={() =>
+                    handleGenerateSummary(selectedConversation.id)
+                  }
+                  canGenerateSummary={
+                    selectedConversation.status === "success" &&
+                    !!selectedConversation.conversation &&
+                    !selectedConversation.aiSummary
+                  }
                   onGenerateAnalysis={() =>
                     handleGenerateAnalysis(selectedConversation.id)
                   }

@@ -21,9 +21,11 @@ interface AISummaryProps {
   conversation?: Conversation;
   onGenerateAnalysis?: () => void;
   canGenerateAnalysis?: boolean;
+  onGenerateSummary?: () => void;
+  canGenerateSummary?: boolean;
 }
 
-export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse, metadata, conversation, onGenerateAnalysis, canGenerateAnalysis }: AISummaryProps) {
+export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStreaming, activeTab, onTabChange, isCollapsed = false, onToggleCollapse, metadata, conversation, onGenerateAnalysis, canGenerateAnalysis, onGenerateSummary, canGenerateSummary }: AISummaryProps) {
   const noContent = !summary && !isSummaryStreaming && !analysis && !isAnalysisStreaming;
 
   // Collapsed state - show minimal toggle button
@@ -173,9 +175,19 @@ export function AISummary({ summary, analysis, isSummaryStreaming, isAnalysisStr
             <CardContent className="pt-6">
               {summary || isSummaryStreaming ? (
                 renderMarkdown(summary, isSummaryStreaming)
+              ) : canGenerateSummary && onGenerateSummary ? (
+                <div className="text-sm text-muted-foreground">
+                  <p className="mb-2">Summary is ready to generate.</p>
+                  <button
+                    onClick={onGenerateSummary}
+                    className="text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    Generate summary
+                  </button>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Summary will appear here once processing begins...
+                  Summary will be available after processing completes.
                 </p>
               )}
             </CardContent>
