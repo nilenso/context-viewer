@@ -9,6 +9,7 @@ export interface PresetConfig {
   id: string;
   name: string;
   description: string;
+  componentIdentificationPrompt?: string;
   components: string[];
   colors: Record<string, string>;
   colorPalette: {

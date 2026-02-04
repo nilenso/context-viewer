@@ -2,6 +2,7 @@
   "id": "workflow-phases",
   "name": "Workflow Phases",
   "description": "For analyzing conversation transcripts with workflow phases",
+  "componentIdentificationPrompt": "Classify each message/step into one of these workflow phases:\n\n## Workflow Phases\n\n| # | Phase | Color | Description |\n|---|-------|-------|-------------|\n| 1 | UNDERSTAND | blue | Comprehending the task requirements and constraints |\n| 2 | EXPLORE | teal | Gathering information from codebase, searching, reading files |\n| 3 | ANALYZE | rose | Considering approaches, identifying root causes, weighing tradeoffs |\n| 4 | PLAN | amber | Creating actionable steps, tracking todos, designing solution |\n| 5 | IMPLEMENT | violet | Writing/editing code, making changes |\n| 6 | VERIFY | lime | Running tests, builds, lints, type-checks |\n| 7 | COMPLETE | slate | Summarizing changes, final message, cleanup |",
   "components": [
     "UNDERSTAND",
     "EXPLORE",

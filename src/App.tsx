@@ -710,6 +710,7 @@ async function processConversationWorkflow(
 interface WorkflowOptions {
   customComponents?: string[];
   presetColors?: Record<string, string>;
+  customPrompt?: string;
 }
 
 async function runWorkflows(
@@ -751,6 +752,7 @@ async function runWorkflows(
         config: getComponentisationConfig(),
         customComponents: options?.customComponents,
         presetColors: options?.presetColors,
+        customPrompt: options?.customPrompt,
       };
 
       // Run workflow with NewFile event
@@ -868,6 +870,7 @@ export default function App() {
         ? {
             customComponents: loadedPreset.components,
             presetColors: loadedPreset.colors,
+            customPrompt: loadedPreset.componentIdentificationPrompt,
           }
         : undefined;
 
@@ -1136,9 +1139,10 @@ export default function App() {
 
   // Handle opening the prompt editor
   const handleOpenPromptEditor = () => {
-    // Get the prompt from the selected conversation if it exists, otherwise use default
+    // Get the prompt: conversation custom > preset > default
     const currentPrompt =
       selectedConversation?.customPrompt ||
+      loadedPreset?.componentIdentificationPrompt ||
       getDefaultComponentIdentificationPrompt();
     setEditingPrompt(currentPrompt);
     setIsPromptDialogOpen(true);
