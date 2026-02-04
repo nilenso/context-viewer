@@ -26,6 +26,10 @@ import {
 } from "lucide-react";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { cn } from "@/lib/utils";
+import {
+  createFileValidator,
+  SUPPORTED_EXTENSIONS_TEXT,
+} from "@/lib/file-formats";
 
 type ConversationStatus = "pending" | "processing" | "success" | "failed";
 type ProcessingStep =
@@ -142,19 +146,7 @@ export function ConversationList({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFilesSelected,
-    validator: (file) => {
-      const acceptedExtensions = [".json", ".jsonl", ".txt"];
-      const ext = file.name
-        ? "." + (file.name.split(".").pop()?.toLowerCase() || "")
-        : "";
-      if (!acceptedExtensions.includes(ext)) {
-        return {
-          code: "file-invalid-type",
-          message: `File type not supported. Accepted: ${acceptedExtensions.join(", ")}`,
-        };
-      }
-      return null;
-    },
+    validator: createFileValidator(),
     multiple: true,
     noClick: conversations.length > 0, // Disable click when there are conversations
   });
@@ -272,7 +264,7 @@ export function ConversationList({
                 : "Drop files here or click to select"}
             </p>
             <p className="text-xs mt-1">
-              Accepts .json, .jsonl, and .txt files
+              Accepts {SUPPORTED_EXTENSIONS_TEXT} files
             </p>
           </div>
         </Card>

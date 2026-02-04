@@ -51,6 +51,11 @@ import {
   type PresetSummary,
 } from "./lib/preset-loader";
 import { PresetSelector } from "./components/PresetSelector";
+import {
+  parseFileContent,
+  createFileValidator,
+  SUPPORTED_EXTENSIONS_TEXT,
+} from "./lib/file-formats";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -162,33 +167,6 @@ type Activity<TResult> = (ctx: Readonly<WorkflowState>) => Promise<TResult>;
 // ============================================================================
 // Activity Definitions
 // ============================================================================
-
-/**
- * Parse file content - handles JSON, JSONL, and plain text formats
- */
-const parseFileContent = (text: string, filename: string): unknown => {
-  // Check if it's a plain text file (not JSON/JSONL)
-  if (filename.endsWith(".txt")) {
-    // Return raw text - PlainTextParser will handle it
-    return text;
-  }
-
-  // Check if it's a JSONL file (by extension or content)
-  const isJsonl =
-    filename.endsWith(".jsonl") ||
-    (text.trim().startsWith("{") && text.includes("\n{"));
-
-  if (isJsonl) {
-    // Parse JSONL: split by newlines and parse each line
-    const lines = text.trim().split("\n");
-    return lines
-      .filter((line) => line.trim()) // Skip empty lines
-      .map((line) => JSON.parse(line));
-  }
-
-  // Regular JSON
-  return JSON.parse(text);
-};
 
 /**
  * Parse activity: Parse file into conversation and generate summary
@@ -1928,19 +1906,7 @@ export default function App() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => workflowMutation.mutate(files),
-    validator: (file) => {
-      const acceptedExtensions = [".json", ".jsonl", ".txt"];
-      const ext = file.name
-        ? "." + (file.name.split(".").pop()?.toLowerCase() || "")
-        : "";
-      if (!acceptedExtensions.includes(ext)) {
-        return {
-          code: "file-invalid-type",
-          message: `File type not supported. Accepted: ${acceptedExtensions.join(", ")}`,
-        };
-      }
-      return null;
-    },
+    validator: createFileValidator(),
     multiple: true,
     noClick: conversations.length > 0, // Only enable click when empty
   });
@@ -1991,7 +1957,7 @@ export default function App() {
                 </h2>
                 <p className="text-muted-foreground mb-2">or click to browse</p>
                 <p className="text-sm text-muted-foreground">
-                  Accepts .json, .jsonl, and .txt files
+                  Accepts {SUPPORTED_EXTENSIONS_TEXT} files
                 </p>
               </div>
             </div>
