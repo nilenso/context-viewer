@@ -43,6 +43,13 @@ import {
   markStepEnd,
   type ProcessingPhase,
 } from "./workflow-logger";
+import {
+  loadPresetIndex,
+  loadPreset,
+  type PresetConfig,
+  type PresetSummary,
+} from "./lib/preset-loader";
+import { PresetSelector } from "./components/PresetSelector";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -85,6 +92,7 @@ interface WorkflowState {
   customAnalysisPrompt?: string;
   customComponents?: string[];
   regenerateAnalysis?: boolean;
+  presetColors?: Record<string, string>;
 
   // Core data
   conversation?: Conversation;
@@ -279,6 +287,7 @@ const assignColorsActivity: Activity<{
     ctx.components,
     ctx.config,
     ctx.id,
+    ctx.presetColors,
   );
   return { colors };
 };
@@ -697,6 +706,11 @@ async function processConversationWorkflow(
 // Batch workflow orchestration
 // ============================================================================
 
+interface WorkflowOptions {
+  customComponents?: string[];
+  presetColors?: Record<string, string>;
+}
+
 async function runWorkflows(
   files: File[],
   fileIds: Map<number, string>,
@@ -704,6 +718,7 @@ async function runWorkflows(
   onFileComplete?: (conversation: WorkflowState) => void,
   onAISummaryChunk?: (id: string, chunk: string) => void,
   onAnalysisChunk?: (id: string, chunk: string) => void,
+  options?: WorkflowOptions,
 ): Promise<WorkflowBatchResult> {
   // Give React a chance to render the placeholders before we start processing
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -733,6 +748,8 @@ async function runWorkflows(
         warnings: [],
         stepTimings: {},
         config: getComponentisationConfig(),
+        customComponents: options?.customComponents,
+        presetColors: options?.presetColors,
       };
 
       // Run workflow with NewFile event
@@ -817,10 +834,42 @@ export default function App() {
     getDefaultAnalysisPrompt(),
   );
 
+  // Preset state
+  const [availablePresets, setAvailablePresets] = useState<PresetSummary[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [loadedPreset, setLoadedPreset] = useState<PresetConfig | null>(null);
+  const [isPresetLoading, setIsPresetLoading] = useState(false);
+
   const fileIdsRef = useRef<Map<number, string>>(new Map());
+
+  // Load preset index on mount
+  useEffect(() => {
+    loadPresetIndex().then(setAvailablePresets);
+  }, []);
+
+  // Load full preset when selection changes
+  useEffect(() => {
+    if (selectedPresetId) {
+      setIsPresetLoading(true);
+      loadPreset(selectedPresetId).then((preset) => {
+        setLoadedPreset(preset);
+        setIsPresetLoading(false);
+      });
+    } else {
+      setLoadedPreset(null);
+    }
+  }, [selectedPresetId]);
 
   const workflowMutation = useMutation({
     mutationFn: (files: File[]) => {
+      // Build options from loaded preset
+      const options: WorkflowOptions | undefined = loadedPreset
+        ? {
+            customComponents: loadedPreset.components,
+            presetColors: loadedPreset.colors,
+          }
+        : undefined;
+
       return runWorkflows(
         files,
         fileIdsRef.current,
@@ -869,6 +918,7 @@ export default function App() {
             ),
           );
         },
+        options,
       );
     },
     onMutate: (files: File[]) => {
@@ -1733,28 +1783,39 @@ export default function App() {
 
       <div className="space-y-6 px-6">
         {conversations.length === 0 ? (
-          /* Empty State - Full Page Drop Zone */
-          <div
-            {...getRootProps()}
-            className={cn(
-              "min-h-[calc(100vh-12rem)] border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors",
-              isDragActive
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50 hover:bg-accent/50",
-            )}
-          >
-            <input {...getInputProps()} />
-            <div className="text-center p-12">
-              <Upload className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50" />
-              <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
-                {isDragActive
-                  ? "Drop files here"
-                  : "Drop conversation files here"}
-              </h2>
-              <p className="text-muted-foreground mb-2">or click to browse</p>
-              <p className="text-sm text-muted-foreground">
-                Accepts .json, .jsonl, and .txt files
-              </p>
+          /* Empty State - Preset Selector + Full Page Drop Zone */
+          <div className="flex flex-col">
+            {/* Preset Selector */}
+            <PresetSelector
+              presets={availablePresets}
+              selectedPresetId={selectedPresetId}
+              onSelectPreset={setSelectedPresetId}
+              isLoading={isPresetLoading}
+            />
+
+            {/* Drop Zone */}
+            <div
+              {...getRootProps()}
+              className={cn(
+                "min-h-[calc(100vh-18rem)] border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors",
+                isDragActive
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50 hover:bg-accent/50",
+              )}
+            >
+              <input {...getInputProps()} />
+              <div className="text-center p-12">
+                <Upload className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50" />
+                <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
+                  {isDragActive
+                    ? "Drop files here"
+                    : "Drop conversation files here"}
+                </h2>
+                <p className="text-muted-foreground mb-2">or click to browse</p>
+                <p className="text-sm text-muted-foreground">
+                  Accepts .json, .jsonl, and .txt files
+                </p>
+              </div>
             </div>
           </div>
         ) : (

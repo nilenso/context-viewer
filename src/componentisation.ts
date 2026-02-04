@@ -47,6 +47,28 @@ function logError(
   }
 }
 
+function logColoring(
+  conversationId: string | undefined,
+  message: string,
+  data?: unknown,
+) {
+  if (conversationId) {
+    workflowLog(
+      conversationId,
+      "coloring" as ProcessingPhase,
+      "info",
+      message,
+      data,
+    );
+  } else {
+    if (data !== undefined) {
+      console.log(`[Coloring] ${message}`, data);
+    } else {
+      console.log(`[Coloring] ${message}`);
+    }
+  }
+}
+
 /**
  * Configuration for AI model used in componentisation
  * Re-exported for backwards compatibility
@@ -298,8 +320,9 @@ export interface ComponentTimelineSnapshot {
 export function buildComponentTimeline(
   conversation: Conversation,
   componentMapping: Record<string, string>,
+  conversationId?: string,
 ): ComponentTimelineSnapshot[] {
-  console.log("[Componentisation] Building component timeline");
+  log(conversationId, "Building component timeline");
 
   // Build a map of part ID to its message index and token count
   const partInfo = new Map<
@@ -316,8 +339,9 @@ export function buildComponentTimeline(
   // Log mapping coverage for debugging
   const mappedCount = Object.keys(componentMapping).length;
   const totalParts = partInfo.size;
-  console.log(
-    `[Componentisation] Mapping coverage: ${mappedCount}/${totalParts} parts (${Math.round((mappedCount / totalParts) * 100)}%)`,
+  log(
+    conversationId,
+    `Mapping coverage: ${mappedCount}/${totalParts} parts (${Math.round((mappedCount / totalParts) * 100)}%)`,
   );
 
   // Build timeline snapshots
@@ -345,95 +369,34 @@ export function buildComponentTimeline(
     });
   }
 
-  console.log(
-    `[Componentisation] Built timeline with ${timeline.length} snapshots`,
-  );
+  log(conversationId, `Built timeline with ${timeline.length} snapshots`);
   return timeline;
 }
 
 /**
- * Assign colors to components based on similarity using AI
+ * Assign colors to components based on preset or AI
  * Returns an object mapping component names to color names
  */
 export async function assignComponentColors(
   components: string[],
   config: ComponentisationConfig,
+  conversationId?: string,
+  presetColors?: Record<string, string>,
 ): Promise<Record<string, string>> {
-  // TEMPORARY: Hardcoded color mapping to avoid AI call during development
-  // TODO: Remove this and use the AI-based coloring below once we're happy with the component structure
-  if (true) {
-    const hardcodedColors: Record<string, string> = {
-      identity: "gray",
-      personality: "purple",
-      "personality.guidelines": "purple",
-      "personality.behavior": "purple",
-      "personality.communication": "purple",
-      "personality.autonomy": "purple",
-      "personality.model_steering": "purple",
-      "personality.examples": "purple",
-      environment: "slate",
-      "environment.platform": "slate",
-      "environment.security": "slate",
-      "environment.sandboxing": "slate",
-      code_style: "indigo",
-      "code_style.conventions": "indigo",
-      "code_style.quality": "indigo",
-      "code_style.examples": "indigo",
-      search: "blue",
-      "search.tool_selection": "blue",
-      "search.context_separation": "blue",
-      "search.examples": "blue",
-      workflow: "emerald",
-      "workflow.task_management": "emerald",
-      "workflow.modes": "emerald",
-      "workflow.git": "emerald",
-      "workflow.git.commands": "emerald",
-      "workflow.git.commits": "emerald",
-      "workflow.examples": "emerald",
-      project_context: "orange",
-      "project_context.config_files": "orange",
-      tools: "gray",
-      "tools.policies": "gray",
-      "tools.policies.guidelines": "gray",
-      "tools.policies.model_steering": "gray",
-      "tools.policies.examples": "gray",
-      "tools.description": "gray",
-      "tools.conditions": "gray",
-      "tools.usage": "gray",
-      "tools.schema": "gray",
-      "tools.file": "gray",
-      "tools.file.read": "gray",
-      "tools.file.write": "gray",
-      "tools.file.edit": "gray",
-      "tools.file.search": "gray",
-      "tools.file.directory": "gray",
-      "tools.shell": "gray",
-      "tools.shell.execution": "gray",
-      "tools.shell.background": "gray",
-      "tools.shell.restrictions": "gray",
-      "tools.communication": "gray",
-      "tools.communication.questions": "gray",
-      "tools.communication.notifications": "gray",
-      "tools.advanced": "gray",
-      "tools.advanced.web": "gray",
-      "tools.advanced.agents": "gray",
-      "tools.advanced.notebooks": "gray",
-      "tools.advanced.images": "gray",
-      "tools.advanced.integrations": "gray",
-    };
-
-    // Return colors for the components that exist in the hardcoded mapping
+  // If preset colors are provided, use them directly
+  if (presetColors) {
     const colorMapping: Record<string, string> = {};
     for (const component of components) {
-      colorMapping[component] = hardcodedColors[component] || "gray";
+      colorMapping[component] = presetColors[component] || "gray";
     }
-    console.log(
-      `[Componentisation] Using hardcoded colors for ${Object.keys(colorMapping).length} components`,
+    logColoring(
+      conversationId,
+      `Using preset colors for ${Object.keys(colorMapping).length} components`,
     );
     return colorMapping;
   }
 
-  // AI-based color assignment (currently disabled - see hardcoded mapping above)
+  // AI-based color assignment
   const openai = createOpenAI({
     apiKey: config.apiKey,
   });
@@ -578,7 +541,11 @@ export async function componentiseConversation(
       : components;
 
   // Step 3: Build timeline
-  const timeline = buildComponentTimeline(conversation, mapping);
+  const timeline = buildComponentTimeline(
+    conversation,
+    mapping,
+    conversationId,
+  );
 
   log(conversationId, "Completed componentisation");
   return { components: finalComponents, mapping, timeline };

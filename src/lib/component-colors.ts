@@ -11,6 +11,14 @@ export const colorNameToClasses: Record<string, string> = {
   slate: "bg-slate-100 text-slate-700 border-slate-300",
   indigo: "bg-indigo-100 text-indigo-700 border-indigo-300",
   gray: "bg-gray-100 text-gray-700 border-gray-300",
+  // Extended colors for workflow phases preset
+  cyan: "bg-cyan-100 text-cyan-700 border-cyan-300",
+  teal: "bg-teal-100 text-teal-700 border-teal-300",
+  rose: "bg-rose-100 text-rose-700 border-rose-300",
+  amber: "bg-amber-100 text-amber-700 border-amber-300",
+  violet: "bg-violet-100 text-violet-700 border-violet-300",
+  lime: "bg-lime-100 text-lime-700 border-lime-300",
+  sky: "bg-sky-100 text-sky-700 border-sky-300",
 };
 
 // Map color names to just background Tailwind CSS classes (for WaffleChart)
@@ -22,6 +30,14 @@ export const colorNameToBgClass: Record<string, string> = {
   slate: "bg-slate-400",
   indigo: "bg-indigo-400",
   gray: "bg-gray-400",
+  // Extended colors for workflow phases preset
+  cyan: "bg-cyan-400",
+  teal: "bg-teal-400",
+  rose: "bg-rose-400",
+  amber: "bg-amber-400",
+  violet: "bg-violet-500",
+  lime: "bg-lime-400",
+  sky: "bg-sky-400",
 };
 
 // Map color names to hex codes for charts (light background)
@@ -33,6 +49,14 @@ export const colorNameToHex: Record<string, string> = {
   slate: "#cbd5e1",
   indigo: "#c7d2fe",
   gray: "#d1d5db",
+  // Extended colors for workflow phases preset
+  cyan: "#cffafe",
+  teal: "#ccfbf1",
+  rose: "#ffe4e6",
+  amber: "#fef3c7",
+  violet: "#ede9fe",
+  lime: "#ecfccb",
+  sky: "#e0f2fe",
 };
 
 // Map color names to hex codes for text/labels (darker for readability)
@@ -44,6 +68,14 @@ export const colorNameToTextHex: Record<string, string> = {
   slate: "#334155", // slate-700
   indigo: "#4338ca", // indigo-700
   gray: "#374151", // gray-700
+  // Extended colors for workflow phases preset
+  cyan: "#0e7490", // cyan-700
+  teal: "#0f766e", // teal-700
+  rose: "#be123c", // rose-700
+  amber: "#b45309", // amber-700
+  violet: "#6d28d9", // violet-700
+  lime: "#4d7c0f", // lime-700
+  sky: "#0369a1", // sky-700
 };
 
 /**
