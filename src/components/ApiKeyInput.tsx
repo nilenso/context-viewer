@@ -63,7 +63,7 @@ export function ApiKeyInput({
   // If configured via environment variable
   if (isEnvConfigured) {
     return (
-      <Card className="p-3 mb-3 bg-green-50 border-green-200">
+      <Card className="p-3 mt-3 bg-green-50 border-green-200">
         <div className="flex items-center gap-2 text-sm text-green-700">
           <Check className="h-4 w-4" />
           <span>API key configured via environment</span>
@@ -75,7 +75,7 @@ export function ApiKeyInput({
   // If key is set at runtime
   if (hasKey && currentKey) {
     return (
-      <Card className="p-3 mb-3 bg-green-50 border-green-200">
+      <Card className="p-3 mt-3 bg-green-50 border-green-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-green-700">
             <Check className="h-4 w-4" />
@@ -108,7 +108,7 @@ export function ApiKeyInput({
 
   // No key configured - show input
   return (
-    <Card className="p-3 mb-3 bg-amber-50 border-amber-200">
+    <Card className="p-3 mt-3 bg-amber-50 border-amber-200">
       <div className="flex items-center gap-2 text-sm text-amber-700 mb-2">
         <Key className="h-4 w-4" />
         <span>Enter OpenAI API key for AI features</span>

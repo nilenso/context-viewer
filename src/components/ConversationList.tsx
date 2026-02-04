@@ -385,15 +385,6 @@ export function ConversationList({
         </div>
       )}
 
-      {/* API Key Input */}
-      {onApiKeyChange && onResumeWorkflows && (
-        <ApiKeyInput
-          onApiKeyChange={onApiKeyChange}
-          pausedWorkflowCount={pausedWorkflowCount}
-          onResumeWorkflows={onResumeWorkflows}
-        />
-      )}
-
       <div
         {...getRootProps()}
         className={cn(
@@ -856,6 +847,15 @@ export function ConversationList({
           </div>
         )}
       </div>
+
+      {/* API Key Input */}
+      {onApiKeyChange && onResumeWorkflows && (
+        <ApiKeyInput
+          onApiKeyChange={onApiKeyChange}
+          pausedWorkflowCount={pausedWorkflowCount}
+          onResumeWorkflows={onResumeWorkflows}
+        />
+      )}
 
       {/* Workflow Detail Modal */}
       {expandedConversationId &&
