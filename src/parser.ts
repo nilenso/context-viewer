@@ -12,6 +12,13 @@ export interface ConversationMetadata {
   provider?: string;
   /** Agent configuration (OpenCode only) */
   agent?: string;
+  // Pre-computed data (from Context Viewer exports)
+  /** Component to color mapping (hex colors) */
+  componentColors?: Record<string, string>;
+  /** AI-generated summary */
+  aiSummary?: string;
+  /** AI-generated context analysis */
+  analysis?: string;
 }
 
 /**

@@ -1086,7 +1086,12 @@ export default function App() {
       }
     },
     onSuccess: () => {
-      fileIdsRef.current = new Map();
+      // Note: pendingSessionImportRef groups are processed by a useEffect
+      // that watches for when all required files are ready.
+      // Don't clear fileIdsRef here if we have pending groups - the useEffect needs it.
+      if (!pendingSessionImportRef.current) {
+        fileIdsRef.current = new Map();
+      }
     },
     onError: () => {
       fileIdsRef.current = new Map();
@@ -1233,6 +1238,54 @@ export default function App() {
       setSelectedId(firstConversation.id);
     }
   }, [conversations, selectedId]);
+
+  // Process pending groups from session import when all required files are ready
+  useEffect(() => {
+    const pendingImport = pendingSessionImportRef.current;
+    if (!pendingImport || pendingImport.groups.length === 0) return;
+
+    const { oldIdToIndex, groups } = pendingImport;
+
+    // Check if all required files are processed and ready
+    const allFilesReady = Array.from(oldIdToIndex.values()).every((index) => {
+      const id = fileIdsRef.current.get(index);
+      if (!id) return false;
+      const conv = conversations.find((c) => c.id === id);
+      return conv?.status === "success" && conv.conversation;
+    });
+
+    if (!allFilesReady) return;
+
+    // All files are ready, create the groups
+    const createGroups = async () => {
+      for (const group of groups) {
+        // Convert old file IDs to new conversation IDs
+        const newIds: string[] = [];
+        for (const oldId of group.fileIds) {
+          const fileIndex = oldIdToIndex.get(oldId);
+          if (fileIndex !== undefined) {
+            const newId = fileIdsRef.current.get(fileIndex);
+            if (newId) {
+              newIds.push(newId);
+            }
+          }
+        }
+
+        // Create the group if we have at least 2 valid IDs
+        if (newIds.length >= 2) {
+          await handleGroupConversations(newIds, group.name);
+        }
+      }
+
+      // Clear pending import and fileIds after processing
+      pendingSessionImportRef.current = null;
+      fileIdsRef.current = new Map();
+    };
+
+    createGroups();
+    // Note: handleGroupConversations is intentionally not in deps to avoid re-running
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations]);
 
   // Switch to analysis tab when analysis starts streaming
   useEffect(() => {
@@ -1860,15 +1913,18 @@ export default function App() {
   };
 
   // Create a grouped conversation from selected conversations
-  const handleGroupConversations = async () => {
-    if (selectedIds.size < 2) return;
+  // Can be called with explicit IDs (for session import) or uses selectedIds state
+  const handleGroupConversations = async (
+    idsToGroup?: string[],
+    groupName?: string,
+  ) => {
+    const idsSet = idsToGroup ? new Set(idsToGroup) : selectedIds;
+    if (idsSet.size < 2) return;
 
     // Get the selected conversations (only fully processed ones)
     const selectedConvs = conversations.filter(
       (conv) =>
-        selectedIds.has(conv.id) &&
-        conv.conversation &&
-        conv.status === "success",
+        idsSet.has(conv.id) && conv.conversation && conv.status === "success",
     );
 
     if (selectedConvs.length < 2) return;
@@ -1974,8 +2030,10 @@ export default function App() {
       filename: conv.filename,
     }));
 
-    // Create grouped name
-    const groupedFilename = `Grouped: ${sourceConversations.map((s) => s.filename).join(", ")}`;
+    // Create grouped name (use provided name or generate from filenames)
+    const groupedFilename =
+      groupName ||
+      `Grouped: ${sourceConversations.map((s) => s.filename).join(", ")}`;
 
     // Create placeholder with merged component data
     const placeholder: WorkflowState = {
@@ -1997,8 +2055,11 @@ export default function App() {
 
     // Add placeholder immediately
     setConversations((prev) => [...prev, placeholder]);
-    setSelectedId(groupId);
-    handleClearSelection();
+    // Only update selection if using UI-selected IDs (not programmatic grouping)
+    if (!idsToGroup) {
+      setSelectedId(groupId);
+      handleClearSelection();
+    }
 
     // Create workflow runner
     const runner = new WorkflowRunner((id, update) => {
