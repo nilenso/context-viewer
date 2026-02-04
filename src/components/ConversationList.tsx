@@ -23,6 +23,7 @@ import {
   X,
   Trash2,
   Maximize2,
+  Download,
 } from "lucide-react";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ interface ConversationListProps {
   onEditSummaryPrompt?: () => void;
   onEditAnalysisPrompt?: () => void;
   onEditColoringPrompt?: () => void;
+  onExportSession?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -106,6 +108,7 @@ export function ConversationList({
   onEditSummaryPrompt,
   onEditAnalysisPrompt,
   onEditColoringPrompt,
+  onExportSession,
   isCollapsed = false,
   onToggleCollapse,
 }: ConversationListProps) {
@@ -298,6 +301,18 @@ export function ConversationList({
               title="Cancel selection"
             >
               <X className="h-4 w-4" />
+            </Button>
+          )}
+          {/* Export button */}
+          {onExportSession && selectableConversations.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExportSession}
+              className="h-8 w-8 p-0"
+              title="Export session"
+            >
+              <Download className="h-4 w-4" />
             </Button>
           )}
           {onToggleCollapse && (

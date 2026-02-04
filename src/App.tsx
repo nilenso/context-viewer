@@ -56,6 +56,7 @@ import {
   createFileValidator,
   SUPPORTED_EXTENSIONS_TEXT,
 } from "./lib/file-formats";
+import { buildSessionExport, downloadExport } from "./lib/export-builder";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1904,6 +1905,12 @@ export default function App() {
     }
   };
 
+  // Handle exporting session data
+  const handleExportSession = () => {
+    const exportData = buildSessionExport(conversations);
+    downloadExport(exportData);
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files: File[]) => workflowMutation.mutate(files),
     validator: createFileValidator(),
@@ -1999,6 +2006,7 @@ export default function App() {
                 onEditSummaryPrompt={handleOpenSummaryPromptEditor}
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
                 onEditColoringPrompt={handleOpenColoringPromptEditor}
+                onExportSession={handleExportSession}
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={handleToggleSidebar}
               />
