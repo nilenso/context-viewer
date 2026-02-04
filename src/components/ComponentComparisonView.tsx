@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { getComponentBgClass } from "@/lib/component-colors";
+import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 type SortField = "tokens" | "name" | "category";
@@ -108,18 +108,20 @@ export function MessageWorkflowChart({
           gridTemplateColumns: `repeat(${squaresPerRow}, minmax(0, 1fr))`,
         }}
       >
-        {messageComponents.map((component, index) => (
-          <div
-            key={index}
-            className={cn(
-              "w-3 h-3 rounded-sm",
-              component
-                ? getComponentBgClass(component, componentColors)
-                : "bg-gray-200",
-            )}
-            title={`${index + 1}: ${component || "unknown"}`}
-          />
-        ))}
+        {messageComponents.map((component, index) => {
+          const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+          return (
+            <div
+              key={index}
+              className={cn(
+                "w-3 h-3 rounded-sm",
+                component ? colorStyles?.classes : "bg-gray-200",
+              )}
+              style={colorStyles?.style || undefined}
+              title={`${index + 1}: ${component || "unknown"}`}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -140,17 +142,21 @@ export function WorkflowLegend({
 
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      {uniqueComponents.map((component) => (
-        <div key={component} className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              "w-3 h-3 rounded-sm flex-shrink-0",
-              getComponentBgClass(component, componentColors),
-            )}
-          />
-          <span className="text-muted-foreground">{component}</span>
-        </div>
-      ))}
+      {uniqueComponents.map((component) => {
+        const colorStyles = getComponentWaffleStyles(component, componentColors);
+        return (
+          <div key={component} className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "w-3 h-3 rounded-sm flex-shrink-0",
+                colorStyles.classes,
+              )}
+              style={colorStyles.style || undefined}
+            />
+            <span className="text-muted-foreground">{component}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -214,18 +220,20 @@ function MiniWaffleChart({
   return (
     <div className="flex-shrink-0 w-[138px] h-[138px]">
       <div className="grid grid-cols-[repeat(10,minmax(0,1fr))] gap-0.5">
-        {squares.map(({ component, index }) => (
-          <div
-            key={index}
-            className={cn(
-              "w-3 h-3 rounded-sm",
-              component
-                ? getComponentBgClass(component, componentColors)
-                : "bg-gray-200"
-            )}
-            title={component || undefined}
-          />
-        ))}
+        {squares.map(({ component, index }) => {
+          const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+          return (
+            <div
+              key={index}
+              className={cn(
+                "w-3 h-3 rounded-sm",
+                component ? colorStyles?.classes : "bg-gray-200"
+              )}
+              style={colorStyles?.style || undefined}
+              title={component || undefined}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -265,22 +273,26 @@ function ComparisonLegend({
 
   return (
     <div className="flex flex-col gap-0.5 text-xs">
-      {componentData.map(({ component, tokens, percentage }) => (
-        <div key={component} className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              "w-2.5 h-2.5 rounded-sm flex-shrink-0",
-              getComponentBgClass(component, componentColors)
-            )}
-          />
-          <span className="flex-1 truncate text-muted-foreground">
-            {component}
-          </span>
-          <span className="text-muted-foreground tabular-nums">
-            {percentage.toFixed(0)}%
-          </span>
-        </div>
-      ))}
+      {componentData.map(({ component, percentage }) => {
+        const colorStyles = getComponentWaffleStyles(component, componentColors);
+        return (
+          <div key={component} className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "w-2.5 h-2.5 rounded-sm flex-shrink-0",
+                colorStyles.classes
+              )}
+              style={colorStyles.style || undefined}
+            />
+            <span className="flex-1 truncate text-muted-foreground">
+              {component}
+            </span>
+            <span className="text-muted-foreground tabular-nums">
+              {percentage.toFixed(0)}%
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
 import {
-  getStaticComponentBgClass,
+  getStaticComponentWaffleStyles,
   getStaticComponentLabel,
 } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
@@ -114,7 +114,7 @@ export function StaticComponentsView({
       <WaffleChart
         componentTokens={componentTokens}
         totalTokens={totalTokens}
-        getColorClass={getStaticComponentBgClass}
+        getColorStyles={getStaticComponentWaffleStyles}
         getLabel={getStaticComponentLabel}
         onComponentClick={handleComponentClick}
       />

@@ -3,10 +3,15 @@ import { cn } from "@/lib/utils";
 
 type SortMode = "tokens" | "name";
 
+interface ColorStyles {
+  classes: string | null;
+  style: React.CSSProperties | null;
+}
+
 interface WaffleChartProps {
   componentTokens: Record<string, number>;
   totalTokens: number;
-  getColorClass: (component: string) => string;
+  getColorStyles: (component: string) => ColorStyles;
   getLabel: (component: string) => string;
   onComponentClick?: (component: string) => void;
 }
@@ -18,7 +23,7 @@ interface WaffleChartProps {
 export function WaffleChart({
   componentTokens,
   totalTokens,
-  getColorClass,
+  getColorStyles,
   getLabel,
   onComponentClick,
 }: WaffleChartProps) {
@@ -96,46 +101,54 @@ export function WaffleChart({
             name
           </button>
         </div>
-        {componentData.map(({ component, tokens, percentage }) => (
-          <button
-            key={component}
-            onClick={() => onComponentClick?.(component)}
-            className={cn(
-              "flex items-center gap-2 text-left text-sm py-1 px-2 rounded hover:bg-gray-100 transition-colors",
-              onComponentClick && "cursor-pointer"
-            )}
-          >
-            <span
+        {componentData.map(({ component, tokens, percentage }) => {
+          const colorStyles = getColorStyles(component);
+          return (
+            <button
+              key={component}
+              onClick={() => onComponentClick?.(component)}
               className={cn(
-                "w-4 h-4 rounded-sm flex-shrink-0",
-                getColorClass(component)
+                "flex items-center gap-2 text-left text-sm py-1 px-2 rounded hover:bg-gray-100 transition-colors",
+                onComponentClick && "cursor-pointer"
               )}
-            />
-            <span className="flex-1 truncate">{getLabel(component)}</span>
-            <span className="text-muted-foreground tabular-nums text-xs w-16 text-right">
-              {tokens.toLocaleString()}
-            </span>
-            <span className="text-muted-foreground tabular-nums w-10 text-right">
-              {percentage.toFixed(0)}%
-            </span>
-          </button>
-        ))}
+            >
+              <span
+                className={cn(
+                  "w-4 h-4 rounded-sm flex-shrink-0",
+                  colorStyles.classes
+                )}
+                style={colorStyles.style || undefined}
+              />
+              <span className="flex-1 truncate">{getLabel(component)}</span>
+              <span className="text-muted-foreground tabular-nums text-xs w-16 text-right">
+                {tokens.toLocaleString()}
+              </span>
+              <span className="text-muted-foreground tabular-nums w-10 text-right">
+                {percentage.toFixed(0)}%
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Waffle grid (right side) - fixed 20x20 square */}
       <div className="grid grid-cols-[repeat(20,minmax(0,1fr))] gap-0.5 flex-shrink-0">
-        {squares.map(({ component, index }) => (
-          <button
-            key={index}
-            onClick={() => component && onComponentClick?.(component)}
-            className={cn(
-              "w-3 h-3 rounded-sm transition-all",
-              component ? getColorClass(component) : "bg-gray-200",
-              component && onComponentClick && "cursor-pointer hover:scale-110"
-            )}
-            title={component ? `${getLabel(component)}` : undefined}
-          />
-        ))}
+        {squares.map(({ component, index }) => {
+          const colorStyles = component ? getColorStyles(component) : null;
+          return (
+            <button
+              key={index}
+              onClick={() => component && onComponentClick?.(component)}
+              className={cn(
+                "w-3 h-3 rounded-sm transition-all",
+                component ? colorStyles?.classes : "bg-gray-200",
+                component && onComponentClick && "cursor-pointer hover:scale-110"
+              )}
+              style={colorStyles?.style || undefined}
+              title={component ? `${getLabel(component)}` : undefined}
+            />
+          );
+        })}
       </div>
     </div>
   );

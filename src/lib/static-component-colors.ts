@@ -102,6 +102,20 @@ export function getStaticComponentClasses(component: string): string {
 }
 
 /**
+ * Get waffle/chart background styles for a static component.
+ * Returns the Tailwind class and null style (static components always use Tailwind classes).
+ */
+export function getStaticComponentWaffleStyles(component: string): {
+  classes: string | null;
+  style: React.CSSProperties | null;
+} {
+  return {
+    classes: staticComponentColors[component] ?? defaultBgColor,
+    style: null,
+  };
+}
+
+/**
  * Get display label for a static component
  * Converts "user.tool-call" to "User > Tool Call"
  */

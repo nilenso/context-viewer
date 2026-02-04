@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
-import { getComponentColorClasses } from "@/lib/component-colors";
+import { getComponentBadgeStyles } from "@/lib/component-colors";
 import { cn } from "@/lib/utils";
 import type {
   TextPart,
@@ -200,24 +200,28 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
               {tokenCount} tokens
             </Badge>
           )}
-          {component && (
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-xs font-medium border",
-                getComponentColorClasses(component, componentColors),
-                onComponentClick && "cursor-pointer hover:opacity-80 transition-opacity"
-              )}
-              onClick={(e) => {
-                if (onComponentClick) {
-                  e.stopPropagation();
-                  onComponentClick(component);
-                }
-              }}
-            >
-              {component}
-            </Badge>
-          )}
+          {component && (() => {
+            const { classes, style } = getComponentBadgeStyles(component, componentColors);
+            return (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs font-medium border",
+                  classes,
+                  onComponentClick && "cursor-pointer hover:opacity-80 transition-opacity"
+                )}
+                style={style || undefined}
+                onClick={(e) => {
+                  if (onComponentClick) {
+                    e.stopPropagation();
+                    onComponentClick(component);
+                  }
+                }}
+              >
+                {component}
+              </Badge>
+            );
+          })()}
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-3 pb-3">{renderPartContent()}</CollapsibleContent>

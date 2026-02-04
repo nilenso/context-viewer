@@ -3,7 +3,7 @@ import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
 import { WorkflowLegend } from "./ComponentComparisonView";
 import { cn } from "@/lib/utils";
-import { getComponentBgClass } from "@/lib/component-colors";
+import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
@@ -61,6 +61,37 @@ export function ComponentsView({
     return ids;
   }, [filterByStaticComponent, staticMapping]);
 
+  // Compute messageComponents for workflow view (filtered, up to current slider position)
+  // Must be before early return to follow React hooks rules
+  const messageComponents = useMemo(() => {
+    if (!componentMapping) return [];
+    const components: string[] = [];
+    conversation.messages.forEach((message, msgIndex) => {
+      if (msgIndex <= currentMessageIndex) {
+        // Find the primary component for this message from first matching part
+        let messageComponent: string | null = null;
+        for (const part of message.parts) {
+          // Apply message type filter
+          if (!partPassesMessageTypeFilter(part, message.role)) continue;
+
+          // Apply static component filter if set
+          if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
+
+          const component = componentMapping[part.id];
+          if (component) {
+            messageComponent = component;
+            break;
+          }
+        }
+        // Only include message if it has parts that pass filters
+        if (messageComponent !== null) {
+          components.push(messageComponent);
+        }
+      }
+    });
+    return components;
+  }, [conversation.messages, currentMessageIndex, componentMapping, filteredPartIds, messageTypeFilters]);
+
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -108,35 +139,6 @@ export function ComponentsView({
   // Check if message type filters are active
   const hasMessageTypeFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
 
-  // Compute messageComponents for workflow view (filtered, up to current slider position)
-  const messageComponents = useMemo(() => {
-    const components: string[] = [];
-    conversation.messages.forEach((message, msgIndex) => {
-      if (msgIndex <= currentMessageIndex) {
-        // Find the primary component for this message from first matching part
-        let messageComponent: string | null = null;
-        for (const part of message.parts) {
-          // Apply message type filter
-          if (!partPassesMessageTypeFilter(part, message.role)) continue;
-
-          // Apply static component filter if set
-          if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
-
-          const component = componentMapping[part.id];
-          if (component) {
-            messageComponent = component;
-            break;
-          }
-        }
-        // Only include message if it has parts that pass filters
-        if (messageComponent !== null) {
-          components.push(messageComponent);
-        }
-      }
-    });
-    return components;
-  }, [conversation.messages, currentMessageIndex, componentMapping, filteredPartIds, messageTypeFilters]);
-
   return (
     <div className="p-4">
       {/* Filter indicator */}
@@ -175,7 +177,7 @@ export function ComponentsView({
       <WaffleChart
         componentTokens={componentTokensForOverview}
         totalTokens={filteredTokensTotal}
-        getColorClass={(component) => getComponentBgClass(component, componentColors)}
+        getColorStyles={(component) => getComponentWaffleStyles(component, componentColors)}
         getLabel={(component) => component}
         onComponentClick={handleComponentClick}
       />
@@ -187,18 +189,20 @@ export function ComponentsView({
             Workflow ({messageComponents.length} messages)
           </h4>
           <div className="flex flex-wrap gap-0.5">
-            {messageComponents.map((component, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "w-3 h-3 rounded-sm flex-shrink-0",
-                  component
-                    ? getComponentBgClass(component, componentColors)
-                    : "bg-gray-200",
-                )}
-                title={`${index + 1}: ${component || "unknown"}`}
-              />
-            ))}
+            {messageComponents.map((component, index) => {
+              const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+              return (
+                <div
+                  key={index}
+                  className={cn(
+                    "w-3 h-3 rounded-sm flex-shrink-0",
+                    component ? colorStyles?.classes : "bg-gray-200",
+                  )}
+                  style={colorStyles?.style || undefined}
+                  title={`${index + 1}: ${component || "unknown"}`}
+                />
+              );
+            })}
           </div>
           <div className="mt-3">
             <WorkflowLegend
