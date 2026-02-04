@@ -275,7 +275,11 @@ const assignColorsActivity: Activity<{
     return { colors: {} };
   }
 
-  const colors = await assignComponentColors(ctx.components, ctx.config);
+  const colors = await assignComponentColors(
+    ctx.components,
+    ctx.config,
+    ctx.id,
+  );
   return { colors };
 };
 
@@ -1041,18 +1045,31 @@ export default function App() {
   // Debug: Expose current conversation to window for console exploration
   useEffect(() => {
     if (import.meta.env.DEV && selectedConversation?.conversation) {
+      // Build conversation with component embedded in each part
+      const conversationWithComponents = {
+        ...selectedConversation.conversation,
+        messages: selectedConversation.conversation.messages.map((msg) => ({
+          ...msg,
+          parts: msg.parts.map((part) => ({
+            ...part,
+            component: selectedConversation.componentMapping?.[part.id],
+          })),
+        })),
+      };
+
       (window as any).__debug = {
-        conversation: selectedConversation.conversation,
+        conversation: conversationWithComponents,
         summary: selectedConversation.summary,
-        msg: (index: number) =>
-          selectedConversation.conversation!.messages[index],
+        msg: (index: number) => conversationWithComponents.messages[index],
         part: (msgIndex: number, partIndex: number) =>
-          selectedConversation.conversation!.messages[msgIndex]?.parts[
-            partIndex
-          ],
+          conversationWithComponents.messages[msgIndex]?.parts[partIndex],
+        // Component comparison data (same data used for waffle charts)
+        componentComparison: sourceConversationComponents,
+        // Component colors mapping
+        componentColors: selectedConversation.componentColors,
       };
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, sourceConversationComponents]);
 
   // Reprocess components with a custom prompt using workflow
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
