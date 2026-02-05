@@ -1307,7 +1307,10 @@ export default function App() {
 
   useEffect(() => {
     if (conversations.length === 0) {
-      setSelectedId(null);
+      // Don't clear selection when a URL import is pending — conversations are incoming
+      if (!urlState.importUrl) {
+        setSelectedId(null);
+      }
       return;
     }
 
