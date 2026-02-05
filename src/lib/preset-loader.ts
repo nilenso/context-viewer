@@ -62,17 +62,20 @@ export async function loadPresetIndex(): Promise<PresetSummary[]> {
 
 /**
  * Load a specific preset by ID
+ * Throws an error if the preset cannot be loaded or parsed
  */
-export async function loadPreset(id: string): Promise<PresetConfig | null> {
+export async function loadPreset(id: string): Promise<PresetConfig> {
+  const url = `${import.meta.env.BASE_URL}presets/${id}.json`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load preset "${id}": HTTP ${response.status}`);
+  }
+
+  const text = await response.text();
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}presets/${id}.json`);
-    if (!response.ok) {
-      console.error(`Failed to load preset ${id}: ${response.status}`);
-      return null;
-    }
-    return await response.json();
+    return JSON.parse(text);
   } catch (error) {
-    console.error(`Error loading preset ${id}:`, error);
-    return null;
+    const parseError = error as SyntaxError;
+    throw new Error(`Invalid JSON in preset "${id}": ${parseError.message}`);
   }
 }

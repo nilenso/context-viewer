@@ -434,7 +434,11 @@ class WorkflowRunner {
       conversation: ctx.conversation,
       summary: ctx.summary,
       metadata: ctx.metadata,
+      customPrompt: ctx.customPrompt,
+      customSegmentationPrompt: ctx.customSegmentationPrompt,
       customSummaryPrompt: ctx.customSummaryPrompt,
+      customAnalysisPrompt: ctx.customAnalysisPrompt,
+      customColoringPrompt: ctx.customColoringPrompt,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
@@ -459,7 +463,11 @@ class WorkflowRunner {
       summary: ctx.summary,
       metadata: ctx.metadata,
       aiSummary: ctx.aiSummary,
+      customPrompt: ctx.customPrompt,
+      customSegmentationPrompt: ctx.customSegmentationPrompt,
       customSummaryPrompt: ctx.customSummaryPrompt,
+      customAnalysisPrompt: ctx.customAnalysisPrompt,
+      customColoringPrompt: ctx.customColoringPrompt,
       components: ctx.components,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
@@ -485,7 +493,11 @@ class WorkflowRunner {
       summary: ctx.summary,
       metadata: ctx.metadata,
       aiSummary: ctx.aiSummary,
+      customPrompt: ctx.customPrompt,
+      customSegmentationPrompt: ctx.customSegmentationPrompt,
       customSummaryPrompt: ctx.customSummaryPrompt,
+      customAnalysisPrompt: ctx.customAnalysisPrompt,
+      customColoringPrompt: ctx.customColoringPrompt,
       components: ctx.components,
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
@@ -641,6 +653,12 @@ async function processConversationWorkflow(
         ctx.analysis = result.metadata.analysis;
         ctx.components = components;
         ctx.componentMapping = componentMapping;
+        // Restore custom prompts
+        ctx.customPrompt = result.metadata.customPrompt;
+        ctx.customSegmentationPrompt = result.metadata.customSegmentationPrompt;
+        ctx.customSummaryPrompt = result.metadata.customSummaryPrompt;
+        ctx.customAnalysisPrompt = result.metadata.customAnalysisPrompt;
+        ctx.customColoringPrompt = result.metadata.customColoringPrompt;
 
         // Rebuild computed fields (timelines)
         ctx.componentTimeline = buildComponentTimeline(
@@ -967,6 +985,7 @@ export default function App() {
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [loadedPreset, setLoadedPreset] = useState<PresetConfig | null>(null);
   const [isPresetLoading, setIsPresetLoading] = useState(false);
+  const [presetError, setPresetError] = useState<string | null>(null);
 
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
@@ -995,12 +1014,21 @@ export default function App() {
   useEffect(() => {
     if (selectedPresetId) {
       setIsPresetLoading(true);
-      loadPreset(selectedPresetId).then((preset) => {
-        setLoadedPreset(preset);
-        setIsPresetLoading(false);
-      });
+      setPresetError(null);
+      loadPreset(selectedPresetId)
+        .then((preset) => {
+          setLoadedPreset(preset);
+          setIsPresetLoading(false);
+        })
+        .catch((error) => {
+          console.error("Failed to load preset:", error);
+          setPresetError(error.message);
+          setLoadedPreset(null);
+          setIsPresetLoading(false);
+        });
     } else {
       setLoadedPreset(null);
+      setPresetError(null);
     }
   }, [selectedPresetId]);
 
@@ -1563,6 +1591,35 @@ export default function App() {
       setReprocessingId(id);
 
       try {
+        // Check if this is a grouped conversation
+        if (
+          selectedConversation.isGrouped &&
+          selectedConversation.sourceConversations
+        ) {
+          // Get source conversations
+          const sourceConvs = selectedConversation.sourceConversations
+            .map((source) => conversations.find((c) => c.id === source.id))
+            .filter(
+              (c): c is WorkflowState => c !== null && c?.conversation !== null,
+            );
+
+          // Process all source conversations in parallel
+          await Promise.all(
+            sourceConvs.map(async (conv) => {
+              const runner = new WorkflowRunner((id, update) => {
+                setConversations((prev) =>
+                  prev.map((c) => (c.id === id ? { ...c, ...update } : c)),
+                );
+              });
+              const ctx = buildBaseContext(conv);
+              contextModifier(ctx, options);
+              await processConversationWorkflow(event, ctx, runner, callbacks);
+            }),
+          );
+          return;
+        }
+
+        // Single conversation processing
         const runner = new WorkflowRunner((id, update) => {
           setConversations((prev) =>
             prev.map((conv) =>
@@ -2262,6 +2319,13 @@ export default function App() {
               onSelectPreset={setSelectedPresetId}
               isLoading={isPresetLoading}
             />
+
+            {/* Preset Error */}
+            {presetError && (
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+                <strong>Failed to load preset:</strong> {presetError}
+              </div>
+            )}
 
             {/* Drop Zone */}
             <div
