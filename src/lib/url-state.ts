@@ -98,6 +98,9 @@ export interface UrlState {
   comparisonSortDir: ComparisonSortDirection;
   comparisonCols: number;
   comparisonSquaresPerRow: number;
+
+  // Import
+  importUrl: string | null;
 }
 
 /**
@@ -118,6 +121,7 @@ export const DEFAULT_URL_STATE: UrlState = {
   comparisonSortDir: "desc",
   comparisonCols: 3,
   comparisonSquaresPerRow: 20,
+  importUrl: null,
 };
 
 /**
@@ -237,6 +241,12 @@ export function parseUrl(url: string = window.location.href): UrlState {
         state.comparisonSquaresPerRow = spr;
       }
     }
+
+    // Parse import URL
+    const importParam = params.get("import");
+    if (importParam) {
+      state.importUrl = importParam;
+    }
   } catch (e) {
     console.warn("Failed to parse URL:", e);
   }
@@ -321,6 +331,11 @@ export function serializeUrl(state: Partial<UrlState>, currentState?: UrlState):
     }
   }
 
+  // Import URL
+  if (merged.importUrl) {
+    params.set("import", merged.importUrl);
+  }
+
   const queryString = params.toString();
   return queryString ? `${path}?${queryString}` : path;
 }
@@ -341,6 +356,7 @@ export function urlStatesEqual(a: UrlState, b: UrlState): boolean {
   if (a.comparisonSortDir !== b.comparisonSortDir) return false;
   if (a.comparisonCols !== b.comparisonCols) return false;
   if (a.comparisonSquaresPerRow !== b.comparisonSquaresPerRow) return false;
+  if (a.importUrl !== b.importUrl) return false;
 
   // Compare sets
   if (a.messageFilters.size !== b.messageFilters.size) return false;

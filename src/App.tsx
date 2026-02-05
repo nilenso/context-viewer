@@ -69,6 +69,7 @@ import {
   FileExportSchema,
 } from "./lib/export-schema";
 import { hasApiKey, setRuntimeApiKey } from "./ai-config";
+import { fetchFileFromUrl } from "./lib/url-fetch";
 import { useUrlState } from "./hooks/useUrlState";
 import type { InsightsTab } from "./lib/url-state";
 
@@ -1033,6 +1034,11 @@ export default function App() {
   const [isPresetLoading, setIsPresetLoading] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
 
+  // URL auto-import state
+  const importInProgressRef = useRef(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isUrlImporting, setIsUrlImporting] = useState(false);
+
   const fileIdsRef = useRef<Map<number, string>>(new Map());
 
   // Pending groups from SessionExport import
@@ -1079,7 +1085,7 @@ export default function App() {
   }, [selectedPresetId]);
 
   const workflowMutation = useMutation({
-    mutationFn: (files: File[]) => {
+    mutationFn: ({ files }: { files: File[], presetIds?: Map<number, string> }) => {
       // Build options from loaded preset
       const options: WorkflowOptions | undefined = loadedPreset
         ? {
@@ -1141,11 +1147,11 @@ export default function App() {
         options,
       );
     },
-    onMutate: (files: File[]) => {
+    onMutate: ({ files, presetIds }: { files: File[], presetIds?: Map<number, string> }) => {
       // Create placeholder entries immediately
       const fileIds = new Map<number, string>();
       const placeholders: WorkflowState[] = files.map((file, index) => {
-        const id = generateId();
+        const id = presetIds?.get(index) || generateId();
         fileIds.set(index, id);
         return {
           id,
@@ -1317,6 +1323,12 @@ export default function App() {
     }
 
     if (!conversations.some((conv) => conv.id === selectedId)) {
+      // Don't override if this ID belongs to a pending group from session import
+      // (groups are created after all files finish processing)
+      const pendingGroups = pendingSessionImportRef.current?.groups;
+      if (pendingGroups?.some(g => g.id === selectedId)) {
+        return;
+      }
       setSelectedId(firstConversation.id);
     }
   }, [conversations, selectedId]);
@@ -1355,7 +1367,7 @@ export default function App() {
 
         // Create the group if we have at least 2 valid IDs
         if (newIds.length >= 2) {
-          await handleGroupConversations(newIds, group.name);
+          await handleGroupConversations(newIds, group.name, group.id);
         }
       }
 
@@ -2028,6 +2040,7 @@ export default function App() {
   const handleGroupConversations = async (
     idsToGroup?: string[],
     groupName?: string,
+    existingGroupId?: string,
   ) => {
     const idsSet = idsToGroup ? new Set(idsToGroup) : selectedIds;
     if (idsSet.size < 2) return;
@@ -2050,8 +2063,8 @@ export default function App() {
 
     if (selectedConvs.length < 2) return;
 
-    // Generate new ID for grouped conversation
-    const groupId = generateId();
+    // Use provided ID or generate new one
+    const groupId = existingGroupId || generateId();
 
     // Create concatenated conversation with source info tracking
     // We need to generate new unique IDs to avoid collisions between files
@@ -2499,9 +2512,34 @@ export default function App() {
     }
 
     if (filesToProcess.length > 0) {
-      workflowMutation.mutate(filesToProcess);
+      // Build presetIds map: fileIndex → originalId (for preserving IDs from session exports)
+      const presetIds = new Map<number, string>();
+      for (const [oldId, index] of oldIdToIndex) {
+        presetIds.set(index, oldId);
+      }
+      workflowMutation.mutate({ files: filesToProcess, presetIds: presetIds.size > 0 ? presetIds : undefined });
     }
   };
+
+  // Auto-import from URL when ?import= param is present
+  useEffect(() => {
+    const { importUrl } = urlState;
+    if (!importUrl || importInProgressRef.current) return;
+    if (conversations.length > 0) return; // already imported
+
+    importInProgressRef.current = true;
+    setIsUrlImporting(true);
+
+    fetchFileFromUrl(importUrl).then(result => {
+      if (result.success) {
+        handleFileDrop([result.file]);
+      } else {
+        setImportError(result.error);
+      }
+      setIsUrlImporting(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlState.importUrl]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileDrop,
@@ -2543,39 +2581,71 @@ export default function App() {
               </div>
             )}
 
-            {/* Drop Zone */}
-            <div
-              {...getRootProps()}
-              className={cn(
-                "min-h-[calc(100vh-18rem)] border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors",
-                isDragActive
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50 hover:bg-accent/50",
-              )}
-            >
-              <input {...getInputProps()} />
-              <div className="text-center p-12">
-                <Upload className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50" />
-                <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
-                  {isDragActive
-                    ? "Drop files here"
-                    : "Drop conversation files here"}
-                </h2>
-                <p className="text-muted-foreground mb-2">or click to browse</p>
-
-                {/* URL Import */}
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <UrlImport onFileImported={(file) => handleFileDrop([file])} />
+            {/* Drop Zone / URL Import Status */}
+            {isUrlImporting ? (
+              <div className="min-h-[calc(100vh-18rem)] border-2 border-dashed rounded-lg flex items-center justify-center border-border">
+                <div className="text-center p-12">
+                  <Loader2 className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50 animate-spin" />
+                  <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
+                    Importing from URL...
+                  </h2>
+                  <p className="text-sm text-muted-foreground break-all max-w-lg">
+                    {urlState.importUrl}
+                  </p>
                 </div>
-
-                <p className="text-sm text-muted-foreground mt-4">
-                  Accepts {SUPPORTED_EXTENSIONS_TEXT} files
-                </p>
               </div>
-            </div>
+            ) : (
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "min-h-[calc(100vh-18rem)] border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors",
+                  isDragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50 hover:bg-accent/50",
+                )}
+              >
+                <input {...getInputProps()} />
+                <div className="text-center p-12">
+                  {importError ? (
+                    <>
+                      <AlertCircle className="h-20 w-20 mx-auto mb-6 text-destructive/50" />
+                      <h2 className="text-2xl font-semibold text-destructive mb-3">
+                        Import failed
+                      </h2>
+                      <p className="text-sm text-destructive mb-2">{importError}</p>
+                      <p className="text-xs text-muted-foreground break-all max-w-lg mb-6">
+                        {urlState.importUrl}
+                      </p>
+                      <p className="text-muted-foreground mb-2">
+                        Drop conversation files here or click to browse
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50" />
+                      <h2 className="text-2xl font-semibold text-muted-foreground mb-3">
+                        {isDragActive
+                          ? "Drop files here"
+                          : "Drop conversation files here"}
+                      </h2>
+                      <p className="text-muted-foreground mb-2">or click to browse</p>
+                    </>
+                  )}
+
+                  {/* URL Import */}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <UrlImport onFileImported={(file) => handleFileDrop([file])} />
+                  </div>
+
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Accepts {SUPPORTED_EXTENSIONS_TEXT} files
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Main Content */
@@ -2608,7 +2678,7 @@ export default function App() {
                 onRename={handleRenameConversation}
                 onGenerateAnalysis={handleGenerateAnalysis}
                 onGenerateSummary={handleGenerateSummary}
-                onFilesSelected={(files) => workflowMutation.mutate(files)}
+                onFilesSelected={(files) => workflowMutation.mutate({ files })}
                 onEditPrompt={handleOpenPromptEditor}
                 onEditComponents={handleOpenComponentsEditor}
                 onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
