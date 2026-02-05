@@ -1185,25 +1185,23 @@ export function ConversationView({
 
       {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
         <TabsContent value="comparison" className="flex-1 mt-0 overflow-auto">
-          <div className="border rounded-lg bg-muted/30">
-            <ComponentComparisonView
-              sourceConversations={filteredSourceConversationComponents}
-              componentColors={componentColors}
-              hasActiveFilters={!hasAllFilters}
-              viewMode={comparisonViewMode}
-              onViewModeChange={onComparisonViewModeChange}
-              legendMode={comparisonLegendMode}
-              onLegendModeChange={onComparisonLegendModeChange}
-              sortField={comparisonSortField}
-              onSortFieldChange={onComparisonSortFieldChange}
-              sortDirection={comparisonSortDirection}
-              onSortDirectionChange={onComparisonSortDirectionChange}
-              columnCount={comparisonColumnCount}
-              onColumnCountChange={onComparisonColumnCountChange}
-              squaresPerRow={comparisonSquaresPerRow}
-              onSquaresPerRowChange={onComparisonSquaresPerRowChange}
-            />
-          </div>
+          <ComponentComparisonView
+            sourceConversations={filteredSourceConversationComponents}
+            componentColors={componentColors}
+            hasActiveFilters={!hasAllFilters}
+            viewMode={comparisonViewMode}
+            onViewModeChange={onComparisonViewModeChange}
+            legendMode={comparisonLegendMode}
+            onLegendModeChange={onComparisonLegendModeChange}
+            sortField={comparisonSortField}
+            onSortFieldChange={onComparisonSortFieldChange}
+            sortDirection={comparisonSortDirection}
+            onSortDirectionChange={onComparisonSortDirectionChange}
+            columnCount={comparisonColumnCount}
+            onColumnCountChange={onComparisonColumnCountChange}
+            squaresPerRow={comparisonSquaresPerRow}
+            onSquaresPerRowChange={onComparisonSquaresPerRowChange}
+          />
         </TabsContent>
       )}
     </Tabs>

@@ -413,9 +413,9 @@ export function ComponentComparisonView({
   };
 
   return (
-    <div className="p-4">
-      {/* Toolbar */}
-      <div className="border rounded-lg p-2 mb-4 bg-white">
+    <>
+      {/* Toolbar - matches ConversationView toolbar styling */}
+      <div className="border rounded-lg p-3 mb-3 bg-white">
         <div className="flex items-center gap-2 flex-wrap">
           {/* View mode toggle */}
           {hasWorkflowData && (
@@ -572,7 +572,9 @@ export function ComponentComparisonView({
         </div>
       </div>
 
-      {/* Shared compact legend - for workflow view or compact token view */}
+      {/* Content area */}
+      <div className="border rounded-lg bg-muted/30 p-4">
+        {/* Shared compact legend - for workflow view or compact token view */}
       {(viewMode === "workflow" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
         <div className="mb-4">
           <CompactLegend
@@ -645,6 +647,7 @@ export function ComponentComparisonView({
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
