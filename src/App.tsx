@@ -493,6 +493,7 @@ class WorkflowRunner {
       conversation: ctx.conversation,
       summary: ctx.summary,
       metadata: ctx.metadata,
+      title: ctx.title,
       aiSummary: ctx.aiSummary,
       customPrompt: ctx.customPrompt,
       customSegmentationPrompt: ctx.customSegmentationPrompt,
