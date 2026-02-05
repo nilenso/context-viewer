@@ -827,6 +827,7 @@ interface WorkflowOptions {
   customComponents?: string[];
   presetColors?: Record<string, string>;
   customPrompt?: string;
+  customSegmentationPrompt?: string;
 }
 
 async function runWorkflows(
@@ -869,6 +870,7 @@ async function runWorkflows(
         customComponents: options?.customComponents,
         presetColors: options?.presetColors,
         customPrompt: options?.customPrompt,
+        customSegmentationPrompt: options?.customSegmentationPrompt,
       };
 
       // Run workflow with NewFile event
@@ -1010,6 +1012,7 @@ export default function App() {
             customComponents: loadedPreset.components,
             presetColors: loadedPreset.colors,
             customPrompt: loadedPreset.componentIdentificationPrompt,
+            customSegmentationPrompt: loadedPreset.segmentationPrompt,
           }
         : undefined;
 

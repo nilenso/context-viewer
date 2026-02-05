@@ -14,6 +14,7 @@ export interface PresetConfig {
   name: string;
   description: string;
   componentIdentificationPrompt?: string;
+  segmentationPrompt?: string;
   components: string[];
   colors: Record<string, string>;
   /** @deprecated No longer used - colors should be hex values or color names */
