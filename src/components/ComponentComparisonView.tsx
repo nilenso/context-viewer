@@ -9,6 +9,7 @@ type SortDirection = "asc" | "desc";
 export interface ConversationComponentData {
   id: string;
   filename: string;
+  title?: string; // Custom title, displays instead of filename when set
   componentTokens: Record<string, number>;
   totalTokens: number;
   turnCount: number; // Number of user messages (turns)
@@ -517,8 +518,8 @@ export function ComponentComparisonView({
           )}>
             {/* Filename header */}
             <div className={viewMode === "tokens" && legendMode === "compact" ? "mb-2" : "mb-3"}>
-              <h4 className="text-sm font-medium truncate" title={conv.filename}>
-                {conv.filename}
+              <h4 className="text-sm font-medium truncate" title={conv.title || conv.filename}>
+                {conv.title || conv.filename}
               </h4>
               <p className="text-xs text-muted-foreground [font-variant:small-caps]">
                 {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages

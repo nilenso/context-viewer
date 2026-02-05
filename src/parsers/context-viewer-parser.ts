@@ -35,10 +35,17 @@ export class ContextViewerParser implements Parser {
     const file = FileExportSchema.parse(data);
     return {
       model: file.metadata?.model,
+      title: file.title,
       // Carry pre-computed data in metadata
       componentColors: file.colors,
       aiSummary: file.summary ?? undefined,
       analysis: file.analysis ?? undefined,
+      // Restore custom prompts
+      customPrompt: file.customPrompts?.componentIdentification,
+      customSegmentationPrompt: file.customPrompts?.segmentation,
+      customSummaryPrompt: file.customPrompts?.summary,
+      customAnalysisPrompt: file.customPrompts?.analysis,
+      customColoringPrompt: file.customPrompts?.coloring,
     };
   }
 }

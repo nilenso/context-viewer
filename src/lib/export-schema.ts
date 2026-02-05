@@ -38,14 +38,28 @@ export const ExportMetadataSchema = z.object({
 // File Export
 // ============================================================================
 
+// ============================================================================
+// Custom Prompts
+// ============================================================================
+
+export const CustomPromptsSchema = z.object({
+  componentIdentification: z.string().optional(),
+  segmentation: z.string().optional(),
+  summary: z.string().optional(),
+  analysis: z.string().optional(),
+  coloring: z.string().optional(),
+});
+
 export const FileExportSchema = z.object({
   id: z.string(),
   filename: z.string(),
+  title: z.string().optional(), // Custom display title
   conversation: ExportConversationSchema,
   colors: z.record(z.string(), z.string()), // component -> color
   summary: z.string().nullable(),
   analysis: z.string().nullable(),
   metadata: ExportMetadataSchema.optional(),
+  customPrompts: CustomPromptsSchema.optional(),
 });
 
 // ============================================================================
@@ -65,6 +79,7 @@ export const GroupExportSchema = z.object({
 export const FileAnalyticsSchema = z.object({
   fileId: z.string(),
   filename: z.string(),
+  title: z.string().optional(), // Custom display title
   totalTokens: z.number(),
   turnCount: z.number(),
   messageCount: z.number(),
@@ -95,6 +110,7 @@ export type ExportPart = z.infer<typeof ExportPartSchema>;
 export type ExportMessage = z.infer<typeof ExportMessageSchema>;
 export type ExportConversation = z.infer<typeof ExportConversationSchema>;
 export type ExportMetadata = z.infer<typeof ExportMetadataSchema>;
+export type CustomPrompts = z.infer<typeof CustomPromptsSchema>;
 export type FileExport = z.infer<typeof FileExportSchema>;
 export type GroupExport = z.infer<typeof GroupExportSchema>;
 export type FileAnalytics = z.infer<typeof FileAnalyticsSchema>;

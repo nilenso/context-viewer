@@ -25,6 +25,7 @@ import type { ComponentTimelineSnapshot } from "@/componentisation";
 interface SourceWorkflowState {
   id: string;
   filename: string;
+  title?: string;
   conversation?: Conversation;
   componentMapping?: Record<string, string>;
 }
@@ -448,7 +449,7 @@ export function ConversationView({
           }
         }
 
-        return {
+        const result: ConversationComponentData = {
           id: source.id,
           filename: source.filename,
           componentTokens,
@@ -458,6 +459,10 @@ export function ConversationView({
           durationMs,
           messageComponents,
         };
+        if (source.title) {
+          result.title = source.title;
+        }
+        return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
   }, [sourceWorkflowStates, sourceConversationComponents, messageFilters, components, selectedComponents]);
@@ -1066,7 +1071,7 @@ export function ConversationView({
                         </Badge>
                         {sourceInfo && (
                           <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
-                            {sourceInfo.filename}
+                            {sourceInfo.title || sourceInfo.filename}
                           </Badge>
                         )}
                         <span className="text-xs text-muted-foreground">

@@ -89,6 +89,7 @@ interface WorkflowState {
   // Identity
   id: string;
   filename: string;
+  title?: string; // Custom title, displays instead of filename when set
 
   // UI/Workflow lifecycle (used by React)
   status?: ConversationStatus;
@@ -648,6 +649,7 @@ async function processConversationWorkflow(
         const components = [...new Set(Object.values(componentMapping))];
 
         // Use pre-computed data from metadata
+        ctx.title = result.metadata.title;
         ctx.componentColors = result.metadata.componentColors;
         ctx.aiSummary = result.metadata.aiSummary;
         ctx.analysis = result.metadata.analysis;
@@ -1209,7 +1211,7 @@ export default function App() {
             ? lastTimestamp.getTime() - firstTimestamp.getTime()
             : undefined;
 
-        return {
+        const result: ConversationComponentData = {
           id: source.id,
           filename: source.filename,
           componentTokens,
@@ -1219,6 +1221,10 @@ export default function App() {
           durationMs,
           messageComponents,
         };
+        if (conv.title) {
+          result.title = conv.title;
+        }
+        return result;
       })
       .filter((data): data is ConversationComponentData => data !== null);
   }, [selectedConversation, conversations]);
@@ -1241,6 +1247,7 @@ export default function App() {
         return {
           id: source.id,
           filename: source.filename,
+          title: conv.title,
           conversation: conv.conversation,
           componentMapping: conv.componentMapping,
         };
@@ -2010,6 +2017,7 @@ export default function App() {
           messageSourceMap[newPartId] = {
             conversationId: conv.id,
             filename: conv.filename,
+            title: conv.title,
           };
           return { ...part, id: newPartId };
         });
@@ -2018,6 +2026,7 @@ export default function App() {
         messageSourceMap[newMsgId] = {
           conversationId: conv.id,
           filename: conv.filename,
+          title: conv.title,
         };
 
         // Create new message with new ID and new parts
@@ -2088,6 +2097,7 @@ export default function App() {
     const sourceConversations = selectedConvs.map((conv) => ({
       id: conv.id,
       filename: conv.filename,
+      title: conv.title,
     }));
 
     // Create grouped name (use provided name or generate from filenames)
@@ -2211,6 +2221,42 @@ export default function App() {
     if (selectedId === id) {
       setSelectedId(null);
     }
+  };
+
+  // Handle renaming a conversation
+  const handleRenameConversation = (id: string, newTitle: string) => {
+    const title = newTitle || undefined;
+    setConversations((prev) =>
+      prev.map((conv) => {
+        // Update the conversation itself
+        if (conv.id === id) {
+          return { ...conv, title };
+        }
+        // Also update any grouped conversations that reference this conversation
+        if (conv.isGrouped && conv.sourceConversations?.some((s) => s.id === id)) {
+          // Update sourceConversations
+          const updatedSourceConversations = conv.sourceConversations.map((s) =>
+            s.id === id ? { ...s, title } : s
+          );
+          // Update messageSourceMap entries for this source
+          const updatedMessageSourceMap = conv.messageSourceMap
+            ? Object.fromEntries(
+                Object.entries(conv.messageSourceMap).map(([key, info]) =>
+                  info.conversationId === id
+                    ? [key, { ...info, title }]
+                    : [key, info]
+                )
+              )
+            : undefined;
+          return {
+            ...conv,
+            sourceConversations: updatedSourceConversations,
+            messageSourceMap: updatedMessageSourceMap,
+          };
+        }
+        return conv;
+      })
+    );
   };
 
   // Handle exporting session data
@@ -2380,6 +2426,7 @@ export default function App() {
                 onSelectAll={handleSelectAll}
                 onUngroupConversation={handleUngroupConversation}
                 onDeleteConversation={handleDeleteConversation}
+                onRename={handleRenameConversation}
                 onGenerateAnalysis={handleGenerateAnalysis}
                 onGenerateSummary={handleGenerateSummary}
                 onFilesSelected={(files) => workflowMutation.mutate(files)}

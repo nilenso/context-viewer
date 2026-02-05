@@ -134,7 +134,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
           <span className="text-sm text-muted-foreground">#{index + 1}</span>
           {sourceInfo && (
             <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
-              {sourceInfo.filename}
+              {sourceInfo.title || sourceInfo.filename}
             </Badge>
           )}
           {totalTokens > 0 && (

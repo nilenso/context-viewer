@@ -91,6 +91,7 @@ interface WorkflowDetailModalProps {
   onClose: () => void;
   conversationId: string;
   filename: string;
+  title?: string;
   status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
   currentStep?: ProcessingStep;
   stepTimings?: Partial<Record<ProcessingStep, number>>;
@@ -111,6 +112,7 @@ export function WorkflowDetailModal({
   onClose,
   conversationId,
   filename,
+  title,
   status,
   currentStep,
   stepTimings,
@@ -251,7 +253,7 @@ export function WorkflowDetailModal({
       <DialogContent className="max-w-3xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="truncate">{filename}</span>
+            <span className="truncate">{title || filename}</span>
             {status === "processing" && (
               <Badge variant="secondary" className="shrink-0">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />

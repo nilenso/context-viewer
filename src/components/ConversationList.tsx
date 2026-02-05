@@ -51,6 +51,7 @@ type ProcessingStep =
 interface WorkflowState {
   id: string;
   filename: string;
+  title?: string; // Custom title, displays instead of filename when set
   status?: ConversationStatus;
   step?: ProcessingStep;
   summary?: {
@@ -63,7 +64,7 @@ interface WorkflowState {
   pausedAtStep?: ProcessingStep;
   // Grouped conversation data
   isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string }>;
+  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
 }
 
 interface ConversationListProps {
@@ -77,6 +78,7 @@ interface ConversationListProps {
   onSelectAll: (ids: string[]) => void;
   onUngroupConversation: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
+  onRename?: (id: string, newTitle: string) => void;
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
@@ -105,6 +107,7 @@ export function ConversationList({
   onSelectAll,
   onUngroupConversation,
   onDeleteConversation,
+  onRename,
   onGenerateAnalysis,
   onGenerateSummary,
   onFilesSelected,
@@ -131,6 +134,9 @@ export function ConversationList({
   const [expandedConversationId, setExpandedConversationId] = useState<
     string | null
   >(null);
+  // Inline title editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   // Count of selectable conversations (non-grouped, success status)
   const selectableConversations = conversations.filter(
@@ -148,6 +154,15 @@ export function ConversationList({
   // Check if a conversation can be deleted (not grouped and not part of any group)
   const canDelete = (conversation: WorkflowState): boolean => {
     return !conversation.isGrouped && !isPartOfGroup(conversation.id);
+  };
+
+  // Save title and exit editing mode
+  const handleSaveTitle = (id: string) => {
+    if (onRename) {
+      onRename(id, editingTitle.trim());
+    }
+    setEditingId(null);
+    setEditingTitle("");
   };
 
   // Exit selection mode when selection is cleared
@@ -492,14 +507,43 @@ export function ConversationList({
                             conversation.status === "paused-for-api-key" && (
                               <Pause className="h-4 w-4 shrink-0 text-amber-600" />
                             )}
-                          <span
-                            className="font-medium text-sm truncate flex-1 min-w-0"
-                            title={conversation.filename}
-                          >
-                            {conversation.isGrouped
-                              ? "Grouped"
-                              : conversation.filename}
-                          </span>
+                          {editingId === conversation.id ? (
+                            <input
+                              autoFocus
+                              className="font-medium text-sm flex-1 min-w-0 bg-white border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400"
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onBlur={() => handleSaveTitle(conversation.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleSaveTitle(conversation.id);
+                                }
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  setEditingId(null);
+                                  setEditingTitle("");
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span
+                              className="font-medium text-sm truncate flex-1 min-w-0 cursor-pointer hover:underline"
+                              title={conversation.title || conversation.filename}
+                              onClick={(e) => {
+                                if (!conversation.isGrouped && onRename) {
+                                  e.stopPropagation();
+                                  setEditingId(conversation.id);
+                                  setEditingTitle(conversation.title || conversation.filename);
+                                }
+                              }}
+                            >
+                              {conversation.isGrouped
+                                ? "Grouped"
+                                : conversation.title || conversation.filename}
+                            </span>
+                          )}
                           {/* Expand button to open workflow detail modal */}
                           {(conversation.status === "processing" ||
                             conversation.status === "success" ||
@@ -555,11 +599,11 @@ export function ConversationList({
                             <div
                               className="text-xs text-purple-600 pl-6 truncate"
                               title={conversation.sourceConversations
-                                .map((s) => s.filename)
+                                .map((s) => s.title || s.filename)
                                 .join(", ")}
                             >
                               {conversation.sourceConversations
-                                .map((s) => s.filename)
+                                .map((s) => s.title || s.filename)
                                 .join(", ")}
                             </div>
                           )}
@@ -870,6 +914,7 @@ export function ConversationList({
               onClose={() => setExpandedConversationId(null)}
               conversationId={expandedConversation.id}
               filename={expandedConversation.filename}
+              title={expandedConversation.title}
               status={expandedConversation.status}
               currentStep={expandedConversation.step}
               stepTimings={expandedConversation.stepTimings}

@@ -129,6 +129,7 @@ export const ConversationSchema = z.object({
 export const SourceInfoSchema = z.object({
   conversationId: z.string(),
   filename: z.string(),
+  title: z.string().optional(),
 });
 
 export type SourceInfo = z.infer<typeof SourceInfoSchema>;

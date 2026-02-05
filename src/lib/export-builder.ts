@@ -15,6 +15,7 @@ import {
 interface WorkflowState {
   id: string;
   filename: string;
+  title?: string; // Custom display title
   status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
   conversation?: Conversation;
   componentMapping?: Record<string, string>;
@@ -23,7 +24,13 @@ interface WorkflowState {
   analysis?: string;
   metadata?: ConversationMetadata;
   isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string }>;
+  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
+  // Custom prompts
+  customPrompt?: string;
+  customSegmentationPrompt?: string;
+  customSummaryPrompt?: string;
+  customAnalysisPrompt?: string;
+  customColoringPrompt?: string;
 }
 
 /**
@@ -59,7 +66,19 @@ export function buildFileExport(conv: WorkflowState): FileExport {
     conv.componentMapping,
   );
 
-  return {
+  // Build custom prompts object only if any prompts are customized
+  const customPrompts = conv.customPrompt || conv.customSegmentationPrompt ||
+    conv.customSummaryPrompt || conv.customAnalysisPrompt || conv.customColoringPrompt
+    ? {
+        componentIdentification: conv.customPrompt,
+        segmentation: conv.customSegmentationPrompt,
+        summary: conv.customSummaryPrompt,
+        analysis: conv.customAnalysisPrompt,
+        coloring: conv.customColoringPrompt,
+      }
+    : undefined;
+
+  const result: FileExport = {
     id: conv.id,
     filename: conv.filename,
     conversation: conversationWithComponents,
@@ -67,7 +86,12 @@ export function buildFileExport(conv: WorkflowState): FileExport {
     summary: conv.aiSummary || null,
     analysis: conv.analysis || null,
     metadata: conv.metadata,
+    customPrompts,
   };
+  if (conv.title) {
+    result.title = conv.title;
+  }
+  return result;
 }
 
 /**
@@ -88,7 +112,7 @@ function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
         });
       });
 
-      return {
+      const analytics: AnalyticsExport["componentComparison"][number] = {
         fileId: conv.id,
         filename: conv.filename,
         totalTokens,
@@ -98,6 +122,10 @@ function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
         messageCount: conv.conversation?.messages.length || 0,
         componentTokens,
       };
+      if (conv.title) {
+        analytics.title = conv.title;
+      }
+      return analytics;
     }),
   };
 }
