@@ -1990,10 +1990,20 @@ export default function App() {
     if (idsSet.size < 2) return;
 
     // Get the selected conversations (only fully processed ones)
-    const selectedConvs = conversations.filter(
-      (conv) =>
-        idsSet.has(conv.id) && conv.conversation && conv.status === "success",
-    );
+    // When idsToGroup is provided, preserve its order (important for import)
+    const selectedConvs = idsToGroup
+      ? idsToGroup
+          .map((id) => conversations.find((c) => c.id === id))
+          .filter(
+            (conv): conv is WorkflowState =>
+              conv !== undefined &&
+              conv.conversation !== undefined &&
+              conv.status === "success",
+          )
+      : conversations.filter(
+          (conv) =>
+            idsSet.has(conv.id) && conv.conversation && conv.status === "success",
+        );
 
     if (selectedConvs.length < 2) return;
 
@@ -2197,6 +2207,122 @@ export default function App() {
     if (selectedId === id) {
       setSelectedId(null);
     }
+  };
+
+  // Handle updating group source conversations (reorder or remove files)
+  const handleUpdateGroupSources = (
+    groupId: string,
+    newSources: Array<{ id: string; filename: string; title?: string }>,
+  ) => {
+    const group = conversations.find((c) => c.id === groupId);
+    if (!group?.isGrouped || !group.sourceConversations) return;
+
+    // If ≤1 file remaining, dissolve the group
+    if (newSources.length <= 1) {
+      handleUngroupConversation(groupId);
+      return;
+    }
+
+    // Rebuild merged conversation data in the new order
+    const selectedConvs = newSources
+      .map((source) => conversations.find((c) => c.id === source.id))
+      .filter(
+        (conv): conv is WorkflowState =>
+          conv !== undefined &&
+          conv.conversation !== undefined &&
+          conv.status === "success",
+      );
+
+    if (selectedConvs.length < 2) {
+      handleUngroupConversation(groupId);
+      return;
+    }
+
+    const messageSourceMap: Record<string, SourceInfo> = {};
+    const allMessages: Message[] = [];
+
+    for (const conv of selectedConvs) {
+      if (!conv.conversation) continue;
+      for (const msg of conv.conversation.messages) {
+        const newMsgId = `${conv.id}-${msg.id}`;
+        const newParts = msg.parts.map((part) => {
+          const newPartId = `${conv.id}-${part.id}`;
+          messageSourceMap[newPartId] = {
+            conversationId: conv.id,
+            filename: conv.filename,
+            title: conv.title,
+          };
+          return { ...part, id: newPartId };
+        });
+        messageSourceMap[newMsgId] = {
+          conversationId: conv.id,
+          filename: conv.filename,
+          title: conv.title,
+        };
+        allMessages.push({ ...msg, id: newMsgId, parts: newParts } as Message);
+      }
+    }
+
+    const groupedConversation: Conversation = { messages: allMessages };
+
+    // Rebuild merged component data
+    const mergedComponentsSet = new Set<string>();
+    const mergedComponentMapping: Record<string, string> = {};
+    const mergedComponentColors: Record<string, string> = {};
+    const mergedStaticComponentsSet = new Set<string>();
+    const mergedStaticMapping: Record<string, string> = {};
+
+    for (const conv of selectedConvs) {
+      if (conv.components) {
+        conv.components.forEach((c) => mergedComponentsSet.add(c));
+      }
+      if (conv.componentMapping) {
+        for (const [partId, component] of Object.entries(conv.componentMapping)) {
+          mergedComponentMapping[`${conv.id}-${partId}`] = component;
+        }
+      }
+      if (conv.componentColors) {
+        Object.assign(mergedComponentColors, conv.componentColors);
+      }
+      if (conv.staticComponents) {
+        conv.staticComponents.forEach((c) => mergedStaticComponentsSet.add(c));
+      }
+      if (conv.staticMapping) {
+        for (const [partId, component] of Object.entries(conv.staticMapping)) {
+          mergedStaticMapping[`${conv.id}-${partId}`] = component;
+        }
+      }
+    }
+
+    const mergedComponentTimeline = buildComponentTimeline(
+      groupedConversation,
+      mergedComponentMapping,
+    );
+    const mergedStaticTimeline = buildComponentTimeline(
+      groupedConversation,
+      mergedStaticMapping,
+    );
+
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === groupId
+          ? {
+              ...conv,
+              sourceConversations: newSources,
+              conversation: groupedConversation,
+              summary: summarizeConversation(groupedConversation),
+              messageSourceMap,
+              components: Array.from(mergedComponentsSet),
+              componentMapping: mergedComponentMapping,
+              componentTimeline: mergedComponentTimeline,
+              componentColors: mergedComponentColors,
+              staticComponents: Array.from(mergedStaticComponentsSet),
+              staticMapping: mergedStaticMapping,
+              staticTimeline: mergedStaticTimeline,
+            }
+          : conv,
+      ),
+    );
   };
 
   // Handle deleting a conversation (only if not part of any grouped conversation)
@@ -2438,6 +2564,7 @@ export default function App() {
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
                 onEditColoringPrompt={handleOpenColoringPromptEditor}
                 onExportSession={handleExportSession}
+                onUpdateGroupSources={handleUpdateGroupSources}
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={handleToggleSidebar}
                 pausedWorkflowCount={pausedWorkflowCount}

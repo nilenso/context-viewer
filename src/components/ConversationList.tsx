@@ -89,6 +89,7 @@ interface ConversationListProps {
   onEditAnalysisPrompt?: () => void;
   onEditColoringPrompt?: () => void;
   onExportSession?: () => void;
+  onUpdateGroupSources?: (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   pausedWorkflowCount?: number;
@@ -118,6 +119,7 @@ export function ConversationList({
   onEditAnalysisPrompt,
   onEditColoringPrompt,
   onExportSession,
+  onUpdateGroupSources,
   isCollapsed = false,
   onToggleCollapse,
   pausedWorkflowCount = 0,
@@ -928,6 +930,13 @@ export function ConversationList({
               onEditColoringPrompt={onEditColoringPrompt}
               onGenerateAnalysis={onGenerateAnalysis}
               onGenerateSummary={onGenerateSummary}
+              isGrouped={expandedConversation.isGrouped}
+              sourceConversations={expandedConversation.sourceConversations}
+              onUpdateGroupSources={
+                onUpdateGroupSources
+                  ? (newSources) => onUpdateGroupSources(expandedConversation.id, newSources)
+                  : undefined
+              }
             />
           );
         })()}

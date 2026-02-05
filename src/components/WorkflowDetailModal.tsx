@@ -20,8 +20,10 @@ import {
   AlertCircle,
   AlertTriangle,
   Play,
+  ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import {
   type ProcessingPhase,
   type ConversationLogs,
@@ -105,6 +107,10 @@ interface WorkflowDetailModalProps {
   onEditColoringPrompt?: () => void;
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
+  // Grouped conversation support
+  isGrouped?: boolean;
+  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
+  onUpdateGroupSources?: (newSources: Array<{ id: string; filename: string; title?: string }>) => void;
 }
 
 export function WorkflowDetailModal({
@@ -126,6 +132,9 @@ export function WorkflowDetailModal({
   onEditColoringPrompt,
   onGenerateAnalysis,
   onGenerateSummary,
+  isGrouped,
+  sourceConversations,
+  onUpdateGroupSources,
 }: WorkflowDetailModalProps) {
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<ProcessingStep>>(
@@ -553,6 +562,19 @@ export function WorkflowDetailModal({
                 </Collapsible>
               );
             })}
+
+            {isGrouped && sourceConversations && onUpdateGroupSources && (
+              <div className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ListOrdered className="h-4 w-4" />
+                  File Order
+                </div>
+                <GroupFileOrderEditor
+                  sourceConversations={sourceConversations}
+                  onApply={onUpdateGroupSources}
+                />
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
