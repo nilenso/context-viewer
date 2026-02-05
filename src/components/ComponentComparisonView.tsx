@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, LayoutGrid, Rows3 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 type SortField = "tokens" | "name" | "category";
 type SortDirection = "asc" | "desc";
@@ -80,14 +81,29 @@ function sortByCategory(
   });
 }
 
+// Export types for URL state integration
+export type ViewMode = "tokens" | "workflow";
+export type LegendMode = "expanded" | "compact";
+export type { SortField, SortDirection };
+
 interface ComponentComparisonViewProps {
   sourceConversations: ConversationComponentData[];
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
+  // Controlled state props (optional - falls back to local state if not provided)
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
+  legendMode?: LegendMode;
+  onLegendModeChange?: (mode: LegendMode) => void;
+  sortField?: SortField;
+  onSortFieldChange?: (field: SortField) => void;
+  sortDirection?: SortDirection;
+  onSortDirectionChange?: (dir: SortDirection) => void;
+  columnCount?: number;
+  onColumnCountChange?: (cols: number) => void;
+  squaresPerRow?: number;
+  onSquaresPerRowChange?: (spr: number) => void;
 }
-
-type ViewMode = "tokens" | "workflow";
-type LegendMode = "expanded" | "compact";
 
 /**
  * Compact legend - horizontal list of color squares with labels (no percentages)
@@ -308,13 +324,61 @@ export function ComponentComparisonView({
   sourceConversations,
   componentColors,
   hasActiveFilters,
+  // Controlled props
+  viewMode: controlledViewMode,
+  onViewModeChange,
+  legendMode: controlledLegendMode,
+  onLegendModeChange,
+  sortField: controlledSortField,
+  onSortFieldChange,
+  sortDirection: controlledSortDirection,
+  onSortDirectionChange,
+  columnCount: controlledColumnCount,
+  onColumnCountChange,
+  squaresPerRow: controlledSquaresPerRow,
+  onSquaresPerRowChange,
 }: ComponentComparisonViewProps) {
-  const [sortField, setSortField] = useState<SortField>("tokens");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [columnCount, setColumnCount] = useState<number>(3);
-  const [viewMode, setViewMode] = useState<ViewMode>("tokens");
-  const [squaresPerRow, setSquaresPerRow] = useState<number>(20);
-  const [legendMode, setLegendMode] = useState<LegendMode>("expanded");
+  // Local state (used when props are not provided)
+  const [localSortField, setLocalSortField] = useState<SortField>("tokens");
+  const [localSortDirection, setLocalSortDirection] = useState<SortDirection>("desc");
+  const [localColumnCount, setLocalColumnCount] = useState<number>(3);
+  const [localViewMode, setLocalViewMode] = useState<ViewMode>("tokens");
+  const [localSquaresPerRow, setLocalSquaresPerRow] = useState<number>(20);
+  const [localLegendMode, setLocalLegendMode] = useState<LegendMode>("expanded");
+
+  // Use controlled values if provided, otherwise use local state
+  const viewMode = controlledViewMode ?? localViewMode;
+  const legendMode = controlledLegendMode ?? localLegendMode;
+  const sortField = controlledSortField ?? localSortField;
+  const sortDirection = controlledSortDirection ?? localSortDirection;
+  const columnCount = controlledColumnCount ?? localColumnCount;
+  const squaresPerRow = controlledSquaresPerRow ?? localSquaresPerRow;
+
+  // Setters that call both local state and callback
+  const setViewMode = (mode: ViewMode) => {
+    setLocalViewMode(mode);
+    onViewModeChange?.(mode);
+  };
+  const setLegendMode = (mode: LegendMode) => {
+    setLocalLegendMode(mode);
+    onLegendModeChange?.(mode);
+  };
+  const setSortField = (field: SortField) => {
+    setLocalSortField(field);
+    onSortFieldChange?.(field);
+  };
+  const setSortDirection = (dir: SortDirection) => {
+    setLocalSortDirection(dir);
+    onSortDirectionChange?.(dir);
+  };
+  const setColumnCount = (cols: number) => {
+    setLocalColumnCount(cols);
+    onColumnCountChange?.(cols);
+  };
+  const setSquaresPerRow = (spr: number) => {
+    setLocalSquaresPerRow(spr);
+    onSquaresPerRowChange?.(spr);
+  };
 
   // Check if workflow view is available (any conversation has messageComponents)
   const hasWorkflowData = sourceConversations.some(
@@ -324,7 +388,7 @@ export function ComponentComparisonView({
   const handleSortClick = (field: SortField) => {
     if (sortField === field) {
       // Toggle direction if clicking the same field
-      setSortDirection(prev => prev === "desc" ? "asc" : "desc");
+      setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
       // Switch to new field with default direction
       setSortField(field);
@@ -349,150 +413,168 @@ export function ComponentComparisonView({
   };
 
   return (
-    <div className="p-4">
-      {/* Filter indicator */}
-      {hasActiveFilters && (
-        <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md mb-4">
-          Filtered view
-        </div>
-      )}
+    <>
+      {/* Toolbar - matches ConversationView toolbar styling */}
+      <div className="border rounded-lg p-3 mb-3 bg-white">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View mode toggle */}
+          {hasWorkflowData && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium">View</span>
+                <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("tokens")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors",
+                      viewMode === "tokens"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    Tokens
+                  </button>
+                  <button
+                    onClick={() => setViewMode("workflow")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors border-l border-gray-200",
+                      viewMode === "workflow"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    Workflow
+                  </button>
+                </div>
+              </div>
+              <Separator orientation="vertical" className="h-6" />
+            </>
+          )}
 
-      {/* Controls: View mode, Sort, and Grid columns */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
-        {/* View mode toggle */}
-        {hasWorkflowData && (
-          <div className="flex items-center gap-1">
-            <span>View:</span>
-            <button
-              onClick={() => setViewMode("tokens")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors",
-                viewMode === "tokens"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100",
-              )}
-            >
-              tokens
-            </button>
-            <button
-              onClick={() => setViewMode("workflow")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors",
-                viewMode === "workflow"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100",
-              )}
-            >
-              workflow
-            </button>
-          </div>
-        )}
+          {/* Legend toggle - only for token view */}
+          {viewMode === "tokens" && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium">Legend</span>
+                <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setLegendMode("expanded")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors",
+                      legendMode === "expanded"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    Expanded
+                  </button>
+                  <button
+                    onClick={() => setLegendMode("compact")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors border-l border-gray-200",
+                      legendMode === "compact"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    Compact
+                  </button>
+                </div>
+              </div>
+              <Separator orientation="vertical" className="h-6" />
+            </>
+          )}
 
-        {/* Legend toggle - only for token view */}
-        {viewMode === "tokens" && (
-          <div className="flex items-center gap-1">
-            <span>Legend:</span>
-            <button
-              onClick={() => setLegendMode("expanded")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors",
-                legendMode === "expanded"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100",
-              )}
-            >
-              expanded
-            </button>
-            <button
-              onClick={() => setLegendMode("compact")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors",
-                legendMode === "compact"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100",
-              )}
-            >
-              compact
-            </button>
-          </div>
-        )}
+          {/* Sort controls - only for token view */}
+          {viewMode === "tokens" && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium">Sort</span>
+                <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => handleSortClick("tokens")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors flex items-center gap-0.5",
+                      sortField === "tokens"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50"
+                    )}
+                  >
+                    Tokens
+                    <SortArrow field="tokens" />
+                  </button>
+                  <button
+                    onClick={() => handleSortClick("name")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors flex items-center gap-0.5 border-l border-gray-200",
+                      sortField === "name"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50"
+                    )}
+                  >
+                    Name
+                    <SortArrow field="name" />
+                  </button>
+                  <button
+                    onClick={() => handleSortClick("category")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs transition-colors flex items-center gap-0.5 border-l border-gray-200",
+                      sortField === "category"
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "bg-white text-gray-600 hover:bg-gray-50"
+                    )}
+                  >
+                    Category
+                    <SortArrow field="category" />
+                  </button>
+                </div>
+              </div>
+              <Separator orientation="vertical" className="h-6" />
+            </>
+          )}
 
-        {/* Sort controls - only for token view */}
-        {viewMode === "tokens" && (
-          <div className="flex items-center gap-1">
-            <span>Sort:</span>
-            <button
-              onClick={() => handleSortClick("tokens")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors flex items-center",
-                sortField === "tokens"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100"
-              )}
-            >
-              tokens
-              <SortArrow field="tokens" />
-            </button>
-            <button
-              onClick={() => handleSortClick("name")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors flex items-center",
-                sortField === "name"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100"
-              )}
-            >
-              name
-              <SortArrow field="name" />
-            </button>
-            <button
-              onClick={() => handleSortClick("category")}
-              className={cn(
-                "px-1.5 py-0.5 rounded transition-colors flex items-center",
-                sortField === "category"
-                  ? "bg-gray-200 text-gray-900"
-                  : "hover:bg-gray-100"
-              )}
-            >
-              category
-              <SortArrow field="category" />
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1">
-          <span>Columns:</span>
-          <select
-            value={columnCount}
-            onChange={(e) => setColumnCount(Number(e.target.value))}
-            className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
-          >
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Squares per row - only for workflow view */}
-        {viewMode === "workflow" && (
-          <div className="flex items-center gap-1">
-            <span>Squares/row:</span>
+          {/* Layout controls */}
+          <div className="flex items-center gap-1.5">
+            <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
             <select
-              value={squaresPerRow}
-              onChange={(e) => setSquaresPerRow(Number(e.target.value))}
-              className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
+              value={columnCount}
+              onChange={(e) => setColumnCount(Number(e.target.value))}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
             >
-              {[10, 15, 20, 25, 30, 40, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>{n} col{n > 1 ? 's' : ''}</option>
               ))}
             </select>
           </div>
-        )}
+
+          {/* Squares per row - only for workflow view */}
+          {viewMode === "workflow" && (
+            <div className="flex items-center gap-1.5">
+              <Rows3 className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={squaresPerRow}
+                onChange={(e) => setSquaresPerRow(Number(e.target.value))}
+                className="px-2 py-1 text-xs rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
+              >
+                {[10, 15, 20, 25, 30, 40, 50].map((n) => (
+                  <option key={n} value={n}>{n}/row</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Filter indicator - shown on right side */}
+          {hasActiveFilters && (
+            <div className="ml-auto text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              Filtered
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Shared compact legend - for workflow view or compact token view */}
+      {/* Content area */}
+      <div className="border rounded-lg bg-muted/30 p-4">
+        {/* Shared compact legend - for workflow view or compact token view */}
       {(viewMode === "workflow" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
         <div className="mb-4">
           <CompactLegend
@@ -565,6 +647,7 @@ export function ComponentComparisonView({
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

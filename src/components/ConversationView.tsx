@@ -1122,13 +1122,11 @@ export function ConversationView({
 
       {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
         <TabsContent value="comparison" className="flex-1 mt-0 overflow-auto">
-          <div className="border rounded-lg bg-muted/30">
-            <ComponentComparisonView
-              sourceConversations={filteredSourceConversationComponents}
-              componentColors={componentColors}
-              hasActiveFilters={!messageFilters.has("all")}
-            />
-          </div>
+          <ComponentComparisonView
+            sourceConversations={filteredSourceConversationComponents}
+            componentColors={componentColors}
+            hasActiveFilters={!messageFilters.has("all")}
+          />
         </TabsContent>
       )}
     </Tabs>
