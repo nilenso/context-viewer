@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
-import { WorkflowLegend } from "./ComponentComparisonView";
+import { CompactLegend } from "./ComponentComparisonView";
 import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
@@ -205,8 +205,8 @@ export function ComponentsView({
             })}
           </div>
           <div className="mt-3">
-            <WorkflowLegend
-              messageComponents={messageComponents}
+            <CompactLegend
+              components={messageComponents}
               componentColors={componentColors}
             />
           </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { ArrowUp, ArrowDown } from "lucide-react";
@@ -86,6 +86,42 @@ interface ComponentComparisonViewProps {
 }
 
 type ViewMode = "tokens" | "workflow";
+type LegendMode = "expanded" | "compact";
+
+/**
+ * Compact legend - horizontal list of color squares with labels (no percentages)
+ * Used for both workflow view and compact token view
+ */
+export function CompactLegend({
+  components,
+  componentColors,
+}: {
+  components: string[];
+  componentColors?: Record<string, string>;
+}) {
+  // Get unique components preserving order
+  const uniqueComponents = [...new Set(components)].filter(Boolean);
+
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {uniqueComponents.map((component) => {
+        const colorStyles = getComponentWaffleStyles(component, componentColors);
+        return (
+          <div key={component} className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "w-3 h-3 flex-shrink-0",
+                colorStyles.classes,
+              )}
+              style={colorStyles.style || undefined}
+            />
+            <span className="text-muted-foreground [font-variant:small-caps]">{component}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Message-based workflow waffle chart
@@ -127,39 +163,6 @@ export function MessageWorkflowChart({
   );
 }
 
-/**
- * Shared legend for workflow view - shows unique components used
- */
-export function WorkflowLegend({
-  messageComponents,
-  componentColors,
-}: {
-  messageComponents: string[];
-  componentColors?: Record<string, string>;
-}) {
-  // Get unique components in order of first appearance
-  const uniqueComponents = [...new Set(messageComponents)].filter(Boolean);
-
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      {uniqueComponents.map((component) => {
-        const colorStyles = getComponentWaffleStyles(component, componentColors);
-        return (
-          <div key={component} className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "w-3 h-3 flex-shrink-0",
-                colorStyles.classes,
-              )}
-              style={colorStyles.style || undefined}
-            />
-            <span className="text-muted-foreground">{component}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Mini waffle chart for comparison view - smaller 10x10 grid
@@ -284,10 +287,10 @@ function ComparisonLegend({
               )}
               style={colorStyles.style || undefined}
             />
-            <span className="flex-1 truncate text-muted-foreground">
+            <span className="flex-1 truncate text-muted-foreground [font-variant:small-caps]">
               {component}
             </span>
-            <span className="text-muted-foreground tabular-nums">
+            <span className="text-muted-foreground tabular-nums [font-variant:small-caps]">
               {percentage.toFixed(0)}%
             </span>
           </div>
@@ -310,6 +313,7 @@ export function ComponentComparisonView({
   const [columnCount, setColumnCount] = useState<number>(3);
   const [viewMode, setViewMode] = useState<ViewMode>("tokens");
   const [squaresPerRow, setSquaresPerRow] = useState<number>(20);
+  const [legendMode, setLegendMode] = useState<LegendMode>("expanded");
 
   // Check if workflow view is available (any conversation has messageComponents)
   const hasWorkflowData = sourceConversations.some(
@@ -379,6 +383,35 @@ export function ComponentComparisonView({
               )}
             >
               workflow
+            </button>
+          </div>
+        )}
+
+        {/* Legend toggle - only for token view */}
+        {viewMode === "tokens" && (
+          <div className="flex items-center gap-1">
+            <span>Legend:</span>
+            <button
+              onClick={() => setLegendMode("expanded")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors",
+                legendMode === "expanded"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100",
+              )}
+            >
+              expanded
+            </button>
+            <button
+              onClick={() => setLegendMode("compact")}
+              className={cn(
+                "px-1.5 py-0.5 rounded transition-colors",
+                legendMode === "compact"
+                  ? "bg-gray-200 text-gray-900"
+                  : "hover:bg-gray-100",
+              )}
+            >
+              compact
             </button>
           </div>
         )}
@@ -458,11 +491,15 @@ export function ComponentComparisonView({
         )}
       </div>
 
-      {/* Shared legend for workflow view */}
-      {viewMode === "workflow" && sourceConversations.length > 0 && sourceConversations[0]?.messageComponents && (
+      {/* Shared compact legend - for workflow view or compact token view */}
+      {(viewMode === "workflow" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
         <div className="mb-4">
-          <WorkflowLegend
-            messageComponents={sourceConversations.flatMap((c) => c.messageComponents || [])}
+          <CompactLegend
+            components={
+              viewMode === "workflow"
+                ? sourceConversations.flatMap((c) => c.messageComponents || [])
+                : sourceConversations.flatMap((c) => Object.keys(c.componentTokens))
+            }
             componentColors={componentColors}
           />
         </div>
@@ -474,20 +511,23 @@ export function ComponentComparisonView({
         style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
       >
         {sourceConversations.map((conv) => (
-          <div key={conv.id} className="border rounded-lg p-4 bg-white">
+          <div key={conv.id} className={cn(
+            "border rounded-lg bg-white",
+            viewMode === "tokens" && legendMode === "compact" ? "p-2" : "p-4"
+          )}>
             {/* Filename header */}
-            <div className="mb-3">
+            <div className={viewMode === "tokens" && legendMode === "compact" ? "mb-2" : "mb-3"}>
               <h4 className="text-sm font-medium truncate" title={conv.filename}>
                 {conv.filename}
               </h4>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground [font-variant:small-caps]">
                 {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages
                 {conv.durationMs !== undefined && ` · ${formatDuration(conv.durationMs)}`}
               </p>
             </div>
 
             {/* Waffle chart and legend side by side */}
-            <div className="flex gap-4">
+            <div className={viewMode === "tokens" && legendMode === "compact" ? "" : "flex gap-4"}>
               {viewMode === "tokens" ? (
                 <>
                   <MiniWaffleChart
@@ -497,15 +537,17 @@ export function ComponentComparisonView({
                     sortField={sortField}
                     sortDirection={sortDirection}
                   />
-                  <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
-                    <ComparisonLegend
-                      componentTokens={conv.componentTokens}
-                      totalTokens={conv.totalTokens}
-                      componentColors={componentColors}
-                      sortField={sortField}
-                      sortDirection={sortDirection}
-                    />
-                  </div>
+                  {legendMode === "expanded" && (
+                    <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
+                      <ComparisonLegend
+                        componentTokens={conv.componentTokens}
+                        totalTokens={conv.totalTokens}
+                        componentColors={componentColors}
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                      />
+                    </div>
+                  )}
                 </>
               ) : conv.messageComponents ? (
                 <MessageWorkflowChart
