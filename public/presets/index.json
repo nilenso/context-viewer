@@ -6,6 +6,11 @@
       "description": "For analyzing AI system prompts (Claude Code, Gemini, etc.)"
     },
     {
+      "id": "system-prompts-granular",
+      "name": "System Prompts (Granular)",
+      "description": "For analyzing AI system prompts with granular markdown-based segmentation"
+    },
+    {
       "id": "workflow-phases",
       "name": "Workflow Phases",
       "description": "For analyzing conversation transcripts with workflow phases"
