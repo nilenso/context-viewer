@@ -14,12 +14,35 @@ import { ComponentsView } from "./ComponentsView";
 import { StaticComponentsView } from "./StaticComponentsView";
 import { StackedBarChartView } from "./StackedBarChartView";
 import { MessagePartView } from "./MessagePartView";
-import { ComponentComparisonView, type ConversationComponentData } from "./ComponentComparisonView";
+import {
+  ComponentComparisonView,
+  type ConversationComponentData,
+  type ViewMode as ComparisonViewMode,
+  type LegendMode as ComparisonLegendMode,
+  type SortField as ComparisonSortField,
+  type SortDirection as ComparisonSortDirection,
+} from "./ComponentComparisonView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message, SourceInfo } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/componentisation";
+import {
+  type MessageFilter,
+  type SortOption as UrlSortOption,
+  type ConversationTab,
+  type GroupTab,
+  ALL_MESSAGE_FILTERS,
+} from "@/lib/url-state";
+
+// Re-export types for URL state integration
+export type TabType = ConversationTab | GroupTab;
+export type SortOption = UrlSortOption;
+export type { MessageFilter };
+export { ALL_MESSAGE_FILTERS };
+
+// Internal message filters that include "all" pseudo-filter for display purposes
+type MessageFilterWithAll = MessageFilter | "all";
 
 // Minimal workflow state info needed for computing source conversation components
 interface SourceWorkflowState {
@@ -48,6 +71,32 @@ interface ConversationViewProps {
   sourceConversationComponents?: ConversationComponentData[];
   // Source workflow states for grouped conversations (for filtered comparison)
   sourceWorkflowStates?: SourceWorkflowState[];
+
+  // URL-controlled state (optional - falls back to local state if not provided)
+  activeTab?: TabType;
+  onTabChange?: (tab: TabType) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  sortBy?: SortOption;
+  onSortByChange?: (sort: SortOption) => void;
+  messageFilters?: Set<MessageFilter>;
+  onMessageFiltersChange?: (filters: Set<MessageFilter>) => void;
+  selectedComponents?: Set<string>;
+  onSelectedComponentsChange?: (components: Set<string>) => void;
+
+  // Comparison tab controlled state
+  comparisonViewMode?: ComparisonViewMode;
+  onComparisonViewModeChange?: (mode: ComparisonViewMode) => void;
+  comparisonLegendMode?: ComparisonLegendMode;
+  onComparisonLegendModeChange?: (mode: ComparisonLegendMode) => void;
+  comparisonSortField?: ComparisonSortField;
+  onComparisonSortFieldChange?: (field: ComparisonSortField) => void;
+  comparisonSortDirection?: ComparisonSortDirection;
+  onComparisonSortDirectionChange?: (dir: ComparisonSortDirection) => void;
+  comparisonColumnCount?: number;
+  onComparisonColumnCountChange?: (cols: number) => void;
+  comparisonSquaresPerRow?: number;
+  onComparisonSquaresPerRowChange?: (spr: number) => void;
 }
 
 export function ConversationView({
@@ -65,42 +114,95 @@ export function ConversationView({
   isGrouped,
   sourceConversationComponents,
   sourceWorkflowStates,
+  // URL-controlled state
+  activeTab: controlledActiveTab,
+  onTabChange,
+  searchQuery: controlledSearchQuery,
+  onSearchQueryChange,
+  sortBy: controlledSortBy,
+  onSortByChange,
+  messageFilters: controlledMessageFilters,
+  onMessageFiltersChange,
+  selectedComponents: controlledSelectedComponents,
+  onSelectedComponentsChange,
+  // Comparison tab controlled state
+  comparisonViewMode,
+  onComparisonViewModeChange,
+  comparisonLegendMode,
+  onComparisonLegendModeChange,
+  comparisonSortField,
+  onComparisonSortFieldChange,
+  comparisonSortDirection,
+  onComparisonSortDirectionChange,
+  comparisonColumnCount,
+  onComparisonColumnCountChange,
+  comparisonSquaresPerRow,
+  onComparisonSquaresPerRowChange,
 }: ConversationViewProps) {
+  // Local state (used when props are not provided)
+  const [localActiveTab, setLocalActiveTab] = useState<TabType>("conversation");
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const [localSortBy, setLocalSortBy] = useState<SortOption>("time-asc");
+  const [localMessageFilters, setLocalMessageFilters] = useState<Set<MessageFilter>>(
+    new Set(ALL_MESSAGE_FILTERS)
+  );
+  const [localSelectedComponents, setLocalSelectedComponents] = useState<Set<string>>(new Set());
+
+  // Local-only state (not URL-controlled)
   const [expandAll, setExpandAll] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
-
-  // Component selection state for the Components tab
   const [selectedStaticComponent, setSelectedStaticComponent] = useState<string | null>(null);
   const [selectedAutoComponent, setSelectedAutoComponent] = useState<string | null>(null);
-
-  // Filtering and sorting state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"time-asc" | "time-desc" | "tokens-asc" | "tokens-desc">("time-asc");
-
-  // Component filter state - starts with all components selected
-  const [selectedComponents, setSelectedComponents] = useState<Set<string>>(new Set());
-
-  // Copy to markdown state
   const [copyStatus, setCopyStatus] = useState<"idle" | "processing" | "copied">("idle");
+
+  // Use controlled values if provided, otherwise use local state
+  const activeTab = controlledActiveTab ?? localActiveTab;
+  const searchQuery = controlledSearchQuery ?? localSearchQuery;
+  const sortBy = controlledSortBy ?? localSortBy;
+  const selectedComponents = controlledSelectedComponents ?? localSelectedComponents;
+
+  // For message filters, we use the controlled version directly
+  // The "all" pseudo-filter is computed for display purposes
+  const messageFiltersSet = controlledMessageFilters ?? localMessageFilters;
+
+  // Setters that call both local state and callback
+  const handleTabChange = (tab: TabType) => {
+    setLocalActiveTab(tab);
+    onTabChange?.(tab);
+  };
+  const setSearchQuery = (query: string) => {
+    setLocalSearchQuery(query);
+    onSearchQueryChange?.(query);
+  };
+  const setSortBy = (sort: SortOption) => {
+    setLocalSortBy(sort);
+    onSortByChange?.(sort);
+  };
+  const setSelectedComponents = (comps: Set<string>) => {
+    setLocalSelectedComponents(comps);
+    onSelectedComponentsChange?.(comps);
+  };
+  const setMessageFiltersInternal = (filters: Set<MessageFilter>) => {
+    setLocalMessageFilters(filters);
+    onMessageFiltersChange?.(filters);
+  };
 
   // Initialize selected components when components prop changes
   useEffect(() => {
-    if (components && components.length > 0) {
-      setSelectedComponents(new Set(components));
+    if (components && components.length > 0 && !controlledSelectedComponents) {
+      setLocalSelectedComponents(new Set(components));
     }
-  }, [components]);
+  }, [components, controlledSelectedComponents]);
 
   // Helper to toggle a component filter
   const toggleComponent = (component: string) => {
-    setSelectedComponents(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(component)) {
-        newSet.delete(component);
-      } else {
-        newSet.add(component);
-      }
-      return newSet;
-    });
+    const newSet = new Set(selectedComponents);
+    if (newSet.has(component)) {
+      newSet.delete(component);
+    } else {
+      newSet.add(component);
+    }
+    setSelectedComponents(newSet);
   };
 
   // Toggle all components
@@ -132,7 +234,7 @@ export function ConversationView({
     }
 
     const componentFilterText = getComponentFilterDisplayText();
-    const isAllMessages = messageFilters.has("all");
+    const isAllMessages = hasAllFilters;
     const isAllComponents = selectedComponents.size === components.length;
 
     if (isAllMessages && isAllComponents) {
@@ -141,7 +243,7 @@ export function ConversationView({
 
     // Count active filters
     let activeCount = 0;
-    if (!isAllMessages) activeCount += messageFilters.size;
+    if (!isAllMessages) activeCount += messageFiltersSet.size;
     if (!isAllComponents) activeCount += selectedComponents.size;
 
     if (activeCount === 0) return "No Filters";
@@ -179,131 +281,87 @@ export function ConversationView({
     }
   };
 
-  // Combined role+type filters based on valid schema combinations
-  type MessageFilter =
-    | "all"
-    | "system:text"
-    | "user:text"
-    | "user:image"
-    | "user:file"
-    | "assistant:text"
-    | "assistant:file"
-    | "assistant:reasoning"
-    | "assistant:tool-call"
-    | "tool:tool-result";
+  // Compute whether all filters are selected (for UI display)
+  const hasAllFilters = useMemo(() => {
+    return messageFiltersSet.size === ALL_MESSAGE_FILTERS.length &&
+      ALL_MESSAGE_FILTERS.every(f => messageFiltersSet.has(f));
+  }, [messageFiltersSet]);
 
-  const [messageFilters, setMessageFilters] = useState<Set<MessageFilter>>(
-    new Set([
-      "all",
-      "system:text",
-      "user:text",
-      "user:image",
-      "user:file",
-      "assistant:text",
-      "assistant:file",
-      "assistant:reasoning",
-      "assistant:tool-call",
-      "tool:tool-result",
-    ])
-  );
+  // For the internal filter checks, we just use messageFiltersSet directly
+  // The "all" check is handled by hasAllFilters
 
   // Helper to toggle a message filter
-  const toggleMessageFilter = (filter: MessageFilter) => {
-    setMessageFilters(prev => {
-      const newSet = new Set(prev);
-      if (filter === "all") {
-        // Toggle all on/off
-        if (newSet.has("all")) {
-          return new Set();
-        } else {
-          return new Set([
-            "all",
-            "system:text",
-            "user:text",
-            "user:image",
-            "user:file",
-            "assistant:text",
-            "assistant:file",
-            "assistant:reasoning",
-            "assistant:tool-call",
-            "tool:tool-result",
-          ]);
-        }
+  const toggleMessageFilter = (filter: MessageFilterWithAll) => {
+    if (filter === "all") {
+      // Toggle all on/off
+      if (hasAllFilters) {
+        setMessageFiltersInternal(new Set());
       } else {
-        // Toggle individual filter
-        if (newSet.has(filter)) {
-          newSet.delete(filter);
-          newSet.delete("all");
-        } else {
-          newSet.add(filter);
-          // Check if all are now selected
-          const allFilters: MessageFilter[] = [
-            "system:text",
-            "user:text",
-            "user:image",
-            "user:file",
-            "assistant:text",
-            "assistant:file",
-            "assistant:reasoning",
-            "assistant:tool-call",
-            "tool:tool-result",
-          ];
-          if (allFilters.every(f => newSet.has(f))) {
-            newSet.add("all");
-          }
-        }
-        return newSet;
+        setMessageFiltersInternal(new Set(ALL_MESSAGE_FILTERS));
       }
-    });
+    } else {
+      // Toggle individual filter
+      const newSet = new Set(messageFiltersSet);
+      if (newSet.has(filter)) {
+        newSet.delete(filter);
+      } else {
+        newSet.add(filter);
+      }
+      setMessageFiltersInternal(newSet);
+    }
   };
 
   // Get display text for filter button
   const getFilterDisplayText = () => {
-    if (messageFilters.has("all")) return "All Messages";
-    if (messageFilters.size === 0) return "No Messages";
-    return `${messageFilters.size} Filter${messageFilters.size !== 1 ? 's' : ''}`;
+    if (hasAllFilters) return "All Messages";
+    if (messageFiltersSet.size === 0) return "No Messages";
+    return `${messageFiltersSet.size} Filter${messageFiltersSet.size !== 1 ? 's' : ''}`;
   };
 
   // Valid message filter options grouped by role
-  const filterOptions = [
+  const filterOptions: Array<{
+    role: string;
+    emoji: string;
+    filters: Array<{ key: MessageFilterWithAll; label: string; emoji: string }>;
+  }> = [
     {
       role: "All",
       emoji: "🔍",
       filters: [
-        { key: "all" as MessageFilter, label: "All Messages", emoji: "🔍" },
+        { key: "all", label: "All Messages", emoji: "🔍" },
       ]
     },
     {
       role: "System",
       emoji: "⚙️",
       filters: [
-        { key: "system:text" as MessageFilter, label: "Text", emoji: "💬" },
+        { key: "system:text", label: "Text", emoji: "💬" },
       ]
     },
     {
       role: "User",
       emoji: "👤",
       filters: [
-        { key: "user:text" as MessageFilter, label: "Text", emoji: "💬" },
-        { key: "user:image" as MessageFilter, label: "Image", emoji: "🖼️" },
-        { key: "user:file" as MessageFilter, label: "File", emoji: "📄" },
+        { key: "user:text", label: "Text", emoji: "💬" },
+        { key: "user:image", label: "Image", emoji: "🖼️" },
+        { key: "user:file", label: "File", emoji: "📄" },
       ]
     },
     {
       role: "Assistant",
       emoji: "🤖",
       filters: [
-        { key: "assistant:text" as MessageFilter, label: "Text", emoji: "💬" },
-        { key: "assistant:file" as MessageFilter, label: "File", emoji: "📄" },
-        { key: "assistant:reasoning" as MessageFilter, label: "Reasoning", emoji: "💭" },
-        { key: "assistant:tool-call" as MessageFilter, label: "Tool Call", emoji: "📤" },
+        { key: "assistant:text", label: "Text", emoji: "💬" },
+        { key: "assistant:file", label: "File", emoji: "📄" },
+        { key: "assistant:reasoning", label: "Reasoning", emoji: "💭" },
+        { key: "assistant:tool-call", label: "Tool Call", emoji: "📤" },
       ]
     },
     {
       role: "Tool",
       emoji: "🔧",
       filters: [
-        { key: "tool:tool-result" as MessageFilter, label: "Tool Result", emoji: "📥" },
+        { key: "tool:tool-result", label: "Tool Result", emoji: "📥" },
       ]
     },
   ];
@@ -333,15 +391,15 @@ export function ConversationView({
 
   // Helper to check if a part passes the message type filter
   const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
-    if (messageFilters.has("all")) return true;
-    const filterKey = `${msgRole}:${part.type}`;
-    return messageFilters.has(filterKey);
+    if (hasAllFilters) return true;
+    const filterKey = `${msgRole}:${part.type}` as MessageFilter;
+    return messageFiltersSet.has(filterKey);
   };
 
   // Compute filtered source conversation components for grouped conversation comparison
   const filteredSourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
     // Check if any filters are active
-    const hasMessageTypeFilters = !messageFilters.has("all");
+    const hasMessageTypeFilters = !hasAllFilters;
     const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
 
     // Use pre-computed data if no filters are active or no source states provided
@@ -465,16 +523,16 @@ export function ConversationView({
         return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [sourceWorkflowStates, sourceConversationComponents, messageFilters, components, selectedComponents]);
+  }, [sourceWorkflowStates, sourceConversationComponents, messageFiltersSet, hasAllFilters, components, selectedComponents]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
     // Helper to check if a part passes all filters
     const partPassesFilters = (part: Message["parts"][number], msgRole: Message["role"]) => {
       // Filter by role+type combinations
-      if (!messageFilters.has("all")) {
+      if (!hasAllFilters) {
         const filterKey = `${msgRole}:${part.type}` as MessageFilter;
-        if (!messageFilters.has(filterKey)) {
+        if (!messageFiltersSet.has(filterKey)) {
           return false;
         }
       }
@@ -544,7 +602,7 @@ export function ConversationView({
     }
 
     return sorted;
-  }, [conversation.messages, messageFilters, searchQuery, sortBy, componentMapping, components, selectedComponents]);
+  }, [conversation.messages, messageFiltersSet, hasAllFilters, searchQuery, sortBy, componentMapping, components, selectedComponents]);
 
   // Generate markdown and copy to clipboard
   const copyToMarkdown = useCallback(async () => {
@@ -556,8 +614,8 @@ export function ConversationView({
       if (searchQuery.trim()) {
         activeFilters.push(`Search: "${searchQuery}"`);
       }
-      if (!messageFilters.has("all")) {
-        const filterNames = Array.from(messageFilters).map(f => f.replace(":", " → "));
+      if (!hasAllFilters) {
+        const filterNames = Array.from(messageFiltersSet).map(f => f.replace(":", " → "));
         activeFilters.push(`Message types: ${filterNames.join(", ")}`);
       }
       if (components && selectedComponents.size > 0 && selectedComponents.size < components.length) {
@@ -688,7 +746,8 @@ export function ConversationView({
     }
   }, [
     filteredAndSortedMessages,
-    messageFilters,
+    messageFiltersSet,
+    hasAllFilters,
     searchQuery,
     sortBy,
     components,
@@ -700,7 +759,11 @@ export function ConversationView({
   ]);
 
   return (
-    <Tabs defaultValue="conversation" className="flex flex-col h-full">
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => handleTabChange(value as TabType)}
+      className="flex flex-col h-full"
+    >
       {/* Warnings Banner */}
       {warnings && warnings.length > 0 && !dismissedWarnings && (
         <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -786,7 +849,7 @@ export function ConversationView({
                                 className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors ml-2"
                               >
                                 <Checkbox
-                                  checked={messageFilters.has(key)}
+                                  checked={key === "all" ? hasAllFilters : messageFiltersSet.has(key)}
                                   onCheckedChange={() => toggleMessageFilter(key)}
                                 />
                                 <span className="text-sm flex-1">
@@ -1003,7 +1066,7 @@ export function ConversationView({
                 // Clear auto component selection when static filter changes
                 setSelectedAutoComponent(null);
               }}
-              messageTypeFilters={messageFilters}
+              messageTypeFilters={messageFiltersSet}
             />
           </div>
 
@@ -1024,7 +1087,7 @@ export function ConversationView({
               }}
               staticMapping={staticMapping}
               filterByStaticComponent={selectedStaticComponent}
-              messageTypeFilters={messageFilters}
+              messageTypeFilters={messageFiltersSet}
             />
           </div>
 
@@ -1115,7 +1178,7 @@ export function ConversationView({
             componentTimeline={componentTimeline}
             componentColors={componentColors}
             components={components}
-            messageTypeFilters={messageFilters}
+            messageTypeFilters={messageFiltersSet}
           />
         </div>
       </TabsContent>
@@ -1126,7 +1189,19 @@ export function ConversationView({
             <ComponentComparisonView
               sourceConversations={filteredSourceConversationComponents}
               componentColors={componentColors}
-              hasActiveFilters={!messageFilters.has("all")}
+              hasActiveFilters={!hasAllFilters}
+              viewMode={comparisonViewMode}
+              onViewModeChange={onComparisonViewModeChange}
+              legendMode={comparisonLegendMode}
+              onLegendModeChange={onComparisonLegendModeChange}
+              sortField={comparisonSortField}
+              onSortFieldChange={onComparisonSortFieldChange}
+              sortDirection={comparisonSortDirection}
+              onSortDirectionChange={onComparisonSortDirectionChange}
+              columnCount={comparisonColumnCount}
+              onColumnCountChange={onComparisonColumnCountChange}
+              squaresPerRow={comparisonSquaresPerRow}
+              onSquaresPerRowChange={onComparisonSquaresPerRowChange}
             />
           </div>
         </TabsContent>

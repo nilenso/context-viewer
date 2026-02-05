@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { parserRegistry, type ConversationMetadata } from "./parser";
@@ -24,7 +24,13 @@ import {
   type ConversationStats,
 } from "./ai-summary";
 import { ConversationList } from "./components/ConversationList";
-import { ConversationView } from "./components/ConversationView";
+import {
+  ConversationView,
+  type TabType,
+  type SortOption,
+  type MessageFilter,
+  ALL_MESSAGE_FILTERS,
+} from "./components/ConversationView";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
@@ -62,6 +68,8 @@ import {
   FileExportSchema,
 } from "./lib/export-schema";
 import { hasApiKey, setRuntimeApiKey } from "./ai-config";
+import { useUrlState } from "./hooks/useUrlState";
+import type { InsightsTab } from "./lib/url-state";
 
 const generateId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -934,9 +942,43 @@ async function runWorkflows(
 
 export default function App() {
   const [conversations, setConversations] = useState<WorkflowState[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [insightsTab, setInsightsTab] = useState<string>("summary");
+
+  // URL state management
+  const {
+    state: urlState,
+    navigateToConversation,
+    navigateToTab,
+    setInsightsTab,
+    setSearchQuery,
+    setSort,
+    setMessageFilters,
+    setComponentFilters,
+    setComparisonView,
+    setComparisonLegend,
+    setComparisonSortBy,
+    setComparisonSortDir,
+    setComparisonCols,
+    setComparisonSquaresPerRow,
+  } = useUrlState();
+
+  // Derive selectedId and insightsTab from URL state
+  const selectedId = urlState.conversationId;
+  const insightsTab = urlState.insightsTab;
+
+  // Callback to change selected conversation (with history entry)
+  const setSelectedId = useCallback((id: string | null) => {
+    if (id === null) {
+      // Navigate to home when deselecting - don't create history entry
+      const basePath = import.meta.env.BASE_URL || "/";
+      window.history.replaceState({}, "", basePath);
+    } else {
+      // Check if the conversation is grouped
+      const conv = conversations.find(c => c.id === id);
+      const isGrouped = conv?.isGrouped ?? false;
+      navigateToConversation(id, isGrouped);
+    }
+  }, [conversations, navigateToConversation]);
 
   // Sidebar collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -2466,6 +2508,30 @@ export default function App() {
                     isGrouped={selectedConversation.isGrouped}
                     sourceConversationComponents={sourceConversationComponents}
                     sourceWorkflowStates={sourceWorkflowStates}
+                    // URL-controlled state
+                    activeTab={urlState.tab as TabType}
+                    onTabChange={(tab) => navigateToTab(tab)}
+                    searchQuery={urlState.searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    sortBy={urlState.sort as SortOption}
+                    onSortByChange={setSort}
+                    messageFilters={urlState.messageFilters}
+                    onMessageFiltersChange={setMessageFilters}
+                    selectedComponents={urlState.componentFilters}
+                    onSelectedComponentsChange={setComponentFilters}
+                    // Comparison tab state
+                    comparisonViewMode={urlState.comparisonView}
+                    onComparisonViewModeChange={setComparisonView}
+                    comparisonLegendMode={urlState.comparisonLegend}
+                    onComparisonLegendModeChange={setComparisonLegend}
+                    comparisonSortField={urlState.comparisonSortBy}
+                    onComparisonSortFieldChange={setComparisonSortBy}
+                    comparisonSortDirection={urlState.comparisonSortDir}
+                    onComparisonSortDirectionChange={setComparisonSortDir}
+                    comparisonColumnCount={urlState.comparisonCols}
+                    onComparisonColumnCountChange={setComparisonCols}
+                    comparisonSquaresPerRow={urlState.comparisonSquaresPerRow}
+                    onComparisonSquaresPerRowChange={setComparisonSquaresPerRow}
                   />
                 ) : selectedConversation.status === "pending" ? (
                   <Card className="p-12 text-center">
@@ -2528,7 +2594,7 @@ export default function App() {
                     selectedConversation.step === "analysis"
                   }
                   activeTab={insightsTab}
-                  onTabChange={setInsightsTab}
+                  onTabChange={(tab) => setInsightsTab(tab as InsightsTab)}
                   isCollapsed={isInsightsPanelCollapsed}
                   onToggleCollapse={handleToggleInsightsPanel}
                   metadata={selectedConversation.metadata}
