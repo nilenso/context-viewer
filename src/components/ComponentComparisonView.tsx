@@ -114,7 +114,7 @@ export function MessageWorkflowChart({
             <div
               key={index}
               className={cn(
-                "w-3 h-3 rounded-sm",
+                "w-3 h-3",
                 component ? colorStyles?.classes : "bg-gray-200",
               )}
               style={colorStyles?.style || undefined}
@@ -148,7 +148,7 @@ export function WorkflowLegend({
           <div key={component} className="flex items-center gap-1.5">
             <span
               className={cn(
-                "w-3 h-3 rounded-sm flex-shrink-0",
+                "w-3 h-3 flex-shrink-0",
                 colorStyles.classes,
               )}
               style={colorStyles.style || undefined}
@@ -226,7 +226,7 @@ function MiniWaffleChart({
             <div
               key={index}
               className={cn(
-                "w-3 h-3 rounded-sm",
+                "w-3 h-3",
                 component ? colorStyles?.classes : "bg-gray-200"
               )}
               style={colorStyles?.style || undefined}
@@ -279,7 +279,7 @@ function ComparisonLegend({
           <div key={component} className="flex items-center gap-1.5">
             <span
               className={cn(
-                "w-2.5 h-2.5 rounded-sm flex-shrink-0",
+                "w-2.5 h-2.5 flex-shrink-0",
                 colorStyles.classes
               )}
               style={colorStyles.style || undefined}
