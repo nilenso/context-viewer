@@ -57,6 +57,7 @@ import {
   type PresetSummary,
 } from "./lib/preset-loader";
 import { PresetSelector } from "./components/PresetSelector";
+import { UrlImport } from "./components/UrlImport";
 import {
   parseFileContent,
   createFileValidator,
@@ -2435,7 +2436,16 @@ export default function App() {
                     : "Drop conversation files here"}
                 </h2>
                 <p className="text-muted-foreground mb-2">or click to browse</p>
-                <p className="text-sm text-muted-foreground">
+
+                {/* URL Import */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <UrlImport onFileImported={(file) => handleFileDrop([file])} />
+                </div>
+
+                <p className="text-sm text-muted-foreground mt-4">
                   Accepts {SUPPORTED_EXTENSIONS_TEXT} files
                 </p>
               </div>
