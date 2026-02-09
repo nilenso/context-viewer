@@ -14,6 +14,8 @@
  *   - msg=user:text,assistant:tool-call  Message type filters
  *   - comp=planning,execution            Component filters
  *   - insights=summary|analysis          Insights panel tab
+ *   - sidebar=0                           Sidebar collapsed
+ *   - panel=0                             Insights panel collapsed
  *
  * - Tab-specific (conversation tab):
  *   - q=search                           Search query
@@ -86,6 +88,8 @@ export interface UrlState {
   messageFilters: Set<MessageFilter>;
   componentFilters: Set<string>;
   insightsTab: InsightsTab;
+  sidebarCollapsed: boolean;
+  insightsCollapsed: boolean;
 
   // Conversation tab specific
   searchQuery: string;
@@ -113,6 +117,8 @@ export const DEFAULT_URL_STATE: UrlState = {
   messageFilters: new Set(ALL_MESSAGE_FILTERS),
   componentFilters: new Set(),
   insightsTab: "summary",
+  sidebarCollapsed: false,
+  insightsCollapsed: false,
   searchQuery: "",
   sort: "time-asc",
   comparisonView: "tokens",
@@ -192,6 +198,14 @@ export function parseUrl(url: string = window.location.href): UrlState {
     const insightsParam = params.get("insights");
     if (insightsParam === "summary" || insightsParam === "analysis") {
       state.insightsTab = insightsParam;
+    }
+
+    // Parse panel collapse states
+    if (params.get("sidebar") === "0") {
+      state.sidebarCollapsed = true;
+    }
+    if (params.get("panel") === "0") {
+      state.insightsCollapsed = true;
     }
 
     // Parse conversation tab params
@@ -295,6 +309,13 @@ export function serializeUrl(state: Partial<UrlState>, currentState?: UrlState):
     params.set("insights", merged.insightsTab);
   }
 
+  if (merged.sidebarCollapsed) {
+    params.set("sidebar", "0");
+  }
+  if (merged.insightsCollapsed) {
+    params.set("panel", "0");
+  }
+
   // Conversation tab params - only add if not default
   if (merged.searchQuery) {
     params.set("q", merged.searchQuery);
@@ -348,6 +369,8 @@ export function urlStatesEqual(a: UrlState, b: UrlState): boolean {
   if (a.isGrouped !== b.isGrouped) return false;
   if (a.tab !== b.tab) return false;
   if (a.insightsTab !== b.insightsTab) return false;
+  if (a.sidebarCollapsed !== b.sidebarCollapsed) return false;
+  if (a.insightsCollapsed !== b.insightsCollapsed) return false;
   if (a.searchQuery !== b.searchQuery) return false;
   if (a.sort !== b.sort) return false;
   if (a.comparisonView !== b.comparisonView) return false;

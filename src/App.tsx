@@ -952,6 +952,8 @@ export default function App() {
     navigateToConversation,
     navigateToTab,
     setInsightsTab,
+    setSidebarCollapsed,
+    setInsightsCollapsed,
     setSearchQuery,
     setSort,
     setMessageFilters,
@@ -964,9 +966,11 @@ export default function App() {
     setComparisonSquaresPerRow,
   } = useUrlState();
 
-  // Derive selectedId and insightsTab from URL state
+  // Derive selectedId, insightsTab, and panel collapse states from URL state
   const selectedId = urlState.conversationId;
   const insightsTab = urlState.insightsTab;
+  const isSidebarCollapsed = urlState.sidebarCollapsed;
+  const isInsightsPanelCollapsed = urlState.insightsCollapsed;
 
   // Callback to change selected conversation (with history entry)
   const setSelectedId = useCallback((id: string | null) => {
@@ -982,12 +986,7 @@ export default function App() {
     }
   }, [conversations, navigateToConversation]);
 
-  // Sidebar collapse state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // Insights panel collapse state
-  const [isInsightsPanelCollapsed, setIsInsightsPanelCollapsed] =
-    useState(false);
+  // Sidebar and insights panel collapse is managed via URL state above
 
   // Prompt editor dialog state
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
@@ -1587,12 +1586,12 @@ export default function App() {
 
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
-    setIsSidebarCollapsed((prev) => !prev);
+    setSidebarCollapsed(!isSidebarCollapsed);
   };
 
   // Insights panel toggle handler
   const handleToggleInsightsPanel = () => {
-    setIsInsightsPanelCollapsed((prev) => !prev);
+    setInsightsCollapsed(!isInsightsPanelCollapsed);
   };
 
   // Helper: Build base context from selected conversation

@@ -39,6 +39,8 @@ interface UseUrlStateReturn {
   setMessageFilters: (filters: Set<MessageFilter>) => void;
   setComponentFilters: (filters: Set<string>) => void;
   setInsightsTab: (tab: InsightsTab) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  setInsightsCollapsed: (collapsed: boolean) => void;
   setSearchQuery: (query: string) => void;
   setSort: (sort: SortOption) => void;
 
@@ -158,6 +160,14 @@ export function useUrlState(): UseUrlStateReturn {
     updateState({ insightsTab: tab });
   }, [updateState]);
 
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    updateState({ sidebarCollapsed: collapsed });
+  }, [updateState]);
+
+  const setInsightsCollapsed = useCallback((collapsed: boolean) => {
+    updateState({ insightsCollapsed: collapsed });
+  }, [updateState]);
+
   const setSearchQuery = useCallback((query: string) => {
     updateState({ searchQuery: query });
   }, [updateState]);
@@ -217,6 +227,8 @@ export function useUrlState(): UseUrlStateReturn {
     setMessageFilters,
     setComponentFilters,
     setInsightsTab,
+    setSidebarCollapsed,
+    setInsightsCollapsed,
     setSearchQuery,
     setSort,
     setComparisonView,
