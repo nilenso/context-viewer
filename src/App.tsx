@@ -1044,7 +1044,7 @@ export default function App() {
   // Maps old file IDs to file indices, plus the groups to recreate
   const pendingSessionImportRef = useRef<{
     oldIdToIndex: Map<string, number>;
-    groups: Array<{ id: string; name: string; fileIds: string[] }>;
+    groups: Array<{ id: string; name: string; title?: string; fileIds: string[] }>;
   } | null>(null);
 
   // API key state
@@ -1369,7 +1369,7 @@ export default function App() {
 
         // Create the group if we have at least 2 valid IDs
         if (newIds.length >= 2) {
-          await handleGroupConversations(newIds, group.name, group.id);
+          await handleGroupConversations(newIds, group.name, group.id, group.title);
         }
       }
 
@@ -2043,6 +2043,7 @@ export default function App() {
     idsToGroup?: string[],
     groupName?: string,
     existingGroupId?: string,
+    groupTitle?: string,
   ) => {
     const idsSet = idsToGroup ? new Set(idsToGroup) : selectedIds;
     if (idsSet.size < 2) return;
@@ -2178,6 +2179,7 @@ export default function App() {
     const placeholder: WorkflowState = {
       id: groupId,
       filename: groupedFilename,
+      title: groupTitle,
       status: "pending",
       isGrouped: true,
       sourceConversations,
@@ -2211,6 +2213,7 @@ export default function App() {
     const ctx: WorkflowState = {
       id: groupId,
       filename: groupedFilename,
+      title: groupTitle,
       conversation: groupedConversation,
       summary: summarizeConversation(groupedConversation),
       isGrouped: true,
@@ -2455,7 +2458,7 @@ export default function App() {
     const filesToProcess: File[] = [];
     // Track mapping from old file IDs to file indices (for session import groups)
     const oldIdToIndex = new Map<string, number>();
-    let sessionGroups: Array<{ id: string; name: string; fileIds: string[] }> =
+    let sessionGroups: Array<{ id: string; name: string; title?: string; fileIds: string[] }> =
       [];
 
     for (const file of files) {
@@ -2715,6 +2718,7 @@ export default function App() {
                     isReprocessing={reprocessingId === selectedConversation.id}
                     messageSourceMap={selectedConversation.messageSourceMap}
                     isGrouped={selectedConversation.isGrouped}
+                    groupTitle={selectedConversation.title}
                     sourceConversationComponents={sourceConversationComponents}
                     sourceWorkflowStates={sourceWorkflowStates}
                     // URL-controlled state

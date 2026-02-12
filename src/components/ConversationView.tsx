@@ -68,6 +68,7 @@ interface ConversationViewProps {
   // Grouped conversation data
   messageSourceMap?: Record<string, SourceInfo>;
   isGrouped?: boolean;
+  groupTitle?: string;
   sourceConversationComponents?: ConversationComponentData[];
   // Source workflow states for grouped conversations (for filtered comparison)
   sourceWorkflowStates?: SourceWorkflowState[];
@@ -112,6 +113,7 @@ export function ConversationView({
   isReprocessing,
   messageSourceMap,
   isGrouped,
+  groupTitle,
   sourceConversationComponents,
   sourceWorkflowStates,
   // URL-controlled state
@@ -1189,6 +1191,7 @@ export function ConversationView({
             sourceConversations={filteredSourceConversationComponents}
             componentColors={componentColors}
             hasActiveFilters={!hasAllFilters}
+            groupTitle={groupTitle}
             viewMode={comparisonViewMode}
             onViewModeChange={onComparisonViewModeChange}
             legendMode={comparisonLegendMode}

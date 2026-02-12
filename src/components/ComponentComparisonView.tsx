@@ -90,6 +90,7 @@ interface ComponentComparisonViewProps {
   sourceConversations: ConversationComponentData[];
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
+  groupTitle?: string;
   // Controlled state props (optional - falls back to local state if not provided)
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -428,6 +429,7 @@ export function ComponentComparisonView({
   sourceConversations,
   componentColors,
   hasActiveFilters,
+  groupTitle,
   // Controlled props
   viewMode: controlledViewMode,
   onViewModeChange,
@@ -518,6 +520,9 @@ export function ComponentComparisonView({
 
   return (
     <>
+      {groupTitle && (
+        <h2 className="text-lg font-semibold mb-3">{groupTitle}</h2>
+      )}
       {/* Toolbar - matches ConversationView toolbar styling */}
       <div className="border rounded-lg p-3 mb-3 bg-white">
         <div className="flex items-center gap-2 flex-wrap">

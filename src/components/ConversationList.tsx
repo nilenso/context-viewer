@@ -534,15 +534,15 @@ export function ConversationList({
                               className="font-medium text-sm truncate flex-1 min-w-0 cursor-pointer hover:underline"
                               title={conversation.title || conversation.filename}
                               onClick={(e) => {
-                                if (!conversation.isGrouped && onRename) {
+                                if (onRename) {
                                   e.stopPropagation();
                                   setEditingId(conversation.id);
-                                  setEditingTitle(conversation.title || conversation.filename);
+                                  setEditingTitle(conversation.title || (conversation.isGrouped ? "" : conversation.filename));
                                 }
                               }}
                             >
                               {conversation.isGrouped
-                                ? "Grouped"
+                                ? conversation.title || "Grouped"
                                 : conversation.title || conversation.filename}
                             </span>
                           )}

@@ -69,6 +69,7 @@ export const FileExportSchema = z.object({
 export const GroupExportSchema = z.object({
   id: z.string(),
   name: z.string(),
+  title: z.string().optional(), // Custom display title for the group
   fileIds: z.array(z.string()), // References to FileExport.id
 });
 

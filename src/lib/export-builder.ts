@@ -148,11 +148,17 @@ export function buildSessionExport(
     version: "1.0" as const,
     exportedAt: new Date().toISOString(),
     files: individualFiles.map(buildFileExport),
-    groups: groups.map((g) => ({
-      id: g.id,
-      name: g.filename,
-      fileIds: g.sourceConversations?.map((s) => s.id) || [],
-    })),
+    groups: groups.map((g) => {
+      const group: { id: string; name: string; title?: string; fileIds: string[] } = {
+        id: g.id,
+        name: g.filename,
+        fileIds: g.sourceConversations?.map((s) => s.id) || [],
+      };
+      if (g.title) {
+        group.title = g.title;
+      }
+      return group;
+    }),
     analytics: buildAnalytics(individualFiles),
   };
 
