@@ -22,7 +22,7 @@
  *   - sort=time-asc|time-desc|tokens-asc|tokens-desc
  *
  * - Tab-specific (comparison tab):
- *   - view=tokens|workflow
+ *   - view=tokens|workflow|tokens-absolute
  *   - legend=expanded|compact
  *   - sortBy=tokens|name|category
  *   - sortDir=asc|desc
@@ -43,7 +43,7 @@ export type ComparisonSortField = "tokens" | "name" | "category";
 export type ComparisonSortDirection = "asc" | "desc";
 
 // View mode for comparison tab
-export type ComparisonViewMode = "tokens" | "workflow";
+export type ComparisonViewMode = "tokens" | "workflow" | "tokens-absolute";
 
 // Legend mode for comparison tab
 export type ComparisonLegendMode = "expanded" | "compact";
@@ -221,7 +221,7 @@ export function parseUrl(url: string = window.location.href): UrlState {
 
     // Parse comparison tab params
     const viewParam = params.get("view");
-    if (viewParam === "tokens" || viewParam === "workflow") {
+    if (viewParam === "tokens" || viewParam === "workflow" || viewParam === "tokens-absolute") {
       state.comparisonView = viewParam;
     }
 
@@ -243,7 +243,7 @@ export function parseUrl(url: string = window.location.href): UrlState {
     const colsParam = params.get("cols");
     if (colsParam) {
       const cols = parseInt(colsParam, 10);
-      if (!isNaN(cols) && cols >= 1 && cols <= 5) {
+      if (!isNaN(cols) && cols >= 1 && cols <= 10) {
         state.comparisonCols = cols;
       }
     }
@@ -251,7 +251,7 @@ export function parseUrl(url: string = window.location.href): UrlState {
     const sprParam = params.get("spr");
     if (sprParam) {
       const spr = parseInt(sprParam, 10);
-      if (!isNaN(spr) && [10, 15, 20, 25, 30, 40, 50].includes(spr)) {
+      if (!isNaN(spr) && ((spr >= 2 && spr <= 10) || [10, 15, 20, 25, 30, 40, 50].includes(spr))) {
         state.comparisonSquaresPerRow = spr;
       }
     }

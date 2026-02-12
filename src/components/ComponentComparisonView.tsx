@@ -82,7 +82,7 @@ function sortByCategory(
 }
 
 // Export types for URL state integration
-export type ViewMode = "tokens" | "workflow";
+export type ViewMode = "tokens" | "workflow" | "tokens-absolute";
 export type LegendMode = "expanded" | "compact";
 export type { SortField, SortDirection };
 
@@ -260,6 +260,110 @@ function MiniWaffleChart({
 }
 
 /**
+ * Format token count for labels (e.g., 1500 -> "1.5k", 250 -> "250")
+ */
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1000) {
+    const k = tokens / 1000;
+    return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
+  }
+  return String(tokens);
+}
+
+/**
+ * Absolute waffle chart - each square = tokensPerSquare tokens
+ * Height varies based on total tokens, enabling cross-conversation comparison
+ */
+function AbsoluteWaffleChart({
+  componentTokens,
+  totalTokens,
+  componentColors,
+  sortField,
+  sortDirection,
+  maxRows,
+  tokensPerSquare,
+  columns,
+}: {
+  componentTokens: Record<string, number>;
+  totalTokens: number;
+  componentColors?: Record<string, string>;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  maxRows: number;
+  tokensPerSquare: number;
+  columns: number;
+}) {
+  // Sort components
+  const componentData = sortField === "category"
+    ? sortByCategory(componentTokens, sortDirection)
+    : Object.entries(componentTokens)
+        .map(([component, tokens]) => ({
+          component,
+          tokens,
+          percentage: totalTokens > 0 ? (tokens / totalTokens) * 100 : 0,
+        }))
+        .sort((a, b) => {
+          const dir = sortDirection === "asc" ? 1 : -1;
+          if (sortField === "name") {
+            return a.component.localeCompare(b.component) * dir;
+          }
+          return (b.tokens - a.tokens) * dir;
+        });
+
+  // Build squares array - fill with components
+  const squares: { component: string }[] = [];
+  for (const { component, tokens } of componentData) {
+    const count = Math.max(tokens > 0 ? 1 : 0, Math.round(tokens / tokensPerSquare));
+    for (let i = 0; i < count; i++) {
+      squares.push({ component });
+    }
+  }
+
+  // Clamp and pad to exactly fill the grid (maxRows * columns)
+  const totalCells = maxRows * columns;
+  squares.length = Math.min(squares.length, totalCells);
+  while (squares.length < totalCells) {
+    squares.push({ component: "" });
+  }
+
+  // Reverse so filled squares are at the bottom (CSS grid fills top-to-bottom)
+  // We want the chart to grow upward from the baseline
+  const reversed = [...squares].reverse();
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="text-xs text-muted-foreground mb-1 tabular-nums [font-variant:small-caps]">
+        {formatTokenCount(totalTokens)}
+      </div>
+      <div
+        className="grid gap-0.5"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, 12px)`,
+          gridTemplateRows: `repeat(${maxRows}, 12px)`,
+        }}
+      >
+        {reversed.map((sq, index) => {
+          const colorStyles = sq.component
+            ? getComponentWaffleStyles(sq.component, componentColors)
+            : null;
+          return (
+            <div
+              key={index}
+              className={cn(
+                "w-3 h-3",
+                sq.component ? colorStyles?.classes : "",
+              )}
+              style={colorStyles?.style || undefined}
+              title={sq.component || undefined}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Legend with percentages for a single conversation
  */
 function ComparisonLegend({
@@ -418,38 +522,47 @@ export function ComponentComparisonView({
       <div className="border rounded-lg p-3 mb-3 bg-white">
         <div className="flex items-center gap-2 flex-wrap">
           {/* View mode toggle */}
-          {hasWorkflowData && (
-            <>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground font-medium">View</span>
-                <div className="flex rounded-md border border-gray-200 overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("tokens")}
-                    className={cn(
-                      "px-2.5 py-1 text-xs transition-colors",
-                      viewMode === "tokens"
-                        ? "bg-gray-100 text-gray-900 font-medium"
-                        : "bg-white text-gray-600 hover:bg-gray-50",
-                    )}
-                  >
-                    Tokens
-                  </button>
-                  <button
-                    onClick={() => setViewMode("workflow")}
-                    className={cn(
-                      "px-2.5 py-1 text-xs transition-colors border-l border-gray-200",
-                      viewMode === "workflow"
-                        ? "bg-gray-100 text-gray-900 font-medium"
-                        : "bg-white text-gray-600 hover:bg-gray-50",
-                    )}
-                  >
-                    Workflow
-                  </button>
-                </div>
-              </div>
-              <Separator orientation="vertical" className="h-6" />
-            </>
-          )}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground font-medium">View</span>
+            <div className="flex rounded-md border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setViewMode("tokens")}
+                className={cn(
+                  "px-2.5 py-1 text-xs transition-colors",
+                  viewMode === "tokens"
+                    ? "bg-gray-100 text-gray-900 font-medium"
+                    : "bg-white text-gray-600 hover:bg-gray-50",
+                )}
+              >
+                Tokens
+              </button>
+              <button
+                onClick={() => setViewMode("tokens-absolute")}
+                className={cn(
+                  "px-2.5 py-1 text-xs transition-colors border-l border-gray-200",
+                  viewMode === "tokens-absolute"
+                    ? "bg-gray-100 text-gray-900 font-medium"
+                    : "bg-white text-gray-600 hover:bg-gray-50",
+                )}
+              >
+                Tokens (abs)
+              </button>
+              {hasWorkflowData && (
+                <button
+                  onClick={() => setViewMode("workflow")}
+                  className={cn(
+                    "px-2.5 py-1 text-xs transition-colors border-l border-gray-200",
+                    viewMode === "workflow"
+                      ? "bg-gray-100 text-gray-900 font-medium"
+                      : "bg-white text-gray-600 hover:bg-gray-50",
+                  )}
+                >
+                  Workflow
+                </button>
+              )}
+            </div>
+          </div>
+          <Separator orientation="vertical" className="h-6" />
 
           {/* Legend toggle - only for token view */}
           {viewMode === "tokens" && (
@@ -485,8 +598,8 @@ export function ComponentComparisonView({
             </>
           )}
 
-          {/* Sort controls - only for token view */}
-          {viewMode === "tokens" && (
+          {/* Sort controls - for token views */}
+          {(viewMode === "tokens" || viewMode === "tokens-absolute") && (
             <>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground font-medium">Sort</span>
@@ -541,24 +654,29 @@ export function ComponentComparisonView({
               onChange={(e) => setColumnCount(Number(e.target.value))}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
             >
-              {[1, 2, 3, 4, 5].map((n) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <option key={n} value={n}>{n} col{n > 1 ? 's' : ''}</option>
               ))}
             </select>
           </div>
 
-          {/* Squares per row - only for workflow view */}
-          {viewMode === "workflow" && (
+          {/* Squares per row - for workflow and tokens-absolute views */}
+          {(viewMode === "workflow" || viewMode === "tokens-absolute") && (
             <div className="flex items-center gap-1.5">
               <Rows3 className="h-3.5 w-3.5 text-muted-foreground" />
               <select
-                value={squaresPerRow}
+                value={viewMode === "tokens-absolute" ? Math.max(2, Math.min(10, squaresPerRow)) : squaresPerRow}
                 onChange={(e) => setSquaresPerRow(Number(e.target.value))}
                 className="px-2 py-1 text-xs rounded border border-gray-200 bg-white text-gray-900 cursor-pointer hover:bg-gray-50"
               >
-                {[10, 15, 20, 25, 30, 40, 50].map((n) => (
-                  <option key={n} value={n}>{n}/row</option>
-                ))}
+                {viewMode === "tokens-absolute"
+                  ? [2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <option key={n} value={n}>{n} wide</option>
+                    ))
+                  : [10, 15, 20, 25, 30, 40, 50].map((n) => (
+                      <option key={n} value={n}>{n}/row</option>
+                    ))
+                }
               </select>
             </div>
           )}
@@ -574,8 +692,8 @@ export function ComponentComparisonView({
 
       {/* Content area */}
       <div className="border rounded-lg bg-muted/30 p-4">
-        {/* Shared compact legend - for workflow view or compact token view */}
-      {(viewMode === "workflow" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
+        {/* Shared compact legend - for workflow, tokens-absolute, or compact token view */}
+      {(viewMode === "workflow" || viewMode === "tokens-absolute" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
         <div className="mb-4">
           <CompactLegend
             components={
@@ -589,6 +707,43 @@ export function ComponentComparisonView({
       )}
 
       {/* Grid of waffle charts */}
+      {viewMode === "tokens-absolute" ? (() => {
+        const absColumns = Math.max(2, Math.min(10, squaresPerRow)); // clamp to 2-10
+        const MAX_SQUARES = 100; // largest conversation gets 100 squares
+        const maxTokens = Math.max(...sourceConversations.map((c) => c.totalTokens));
+        const tokensPerSquare = Math.ceil(maxTokens / MAX_SQUARES);
+        const maxRows = Math.ceil(MAX_SQUARES / absColumns);
+
+        return (
+          <div
+            className="grid gap-6"
+            style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+          >
+              {sourceConversations.map((conv) => (
+                <div key={conv.id} className="flex flex-col items-center">
+                  <div className="mb-1 text-center">
+                    <h4 className="text-sm font-medium truncate max-w-[120px]" title={conv.title || conv.filename}>
+                      {conv.title || conv.filename}
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground [font-variant:small-caps]">
+                      {conv.turnCount} turns · {conv.messageCount} msgs
+                    </p>
+                  </div>
+                  <AbsoluteWaffleChart
+                    componentTokens={conv.componentTokens}
+                    totalTokens={conv.totalTokens}
+                    componentColors={componentColors}
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    maxRows={maxRows}
+                    tokensPerSquare={tokensPerSquare}
+                    columns={absColumns}
+                  />
+                </div>
+              ))}
+          </div>
+        );
+      })() : (
       <div
         className="grid gap-6"
         style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
@@ -647,6 +802,7 @@ export function ComponentComparisonView({
           </div>
         ))}
       </div>
+      )}
       </div>
     </>
   );
