@@ -91,6 +91,7 @@ interface ComponentComparisonViewProps {
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
   groupTitle?: string;
+  onConversationClick?: (id: string) => void;
   // Controlled state props (optional - falls back to local state if not provided)
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -430,6 +431,7 @@ export function ComponentComparisonView({
   componentColors,
   hasActiveFilters,
   groupTitle,
+  onConversationClick,
   // Controlled props
   viewMode: controlledViewMode,
   onViewModeChange,
@@ -727,9 +729,13 @@ export function ComponentComparisonView({
               {sourceConversations.map((conv) => (
                 <div key={conv.id} className="flex flex-col items-center">
                   <div className="mb-1 text-center">
-                    <h4 className="text-sm font-medium truncate max-w-[120px]" title={conv.title || conv.filename}>
+                    <button
+                      onClick={() => onConversationClick?.(conv.id)}
+                      className="text-sm font-medium truncate max-w-[120px] block hover:underline text-left"
+                      title={conv.title || conv.filename}
+                    >
                       {conv.title || conv.filename}
-                    </h4>
+                    </button>
                     <p className="text-[10px] text-muted-foreground [font-variant:small-caps]">
                       {conv.turnCount} turns · {conv.messageCount} msgs
                     </p>
@@ -760,9 +766,13 @@ export function ComponentComparisonView({
           )}>
             {/* Filename header */}
             <div className={viewMode === "tokens" && legendMode === "compact" ? "mb-2" : "mb-3"}>
-              <h4 className="text-sm font-medium truncate" title={conv.title || conv.filename}>
+              <button
+                onClick={() => onConversationClick?.(conv.id)}
+                className="text-sm font-medium truncate block hover:underline text-left"
+                title={conv.title || conv.filename}
+              >
                 {conv.title || conv.filename}
-              </h4>
+              </button>
               <p className="text-xs text-muted-foreground [font-variant:small-caps]">
                 {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages
                 {conv.durationMs !== undefined && ` · ${formatDuration(conv.durationMs)}`}

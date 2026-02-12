@@ -2719,6 +2719,7 @@ export default function App() {
                     messageSourceMap={selectedConversation.messageSourceMap}
                     isGrouped={selectedConversation.isGrouped}
                     groupTitle={selectedConversation.title}
+                    onConversationClick={setSelectedId}
                     sourceConversationComponents={sourceConversationComponents}
                     sourceWorkflowStates={sourceWorkflowStates}
                     // URL-controlled state
