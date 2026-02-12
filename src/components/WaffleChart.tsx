@@ -114,7 +114,7 @@ export function WaffleChart({
             >
               <span
                 className={cn(
-                  "w-4 h-4 rounded-sm flex-shrink-0",
+                  "w-4 h-4 flex-shrink-0",
                   colorStyles.classes
                 )}
                 style={colorStyles.style || undefined}
@@ -140,7 +140,7 @@ export function WaffleChart({
               key={index}
               onClick={() => component && onComponentClick?.(component)}
               className={cn(
-                "w-3 h-3 rounded-sm transition-all",
+                "w-3 h-3 transition-all",
                 component ? colorStyles?.classes : "bg-gray-200",
                 component && onComponentClick && "cursor-pointer hover:scale-110"
               )}

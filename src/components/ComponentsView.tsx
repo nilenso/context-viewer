@@ -195,7 +195,7 @@ export function ComponentsView({
                 <div
                   key={index}
                   className={cn(
-                    "w-3 h-3 rounded-sm flex-shrink-0",
+                    "w-3 h-3 flex-shrink-0",
                     component ? colorStyles?.classes : "bg-gray-200",
                   )}
                   style={colorStyles?.style || undefined}
