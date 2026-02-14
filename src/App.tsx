@@ -35,7 +35,7 @@ import type { ConversationComponentData } from "./components/ComponentComparison
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
 import { PromptEditorDialog } from "./components/PromptEditorDialog";
-import { Clock, Loader2, Upload, AlertCircle } from "lucide-react";
+import { Clock, Loader2, Upload, AlertCircle, Star, Github } from "lucide-react";
 import { cn } from "./lib/utils";
 import {
   getDefaultComponentIdentificationPrompt,
@@ -2556,15 +2556,29 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header Banner */}
-      <header className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-4 mb-6">
-        <h1 className="text-xl font-semibold flex items-center gap-2 text-slate-700">
-          <img src={`${import.meta.env.BASE_URL}nilenso-logo.svg`} alt="Nilenso" className="h-5 w-auto" />
-          <span className="font-normal text-slate-400">/</span>
-          <span>context-viewer</span>
-        </h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Upload conversation logs to analyze their structure and token usage
-        </p>
+      <header className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-4 mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold flex items-center gap-2 text-slate-700">
+            <a href="https://nilenso.com" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+              <img src={`${import.meta.env.BASE_URL}nilenso-logo.svg`} alt="Nilenso" className="h-5 w-auto" />
+            </a>
+            <span className="font-normal text-slate-400">/</span>
+            <a href="https://github.com/nilenso/context-viewer" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 transition-colors">context-viewer</a>
+          </h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Upload conversation logs to analyze their structure and token usage
+          </p>
+        </div>
+        <a
+          href="https://github.com/nilenso/context-viewer"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <Github className="h-4 w-4" />
+          <Star className="h-3.5 w-3.5" />
+          <span>Star</span>
+        </a>
       </header>
 
       <div className="space-y-6 px-6">
