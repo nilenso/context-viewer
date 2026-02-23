@@ -586,3 +586,43 @@ export type OpenCodeToolPart = z.infer<typeof OpenCodeToolPartSchema>;
 export type OpenCodeStepStartPart = z.infer<typeof OpenCodeStepStartPartSchema>;
 export type OpenCodeStepFinishPart = z.infer<typeof OpenCodeStepFinishPartSchema>;
 export type OpenCodePatchPart = z.infer<typeof OpenCodePatchPartSchema>;
+
+// ============================================================================
+// SWE-bench Trajectory Format Schema (JSON)
+// ============================================================================
+
+// Tool call in trajectory messages (OpenAI function calling format with parsed arguments)
+const TrajectoryToolCallSchema = z.object({
+  function: z.object({
+    name: z.string(),
+    arguments: z.unknown(), // Already parsed object (not stringified JSON)
+  }),
+  id: z.string(),
+  type: z.literal("function"),
+});
+
+// Individual message in the trajectory array
+const TrajectoryMessageSchema = z.object({
+  content: z.string().nullable(),
+  name: z.string().nullable().optional(),
+  role: z.enum(["system", "user", "assistant", "tool"]),
+  tool_call_id: z.string().nullable().optional(),
+  tool_calls: z.array(TrajectoryToolCallSchema).nullable().optional(),
+});
+
+// Full trajectory file schema
+export const TrajectoryInputSchema = z.object({
+  trajectory_id: z.string(),
+  instance_id: z.string(),
+  repo: z.string().optional(),
+  exit_status: z.string().optional(),
+  resolved: z.number().optional(),
+  gen_tests_correct: z.unknown().optional(),
+  pred_passes_gen_tests: z.unknown().optional(),
+  model_patch: z.string().optional(),
+  trajectory: z.array(TrajectoryMessageSchema),
+});
+
+export type TrajectoryInput = z.infer<typeof TrajectoryInputSchema>;
+export type TrajectoryMessage = z.infer<typeof TrajectoryMessageSchema>;
+export type TrajectoryToolCall = z.infer<typeof TrajectoryToolCallSchema>;
