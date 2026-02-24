@@ -186,7 +186,7 @@ export function WorkflowDetailModal({
       if (aiSummary && aiSummary.length > 0) {
         return "completed";
       }
-      if (status === "processing" && currentStepIndex >= stepIndex) {
+      if (status === "processing" && currentStep === "summary") {
         return "in-progress";
       }
       return "pending";

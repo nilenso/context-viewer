@@ -232,7 +232,7 @@ export function ConversationList({
       }
       if (
         conversation.status === "processing" &&
-        currentStepIndex >= stepIndex
+        conversation.step === "summary"
       ) {
         return "in-progress";
       }
