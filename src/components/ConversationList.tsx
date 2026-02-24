@@ -82,12 +82,12 @@ interface ConversationListProps {
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
-  onEditPrompt?: () => void;
-  onEditComponents?: () => void;
-  onEditSegmentationPrompt?: () => void;
-  onEditSummaryPrompt?: () => void;
-  onEditAnalysisPrompt?: () => void;
-  onEditColoringPrompt?: () => void;
+  onEditPrompt?: (id: string) => void;
+  onEditComponents?: (id: string) => void;
+  onEditSegmentationPrompt?: (id: string) => void;
+  onEditSummaryPrompt?: (id: string) => void;
+  onEditAnalysisPrompt?: (id: string) => void;
+  onEditColoringPrompt?: (id: string) => void;
   onExportSession?: () => void;
   onUpdateGroupSources?: (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => void;
   isCollapsed?: boolean;
@@ -764,7 +764,7 @@ export function ConversationList({
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onEditSegmentationPrompt();
+                                            onEditSegmentationPrompt(conversation.id);
                                           }}
                                           className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                         >
@@ -778,7 +778,7 @@ export function ConversationList({
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditSummaryPrompt();
+                                          onEditSummaryPrompt(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -794,7 +794,7 @@ export function ConversationList({
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              onEditPrompt();
+                                              onEditPrompt(conversation.id);
                                             }}
                                             className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                           >
@@ -805,7 +805,7 @@ export function ConversationList({
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              onEditComponents();
+                                              onEditComponents(conversation.id);
                                             }}
                                             className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                           >
@@ -820,7 +820,7 @@ export function ConversationList({
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditColoringPrompt();
+                                          onEditColoringPrompt(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -834,7 +834,7 @@ export function ConversationList({
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditAnalysisPrompt();
+                                          onEditAnalysisPrompt(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >

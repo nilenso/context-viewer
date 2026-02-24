@@ -99,12 +99,12 @@ interface WorkflowDetailModalProps {
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   aiSummary?: string;
   warnings?: string[];
-  onEditPrompt?: () => void;
-  onEditComponents?: () => void;
-  onEditSegmentationPrompt?: () => void;
-  onEditSummaryPrompt?: () => void;
-  onEditAnalysisPrompt?: () => void;
-  onEditColoringPrompt?: () => void;
+  onEditPrompt?: (id: string) => void;
+  onEditComponents?: (id: string) => void;
+  onEditSegmentationPrompt?: (id: string) => void;
+  onEditSummaryPrompt?: (id: string) => void;
+  onEditAnalysisPrompt?: (id: string) => void;
+  onEditColoringPrompt?: (id: string) => void;
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
   // Grouped conversation support
@@ -390,7 +390,7 @@ export function WorkflowDetailModal({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditSegmentationPrompt();
+                                  onEditSegmentationPrompt(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
@@ -401,7 +401,7 @@ export function WorkflowDetailModal({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditSummaryPrompt();
+                                  onEditSummaryPrompt(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
@@ -414,7 +414,7 @@ export function WorkflowDetailModal({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onEditPrompt();
+                                      onEditPrompt(conversationId);
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                   >
@@ -425,7 +425,7 @@ export function WorkflowDetailModal({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onEditComponents();
+                                      onEditComponents(conversationId);
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                   >
@@ -438,7 +438,7 @@ export function WorkflowDetailModal({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditColoringPrompt();
+                                  onEditColoringPrompt(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
@@ -449,7 +449,7 @@ export function WorkflowDetailModal({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditAnalysisPrompt();
+                                  onEditAnalysisPrompt(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >

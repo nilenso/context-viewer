@@ -1426,10 +1426,13 @@ export default function App() {
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   // Handle opening the prompt editor
-  const handleOpenPromptEditor = () => {
+  const handleOpenPromptEditor = (id: string) => {
+    // Select the conversation so the apply handler targets it
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
     // Get the prompt: conversation custom > preset > default
     const currentPrompt =
-      selectedConversation?.customPrompt ||
+      conv?.customPrompt ||
       loadedPreset?.componentIdentificationPrompt ||
       getDefaultComponentIdentificationPrompt();
     setEditingPrompt(currentPrompt);
@@ -1445,9 +1448,10 @@ export default function App() {
   };
 
   // Handle opening the components editor
-  const handleOpenComponentsEditor = () => {
-    // Get the components from the selected conversation if it exists
-    const currentComponents = selectedConversation?.components || [];
+  const handleOpenComponentsEditor = (id: string) => {
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
+    const currentComponents = conv?.components || [];
     setEditingComponents(currentComponents.join("\n"));
     setIsComponentsDialogOpen(true);
   };
@@ -1468,10 +1472,11 @@ export default function App() {
   };
 
   // Handle opening the segmentation prompt editor
-  const handleOpenSegmentationPromptEditor = () => {
-    // Get the prompt from the selected conversation if it exists, otherwise use default
+  const handleOpenSegmentationPromptEditor = (id: string) => {
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
     const currentPrompt =
-      selectedConversation?.customSegmentationPrompt ||
+      conv?.customSegmentationPrompt ||
       getDefaultSegmentationPrompt();
     setEditingSegmentationPrompt(currentPrompt);
     setIsSegmentationPromptDialogOpen(true);
@@ -1488,10 +1493,11 @@ export default function App() {
   };
 
   // Handle opening the summary prompt editor
-  const handleOpenSummaryPromptEditor = () => {
-    // Get the prompt from the selected conversation if it exists, otherwise use default
+  const handleOpenSummaryPromptEditor = (id: string) => {
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
     const currentPrompt =
-      selectedConversation?.customSummaryPrompt || getDefaultSummaryPrompt();
+      conv?.customSummaryPrompt || getDefaultSummaryPrompt();
     setEditingSummaryPrompt(currentPrompt);
     setIsSummaryPromptDialogOpen(true);
   };
@@ -1507,9 +1513,11 @@ export default function App() {
   };
 
   // Handle opening the analysis prompt editor
-  const handleOpenAnalysisPromptEditor = () => {
+  const handleOpenAnalysisPromptEditor = (id: string) => {
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
     const currentPrompt =
-      selectedConversation?.customAnalysisPrompt || getDefaultAnalysisPrompt();
+      conv?.customAnalysisPrompt || getDefaultAnalysisPrompt();
     setEditingAnalysisPrompt(currentPrompt);
     setIsAnalysisPromptDialogOpen(true);
   };
@@ -1525,9 +1533,11 @@ export default function App() {
   };
 
   // Handle opening the coloring prompt editor
-  const handleOpenColoringPromptEditor = () => {
+  const handleOpenColoringPromptEditor = (id: string) => {
+    setSelectedId(id);
+    const conv = conversations.find((c) => c.id === id);
     const currentPrompt =
-      selectedConversation?.customColoringPrompt || getDefaultColoringPrompt();
+      conv?.customColoringPrompt || getDefaultColoringPrompt();
     setEditingColoringPrompt(currentPrompt);
     setIsColoringPromptDialogOpen(true);
   };
