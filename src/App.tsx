@@ -1722,10 +1722,13 @@ export default function App() {
     const source = conversations.find((c) => c.id === sourceId);
     if (!source) return;
 
-    const name = source.title || source.filename.replace(/\.[^.]+$/, "");
+    const defaultName = source.title || source.filename.replace(/\.[^.]+$/, "");
+    const name = window.prompt("Preset name:", defaultName);
+    if (!name) return;
+
     const preset: Record<string, unknown> = {
       id: `custom-${Date.now()}`,
-      name: `${name} preset`,
+      name,
       description: `Exported prompts from "${name}"`,
       components: source.components || [],
       colors: source.componentColors || {},
