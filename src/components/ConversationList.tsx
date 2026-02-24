@@ -88,6 +88,7 @@ interface ConversationListProps {
   onEditSummaryPrompt?: (id: string) => void;
   onEditAnalysisPrompt?: (id: string) => void;
   onEditColoringPrompt?: (id: string) => void;
+  onApplyPromptsToAll?: (id: string) => void;
   onExportSession?: () => void;
   onUpdateGroupSources?: (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => void;
   isCollapsed?: boolean;
@@ -118,6 +119,7 @@ export function ConversationList({
   onEditSummaryPrompt,
   onEditAnalysisPrompt,
   onEditColoringPrompt,
+  onApplyPromptsToAll,
   onExportSession,
   onUpdateGroupSources,
   isCollapsed = false,
@@ -849,21 +851,56 @@ export function ConversationList({
                         </div>
                       )}
 
-                    {/* Delete button at bottom of card */}
-                    {onDeleteConversation && canDelete(conversation) && (
-                      <div className="px-3 pb-2 pt-1 border-t">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteConversation(conversation.id);
-                          }}
-                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Remove</span>
-                        </button>
+                    {/* Action buttons at bottom of card */}
+                    {(onDeleteConversation && canDelete(conversation)) ||
+                    (onApplyPromptsToAll &&
+                      conversation.status === "success" &&
+                      !conversation.step &&
+                      !conversation.isGrouped &&
+                      conversations.filter(
+                        (c) =>
+                          c.id !== conversation.id &&
+                          c.status === "success" &&
+                          !c.isGrouped &&
+                          !c.step,
+                      ).length > 0) ? (
+                      <div className="px-3 pb-2 pt-1 border-t flex items-center gap-3">
+                        {onApplyPromptsToAll &&
+                          conversation.status === "success" &&
+                          !conversation.step &&
+                          !conversation.isGrouped &&
+                          conversations.filter(
+                            (c) =>
+                              c.id !== conversation.id &&
+                              c.status === "success" &&
+                              !c.isGrouped &&
+                              !c.step,
+                          ).length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onApplyPromptsToAll(conversation.id);
+                              }}
+                              className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
+                            >
+                              <Layers className="h-3 w-3" />
+                              <span>Apply prompts to all</span>
+                            </button>
+                          )}
+                        {onDeleteConversation && canDelete(conversation) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteConversation(conversation.id);
+                            }}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Remove</span>
+                          </button>
+                        )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}

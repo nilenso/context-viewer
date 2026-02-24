@@ -1652,6 +1652,71 @@ export default function App() {
     );
   };
 
+  // Apply prompts from one conversation to all other completed conversations
+  const handleApplyPromptsToAll = async (sourceId: string) => {
+    const source = conversations.find((c) => c.id === sourceId);
+    if (!source) return;
+
+    const promptFields = {
+      customPrompt: source.customPrompt,
+      customSegmentationPrompt: source.customSegmentationPrompt,
+      customSummaryPrompt: source.customSummaryPrompt,
+      customAnalysisPrompt: source.customAnalysisPrompt,
+      customColoringPrompt: source.customColoringPrompt,
+    };
+
+    const targets = conversations.filter(
+      (c) =>
+        c.id !== sourceId &&
+        c.status === "success" &&
+        !c.isGrouped &&
+        c.conversation,
+    );
+
+    if (targets.length === 0) return;
+
+    await Promise.all(
+      targets.map(async (conv) => {
+        // Determine the earliest changed event to trigger
+        let event: WorkflowEvent | null = null;
+        if (promptFields.customSegmentationPrompt !== conv.customSegmentationPrompt) {
+          event = WorkflowEvent.SegmentationPromptChanged;
+        } else if (promptFields.customPrompt !== conv.customPrompt) {
+          event = WorkflowEvent.ComponentPromptChanged;
+        } else if (promptFields.customColoringPrompt !== conv.customColoringPrompt) {
+          event = WorkflowEvent.ColoringPromptChanged;
+        }
+
+        // Always store the prompt fields on the conversation (summary/analysis prompts take effect on-demand)
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conv.id ? { ...c, ...promptFields } : c,
+          ),
+        );
+
+        // If no workflow event needed, we're done (only summary/analysis prompts changed)
+        if (!event) return;
+
+        const runner = new WorkflowRunner((id, update) => {
+          setConversations((prev) =>
+            prev.map((c) => (c.id === id ? { ...c, ...update } : c)),
+          );
+        });
+
+        const ctx = buildBaseContext(conv);
+        ctx.customPrompt = promptFields.customPrompt;
+        ctx.customSegmentationPrompt = promptFields.customSegmentationPrompt;
+        ctx.customSummaryPrompt = promptFields.customSummaryPrompt;
+        ctx.customAnalysisPrompt = promptFields.customAnalysisPrompt;
+        ctx.customColoringPrompt = promptFields.customColoringPrompt;
+
+        await processConversationWorkflow(event, ctx, runner, {
+          onAnalysisChunk,
+        });
+      }),
+    );
+  };
+
   // Factory: Create a reprocess handler
   const createReprocessHandler = <T extends Record<string, unknown>>(
     event: WorkflowEvent,
@@ -2714,6 +2779,7 @@ export default function App() {
                 onEditSummaryPrompt={handleOpenSummaryPromptEditor}
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
                 onEditColoringPrompt={handleOpenColoringPromptEditor}
+                onApplyPromptsToAll={handleApplyPromptsToAll}
                 onExportSession={handleExportSession}
                 onUpdateGroupSources={handleUpdateGroupSources}
                 isCollapsed={isSidebarCollapsed}
