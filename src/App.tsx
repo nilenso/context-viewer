@@ -1717,6 +1717,46 @@ export default function App() {
     );
   };
 
+  // Export prompts from a conversation as a preset JSON file
+  const handleExportPromptsAsPreset = (sourceId: string) => {
+    const source = conversations.find((c) => c.id === sourceId);
+    if (!source) return;
+
+    const name = source.title || source.filename.replace(/\.[^.]+$/, "");
+    const preset: Record<string, unknown> = {
+      id: `custom-${Date.now()}`,
+      name: `${name} preset`,
+      description: `Exported prompts from "${name}"`,
+      components: source.components || [],
+      colors: source.componentColors || {},
+    };
+
+    if (source.customSegmentationPrompt) {
+      preset.segmentationPrompt = source.customSegmentationPrompt;
+    }
+    if (source.customPrompt) {
+      preset.componentIdentificationPrompt = source.customPrompt;
+    }
+    if (source.customColoringPrompt) {
+      preset.coloringPrompt = source.customColoringPrompt;
+    }
+    if (source.customSummaryPrompt) {
+      preset.summaryPrompt = source.customSummaryPrompt;
+    }
+    if (source.customAnalysisPrompt) {
+      preset.analysisPrompt = source.customAnalysisPrompt;
+    }
+
+    const json = JSON.stringify(preset, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-preset.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Factory: Create a reprocess handler
   const createReprocessHandler = <T extends Record<string, unknown>>(
     event: WorkflowEvent,
@@ -2780,6 +2820,7 @@ export default function App() {
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
                 onEditColoringPrompt={handleOpenColoringPromptEditor}
                 onApplyPromptsToAll={handleApplyPromptsToAll}
+                onExportPromptsAsPreset={handleExportPromptsAsPreset}
                 onExportSession={handleExportSession}
                 onUpdateGroupSources={handleUpdateGroupSources}
                 isCollapsed={isSidebarCollapsed}

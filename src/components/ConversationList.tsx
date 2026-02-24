@@ -89,6 +89,7 @@ interface ConversationListProps {
   onEditAnalysisPrompt?: (id: string) => void;
   onEditColoringPrompt?: (id: string) => void;
   onApplyPromptsToAll?: (id: string) => void;
+  onExportPromptsAsPreset?: (id: string) => void;
   onExportSession?: () => void;
   onUpdateGroupSources?: (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => void;
   isCollapsed?: boolean;
@@ -120,6 +121,7 @@ export function ConversationList({
   onEditAnalysisPrompt,
   onEditColoringPrompt,
   onApplyPromptsToAll,
+  onExportPromptsAsPreset,
   onExportSession,
   onUpdateGroupSources,
   isCollapsed = false,
@@ -852,22 +854,9 @@ export function ConversationList({
                       )}
 
                     {/* Action buttons at bottom of card */}
-                    {(onDeleteConversation && canDelete(conversation)) ||
-                    (onApplyPromptsToAll &&
-                      conversation.status === "success" &&
-                      !conversation.step &&
-                      !conversation.isGrouped &&
-                      conversations.filter(
-                        (c) =>
-                          c.id !== conversation.id &&
-                          c.status === "success" &&
-                          !c.isGrouped &&
-                          !c.step,
-                      ).length > 0) ? (
+                    {conversation.status === "success" && !conversation.step && (
                       <div className="px-3 pb-2 pt-1 border-t flex items-center gap-3">
                         {onApplyPromptsToAll &&
-                          conversation.status === "success" &&
-                          !conversation.step &&
                           !conversation.isGrouped &&
                           conversations.filter(
                             (c) =>
@@ -887,6 +876,18 @@ export function ConversationList({
                               <span>Apply prompts to all</span>
                             </button>
                           )}
+                        {onExportPromptsAsPreset && !conversation.isGrouped && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onExportPromptsAsPreset(conversation.id);
+                            }}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Export preset</span>
+                          </button>
+                        )}
                         {onDeleteConversation && canDelete(conversation) && (
                           <button
                             onClick={(e) => {
@@ -900,7 +901,7 @@ export function ConversationList({
                           </button>
                         )}
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 );
               })}
