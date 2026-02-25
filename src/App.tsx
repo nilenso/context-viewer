@@ -9,7 +9,7 @@ import {
   type ConversationSummary,
 } from "./conversation-summary";
 import { addTokenCounts } from "./add-token-counts";
-import { segmentConversation } from "./segmentation";
+import { segmentConversation, DEFAULT_SEGMENTATION_THRESHOLD } from "./segmentation";
 import {
   componentiseConversation,
   assignComponentColors,
@@ -114,6 +114,7 @@ interface WorkflowState {
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
+  segmentationThreshold?: number;
   customComponents?: string[];
   regenerateAnalysis?: boolean;
   presetColors?: Record<string, string>;
@@ -241,6 +242,7 @@ const segmentActivity: Activity<{
     undefined,
     ctx.customSegmentationPrompt,
     ctx.id, // Pass conversationId for logging
+    ctx.segmentationThreshold,
   );
   const conversation = await addTokenCounts(result.conversation);
   return {
@@ -1004,6 +1006,8 @@ export default function App() {
   const [editingSegmentationPrompt, setEditingSegmentationPrompt] = useState(
     getDefaultSegmentationPrompt(),
   );
+  const [editingSegmentationThreshold, setEditingSegmentationThreshold] =
+    useState(DEFAULT_SEGMENTATION_THRESHOLD);
 
   // Summary prompt editor dialog state
   const [isSummaryPromptDialogOpen, setIsSummaryPromptDialogOpen] =
@@ -1479,6 +1483,7 @@ export default function App() {
       conv?.customSegmentationPrompt ||
       getDefaultSegmentationPrompt();
     setEditingSegmentationPrompt(currentPrompt);
+    setEditingSegmentationThreshold(conv?.segmentationThreshold ?? DEFAULT_SEGMENTATION_THRESHOLD);
     setIsSegmentationPromptDialogOpen(true);
   };
 
@@ -1488,6 +1493,7 @@ export default function App() {
     if (selectedConversation && selectedConversation.conversation) {
       await handleReprocessSegmentation({
         customSegmentationPrompt: editingSegmentationPrompt,
+        segmentationThreshold: editingSegmentationThreshold,
       });
     }
   };
@@ -1624,6 +1630,7 @@ export default function App() {
     customSegmentationPrompt: conv.customSegmentationPrompt,
     customAnalysisPrompt: conv.customAnalysisPrompt,
     customColoringPrompt: conv.customColoringPrompt,
+    segmentationThreshold: conv.segmentationThreshold,
     customPrompt: conv.customPrompt,
     config: conv.config || getComponentisationConfig(),
     warnings: [],
@@ -1663,6 +1670,7 @@ export default function App() {
       customSummaryPrompt: source.customSummaryPrompt,
       customAnalysisPrompt: source.customAnalysisPrompt,
       customColoringPrompt: source.customColoringPrompt,
+      segmentationThreshold: source.segmentationThreshold,
     };
 
     const targets = conversations.filter(
@@ -1679,7 +1687,8 @@ export default function App() {
       targets.map(async (conv) => {
         // Determine the earliest changed event to trigger
         let event: WorkflowEvent | null = null;
-        if (promptFields.customSegmentationPrompt !== conv.customSegmentationPrompt) {
+        if (promptFields.customSegmentationPrompt !== conv.customSegmentationPrompt ||
+            promptFields.segmentationThreshold !== conv.segmentationThreshold) {
           event = WorkflowEvent.SegmentationPromptChanged;
         } else if (promptFields.customPrompt !== conv.customPrompt) {
           event = WorkflowEvent.ComponentPromptChanged;
@@ -1709,6 +1718,7 @@ export default function App() {
         ctx.customSummaryPrompt = promptFields.customSummaryPrompt;
         ctx.customAnalysisPrompt = promptFields.customAnalysisPrompt;
         ctx.customColoringPrompt = promptFields.customColoringPrompt;
+        ctx.segmentationThreshold = promptFields.segmentationThreshold;
 
         await processConversationWorkflow(event, ctx, runner, {
           onAnalysisChunk,
@@ -1736,6 +1746,9 @@ export default function App() {
 
     if (source.customSegmentationPrompt) {
       preset.segmentationPrompt = source.customSegmentationPrompt;
+    }
+    if (source.segmentationThreshold != null) {
+      preset.segmentationThreshold = source.segmentationThreshold;
     }
     if (source.customPrompt) {
       preset.componentIdentificationPrompt = source.customPrompt;
@@ -1851,10 +1864,12 @@ export default function App() {
 
   const handleReprocessSegmentation = createReprocessHandler<{
     customSegmentationPrompt?: string;
+    segmentationThreshold?: number;
   }>(
     WorkflowEvent.SegmentationPromptChanged,
     (ctx, options) => {
       ctx.customSegmentationPrompt = options.customSegmentationPrompt;
+      ctx.segmentationThreshold = options.segmentationThreshold;
     },
     { onAnalysisChunk },
     "Segmentation reprocessing failed",
@@ -3010,6 +3025,9 @@ export default function App() {
         onApply={handleApplySegmentationPrompt}
         placeholder="Enter your segmentation prompt..."
         warningText="This will re-run segmentation, componentisation, visualization, and analysis"
+        threshold={editingSegmentationThreshold}
+        onThresholdChange={setEditingSegmentationThreshold}
+        thresholdDefault={DEFAULT_SEGMENTATION_THRESHOLD}
       />
 
       <PromptEditorDialog

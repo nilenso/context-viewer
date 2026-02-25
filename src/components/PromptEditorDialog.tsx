@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { AlertCircle } from "lucide-react";
 
 interface PromptEditorDialogProps {
@@ -19,6 +20,10 @@ interface PromptEditorDialogProps {
   placeholder?: string;
   warningText: string;
   applyButtonText?: string;
+  /** Optional segmentation threshold control */
+  threshold?: number;
+  onThresholdChange?: (value: number) => void;
+  thresholdDefault?: number;
 }
 
 export function PromptEditorDialog({
@@ -32,6 +37,9 @@ export function PromptEditorDialog({
   placeholder = "Enter your prompt...",
   warningText,
   applyButtonText = "Apply & Reprocess",
+  threshold,
+  onThresholdChange,
+  thresholdDefault,
 }: PromptEditorDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,6 +55,26 @@ export function PromptEditorDialog({
             placeholder={placeholder}
             className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
           />
+          {onThresholdChange && threshold != null && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium whitespace-nowrap">
+                Min token threshold
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={threshold}
+                onChange={(e) => onThresholdChange(Number(e.target.value))}
+                className="w-28 h-8 text-sm"
+              />
+              <span className="text-xs text-muted-foreground">
+                Only message parts with more than this many tokens will be segmented
+                {thresholdDefault != null && (
+                  <> (default: {thresholdDefault})</>
+                )}
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-md p-3">
             <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
             <span>{warningText}</span>

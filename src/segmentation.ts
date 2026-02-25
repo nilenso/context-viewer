@@ -46,19 +46,21 @@ function logError(
   }
 }
 
+const DEFAULT_SEGMENTATION_THRESHOLD = 500;
+
 /**
- * Identify message parts that are greater than 500 tokens
+ * Identify message parts that are greater than the token threshold
  */
 function identifyLargeParts(
   conversation: Conversation,
   conversationId?: string,
+  threshold: number = DEFAULT_SEGMENTATION_THRESHOLD,
 ): Array<{
   messageIndex: number;
   partIndex: number;
   part: Message["parts"][number];
 }> {
-  const threshold = 500;
-  log(conversationId, `Using fixed threshold: ${threshold} tokens`);
+  log(conversationId, `Using threshold: ${threshold} tokens`);
 
   const largeParts: Array<{
     messageIndex: number;
@@ -279,11 +281,14 @@ async function segmentMessagePart(
  * Process conversation segmentation with parallel processing of large parts
  * Returns a new conversation with segmented parts and error info
  */
+export { DEFAULT_SEGMENTATION_THRESHOLD };
+
 export async function segmentConversation(
   conversation: Conversation,
   onProgress?: (processed: number, total: number) => void,
   customPrompt?: string,
   conversationId?: string,
+  segmentationThreshold?: number,
 ): Promise<{ conversation: Conversation; error?: string }> {
   log(conversationId, "Starting segmentation process");
 
@@ -293,7 +298,7 @@ export async function segmentConversation(
     return { conversation, error: "Segmentation: No API key configured" };
   }
 
-  const largeParts = identifyLargeParts(conversation, conversationId);
+  const largeParts = identifyLargeParts(conversation, conversationId, segmentationThreshold);
 
   if (largeParts.length === 0) {
     log(
