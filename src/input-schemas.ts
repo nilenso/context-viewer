@@ -626,3 +626,67 @@ export const TrajectoryInputSchema = z.object({
 export type TrajectoryInput = z.infer<typeof TrajectoryInputSchema>;
 export type TrajectoryMessage = z.infer<typeof TrajectoryMessageSchema>;
 export type TrajectoryToolCall = z.infer<typeof TrajectoryToolCallSchema>;
+
+// ============================================================================
+// SWE-Agent Trajectory Format Schema (JSON)
+// ============================================================================
+
+// Tool call in SWE-Agent history messages (stringified arguments)
+const SweAgentToolCallSchema = z.object({
+  index: z.number().optional(),
+  function: z.object({
+    name: z.string(),
+    arguments: z.string(), // Stringified JSON (unlike TrajectoryToolCall)
+  }),
+  id: z.string(),
+  type: z.literal("function"),
+});
+
+// Individual message in the history array
+const SweAgentHistoryMessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant", "tool"]),
+  content: z.string().nullable().optional(),
+  agent: z.string().optional(),
+  message_type: z.string().optional(),
+  // Assistant-specific fields
+  thought: z.string().nullable().optional(),
+  action: z.string().nullable().optional(),
+  tool_calls: z.array(SweAgentToolCallSchema).nullable().optional(),
+  // Tool-specific fields (array of IDs, not single ID)
+  tool_call_ids: z.array(z.string()).nullable().optional(),
+});
+
+// Model stats in info
+const SweAgentModelStatsSchema = z.object({
+  instance_cost: z.number().optional(),
+  tokens_sent: z.number().optional(),
+  tokens_received: z.number().optional(),
+  api_calls: z.number().optional(),
+});
+
+// Info block
+const SweAgentInfoSchema = z.object({
+  swe_agent_hash: z.string().optional(),
+  swe_agent_version: z.string(),
+  swe_rex_version: z.string().optional(),
+  swe_rex_hash: z.string().optional(),
+  submission: z.string().nullable().optional(),
+  exit_status: z.string().optional(),
+  edited_files30: z.string().optional(),
+  edited_files50: z.string().optional(),
+  edited_files70: z.string().optional(),
+  model_stats: SweAgentModelStatsSchema.optional(),
+});
+
+// Full SWE-Agent trajectory file schema
+export const SweAgentTrajectoryInputSchema = z.object({
+  trajectory: z.array(z.unknown()), // We use history instead
+  history: z.array(SweAgentHistoryMessageSchema),
+  info: SweAgentInfoSchema,
+  replay_config: z.string().optional(),
+  environment: z.string(),
+});
+
+export type SweAgentTrajectoryInput = z.infer<typeof SweAgentTrajectoryInputSchema>;
+export type SweAgentHistoryMessage = z.infer<typeof SweAgentHistoryMessageSchema>;
+export type SweAgentToolCall = z.infer<typeof SweAgentToolCallSchema>;

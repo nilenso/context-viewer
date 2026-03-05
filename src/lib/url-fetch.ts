@@ -76,14 +76,14 @@ export async function fetchFileFromUrl(url: string): Promise<UrlFetchResult> {
   if (!extension) {
     return {
       success: false,
-      error: "File type not supported. Use .txt, .md, .json, or .jsonl",
+      error: "File type not supported. Use .txt, .md, .json, .jsonl, or .traj",
     };
   }
 
   if (!SUPPORTED_EXTENSIONS.includes(extension)) {
     return {
       success: false,
-      error: "File type not supported. Use .txt, .md, .json, or .jsonl",
+      error: "File type not supported. Use .txt, .md, .json, .jsonl, or .traj",
     };
   }
 

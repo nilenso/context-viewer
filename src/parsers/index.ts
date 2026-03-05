@@ -7,6 +7,7 @@ import { ClaudeTranscriptsParser } from "./claude-transcripts-parser";
 import { CodexTranscriptsParser } from "./codex-transcripts-parser";
 import { OpenCodeTranscriptsParser } from "./opencode-transcripts-parser";
 import { TrajectoryParser } from "./trajectory-parser";
+import { SweAgentTrajectoryParser } from "./swe-agent-trajectory-parser";
 import { PlainTextParser } from "./plain-text-parser";
 
 // Register all parsers
@@ -19,7 +20,8 @@ parserRegistry.register(new ConversationsParser());
 parserRegistry.register(new ClaudeTranscriptsParser());
 parserRegistry.register(new CodexTranscriptsParser());
 parserRegistry.register(new OpenCodeTranscriptsParser());
+parserRegistry.register(new SweAgentTrajectoryParser());
 parserRegistry.register(new TrajectoryParser());
 parserRegistry.register(new PlainTextParser());
 
-export { ContextViewerParser, ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, CodexTranscriptsParser, OpenCodeTranscriptsParser, TrajectoryParser, PlainTextParser };
+export { ContextViewerParser, ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, CodexTranscriptsParser, OpenCodeTranscriptsParser, SweAgentTrajectoryParser, TrajectoryParser, PlainTextParser };

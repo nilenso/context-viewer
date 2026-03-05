@@ -23,9 +23,9 @@ const jsonlFormat: FileFormat = {
   },
 };
 
-// JSON format (.json)
+// JSON format (.json, .traj)
 const jsonFormat: FileFormat = {
-  extensions: [".json"],
+  extensions: [".json", ".traj"],
   parse: (text) => JSON.parse(text),
 };
 
