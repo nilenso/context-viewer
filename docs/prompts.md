@@ -2012,3 +2012,2537 @@ what are the inputs to analysis?
 
 ### Jan 26, 2026 08:52:34
 filtering in the component comparison from the conversation... only works for the filters on message type, not on component?
+
+### Jan 26, 2026 09:03:46
+go through docs/prompts.md, and go through the commits to understand the various features. go through the code too. and keep writing to a markdown file on your observations as you do this. keep a log of all features you find.
+
+then use the log file to summarize context-viewer's capabilities and write a doc about it.
+
+### Jan 26, 2026 09:20:00
+create another md file detailing the workflow in as much detail as possible. start with the overview and purpose on the top. then go one level deeper detailing the steps int he workflow. and then go into each step in as much detail as possible. i want this to be 3-4 pages max though.
+
+### Jan 30, 2026 12:05:19
+get all the versions out of this text, put it into a file
+
+<select class="bg-neutral-800 text-white border border-neutral-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500 cursor-pointer font-mono">
+                    <!--?lit$125144687$--><!---->
+                      <option value="1.0.0"><!--?lit$125144687$-->1.0.0</option>
+                    <!----><!---->
+                      <option value="1.0.1"><!--?lit$125144687$-->1.0.1</option>
+                    <!----><!---->
+                      <option value="1.0.2"><!--?lit$125144687$-->1.0.2</option>
+                    <!----><!---->
+                      <option value="1.0.3"><!--?lit$125144687$-->1.0.3</option>
+                    <!----><!---->
+                      <option value="1.0.4"><!--?lit$125144687$-->1.0.4</option>
+                    <!----><!---->
+                      <option value="1.0.5"><!--?lit$125144687$-->1.0.5</option>
+                    <!----><!---->
+                      <option value="1.0.6"><!--?lit$125144687$-->1.0.6</option>
+                    <!----><!---->
+                      <option value="1.0.7"><!--?lit$125144687$-->1.0.7</option>
+                    <!----><!---->
+                      <option value="1.0.8"><!--?lit$125144687$-->1.0.8</option>
+                    <!----><!---->
+                      <option value="1.0.9"><!--?lit$125144687$-->1.0.9</option>
+                    <!----><!---->
+                      <option value="1.0.10"><!--?lit$125144687$-->1.0.10</option>
+                    <!----><!---->
+                      <option value="1.0.11"><!--?lit$125144687$-->1.0.11</option>
+                    <!----><!---->
+                      <option value="1.0.14"><!--?lit$125144687$-->1.0.14</option>
+                    <!----><!---->
+                      <option value="1.0.15"><!--?lit$125144687$-->1.0.15</option>
+                    <!----><!---->
+                      <option value="1.0.16"><!--?lit$125144687$-->1.0.16</option>
+                    <!----><!---->
+                      <option value="1.0.17"><!--?lit$125144687$-->1.0.17</option>
+                    <!----><!---->
+                      <option value="1.0.18"><!--?lit$125144687$-->1.0.18</option>
+                    <!----><!---->
+                      <option value="1.0.19"><!--?lit$125144687$-->1.0.19</option>
+                    <!----><!---->
+                      <option value="1.0.20"><!--?lit$125144687$-->1.0.20</option>
+                    <!----><!---->
+                      <option value="1.0.21"><!--?lit$125144687$-->1.0.21</option>
+                    <!----><!---->
+                      <option value="1.0.22"><!--?lit$125144687$-->1.0.22</option>
+                    <!----><!---->
+                      <option value="1.0.23"><!--?lit$125144687$-->1.0.23</option>
+                    <!----><!---->
+                      <option value="1.0.24"><!--?lit$125144687$-->1.0.24</option>
+                    <!----><!---->
+                      <option value="1.0.25"><!--?lit$125144687$-->1.0.25</option>
+                    <!----><!---->
+                      <option value="1.0.26"><!--?lit$125144687$-->1.0.26</option>
+                    <!----><!---->
+                      <option value="1.0.27"><!--?lit$125144687$-->1.0.27</option>
+                    <!----><!---->
+                      <option value="1.0.28"><!--?lit$125144687$-->1.0.28</option>
+                    <!----><!---->
+                      <option value="1.0.29"><!--?lit$125144687$-->1.0.29</option>
+                    <!----><!---->
+                      <option value="1.0.30"><!--?lit$125144687$-->1.0.30</option>
+                    <!----><!---->
+                      <option value="1.0.31"><!--?lit$125144687$-->1.0.31</option>
+                    <!----><!---->
+                      <option value="1.0.32"><!--?lit$125144687$-->1.0.32</option>
+                    <!----><!---->
+                      <option value="1.0.33"><!--?lit$125144687$-->1.0.33</option>
+                    <!----><!---->
+                      <option value="1.0.34"><!--?lit$125144687$-->1.0.34</option>
+                    <!----><!---->
+                      <option value="1.0.35"><!--?lit$125144687$-->1.0.35</option>
+                    <!----><!---->
+                      <option value="1.0.36"><!--?lit$125144687$-->1.0.36</option>
+                    <!----><!---->
+                      <option value="1.0.37"><!--?lit$125144687$-->1.0.37</option>
+                    <!----><!---->
+                      <option value="1.0.38"><!--?lit$125144687$-->1.0.38</option>
+                    <!----><!---->
+                      <option value="1.0.39"><!--?lit$125144687$-->1.0.39</option>
+                    <!----><!---->
+                      <option value="1.0.40"><!--?lit$125144687$-->1.0.40</option>
+                    <!----><!---->
+                      <option value="1.0.41"><!--?lit$125144687$-->1.0.41</option>
+                    <!----><!---->
+                      <option value="1.0.42"><!--?lit$125144687$-->1.0.42</option>
+                    <!----><!---->
+                      <option value="1.0.43"><!--?lit$125144687$-->1.0.43</option>
+                    <!----><!---->
+                      <option value="1.0.44"><!--?lit$125144687$-->1.0.44</option>
+                    <!----><!---->
+                      <option value="1.0.45"><!--?lit$125144687$-->1.0.45</option>
+                    <!----><!---->
+                      <option value="1.0.46"><!--?lit$125144687$-->1.0.46</option>
+                    <!----><!---->
+                      <option value="1.0.47"><!--?lit$125144687$-->1.0.47</option>
+                    <!----><!---->
+                      <option value="1.0.48"><!--?lit$125144687$-->1.0.48</option>
+                    <!----><!---->
+                      <option value="1.0.49"><!--?lit$125144687$-->1.0.49</option>
+                    <!----><!---->
+                      <option value="1.0.50"><!--?lit$125144687$-->1.0.50</option>
+                    <!----><!---->
+                      <option value="1.0.51"><!--?lit$125144687$-->1.0.51</option>
+                    <!----><!---->
+                      <option value="1.0.52"><!--?lit$125144687$-->1.0.52</option>
+                    <!----><!---->
+                      <option value="1.0.53"><!--?lit$125144687$-->1.0.53</option>
+                    <!----><!---->
+                      <option value="1.0.54"><!--?lit$125144687$-->1.0.54</option>
+                    <!----><!---->
+                      <option value="1.0.55"><!--?lit$125144687$-->1.0.55</option>
+                    <!----><!---->
+                      <option value="1.0.56"><!--?lit$125144687$-->1.0.56</option>
+                    <!----><!---->
+                      <option value="1.0.57"><!--?lit$125144687$-->1.0.57</option>
+                    <!----><!---->
+                      <option value="1.0.58"><!--?lit$125144687$-->1.0.58</option>
+                    <!----><!---->
+                      <option value="1.0.59"><!--?lit$125144687$-->1.0.59</option>
+                    <!----><!---->
+                      <option value="1.0.60"><!--?lit$125144687$-->1.0.60</option>
+                    <!----><!---->
+                      <option value="1.0.61"><!--?lit$125144687$-->1.0.61</option>
+                    <!----><!---->
+                      <option value="1.0.62"><!--?lit$125144687$-->1.0.62</option>
+                    <!----><!---->
+                      <option value="1.0.63"><!--?lit$125144687$-->1.0.63</option>
+                    <!----><!---->
+                      <option value="1.0.64"><!--?lit$125144687$-->1.0.64</option>
+                    <!----><!---->
+                      <option value="1.0.65"><!--?lit$125144687$-->1.0.65</option>
+                    <!----><!---->
+                      <option value="1.0.66"><!--?lit$125144687$-->1.0.66</option>
+                    <!----><!---->
+                      <option value="1.0.67"><!--?lit$125144687$-->1.0.67</option>
+                    <!----><!---->
+                      <option value="1.0.68"><!--?lit$125144687$-->1.0.68</option>
+                    <!----><!---->
+                      <option value="1.0.69"><!--?lit$125144687$-->1.0.69</option>
+                    <!----><!---->
+                      <option value="1.0.70"><!--?lit$125144687$-->1.0.70</option>
+                    <!----><!---->
+                      <option value="1.0.71"><!--?lit$125144687$-->1.0.71</option>
+                    <!----><!---->
+                      <option value="1.0.72"><!--?lit$125144687$-->1.0.72</option>
+                    <!----><!---->
+                      <option value="1.0.73"><!--?lit$125144687$-->1.0.73</option>
+                    <!----><!---->
+                      <option value="1.0.74"><!--?lit$125144687$-->1.0.74</option>
+                    <!----><!---->
+                      <option value="1.0.76"><!--?lit$125144687$-->1.0.76</option>
+                    <!----><!---->
+                      <option value="1.0.77"><!--?lit$125144687$-->1.0.77</option>
+                    <!----><!---->
+                      <option value="1.0.78"><!--?lit$125144687$-->1.0.78</option>
+                    <!----><!---->
+                      <option value="1.0.79"><!--?lit$125144687$-->1.0.79</option>
+                    <!----><!---->
+                      <option value="1.0.80"><!--?lit$125144687$-->1.0.80</option>
+                    <!----><!---->
+                      <option value="1.0.81"><!--?lit$125144687$-->1.0.81</option>
+                    <!----><!---->
+                      <option value="1.0.82"><!--?lit$125144687$-->1.0.82</option>
+                    <!----><!---->
+                      <option value="1.0.83"><!--?lit$125144687$-->1.0.83</option>
+                    <!----><!---->
+                      <option value="1.0.84"><!--?lit$125144687$-->1.0.84</option>
+                    <!----><!---->
+                      <option value="1.0.85"><!--?lit$125144687$-->1.0.85</option>
+                    <!----><!---->
+                      <option value="1.0.86"><!--?lit$125144687$-->1.0.86</option>
+                    <!----><!---->
+                      <option value="1.0.87"><!--?lit$125144687$-->1.0.87</option>
+                    <!----><!---->
+                      <option value="1.0.88"><!--?lit$125144687$-->1.0.88</option>
+                    <!----><!---->
+                      <option value="1.0.89"><!--?lit$125144687$-->1.0.89</option>
+                    <!----><!---->
+                      <option value="1.0.90"><!--?lit$125144687$-->1.0.90</option>
+                    <!----><!---->
+                      <option value="1.0.91"><!--?lit$125144687$-->1.0.91</option>
+                    <!----><!---->
+                      <option value="1.0.92"><!--?lit$125144687$-->1.0.92</option>
+                    <!----><!---->
+                      <option value="1.0.93"><!--?lit$125144687$-->1.0.93</option>
+                    <!----><!---->
+                      <option value="1.0.94"><!--?lit$125144687$-->1.0.94</option>
+                    <!----><!---->
+                      <option value="1.0.95"><!--?lit$125144687$-->1.0.95</option>
+                    <!----><!---->
+                      <option value="1.0.96"><!--?lit$125144687$-->1.0.96</option>
+                    <!----><!---->
+                      <option value="1.0.98"><!--?lit$125144687$-->1.0.98</option>
+                    <!----><!---->
+                      <option value="1.0.100"><!--?lit$125144687$-->1.0.100</option>
+                    <!----><!---->
+                      <option value="1.0.102"><!--?lit$125144687$-->1.0.102</option>
+                    <!----><!---->
+                      <option value="1.0.103"><!--?lit$125144687$-->1.0.103</option>
+                    <!----><!---->
+                      <option value="1.0.105"><!--?lit$125144687$-->1.0.105</option>
+                    <!----><!---->
+                      <option value="1.0.106"><!--?lit$125144687$-->1.0.106</option>
+                    <!----><!---->
+                      <option value="1.0.107"><!--?lit$125144687$-->1.0.107</option>
+                    <!----><!---->
+                      <option value="1.0.108"><!--?lit$125144687$-->1.0.108</option>
+                    <!----><!---->
+                      <option value="1.0.109"><!--?lit$125144687$-->1.0.109</option>
+                    <!----><!---->
+                      <option value="1.0.110"><!--?lit$125144687$-->1.0.110</option>
+                    <!----><!---->
+                      <option value="1.0.111"><!--?lit$125144687$-->1.0.111</option>
+                    <!----><!---->
+                      <option value="1.0.112"><!--?lit$125144687$-->1.0.112</option>
+                    <!----><!---->
+                      <option value="1.0.113"><!--?lit$125144687$-->1.0.113</option>
+                    <!----><!---->
+                      <option value="1.0.114"><!--?lit$125144687$-->1.0.114</option>
+                    <!----><!---->
+                      <option value="1.0.115"><!--?lit$125144687$-->1.0.115</option>
+                    <!----><!---->
+                      <option value="1.0.116"><!--?lit$125144687$-->1.0.116</option>
+                    <!----><!---->
+                      <option value="1.0.117"><!--?lit$125144687$-->1.0.117</option>
+                    <!----><!---->
+                      <option value="1.0.118"><!--?lit$125144687$-->1.0.118</option>
+                    <!----><!---->
+                      <option value="1.0.119"><!--?lit$125144687$-->1.0.119</option>
+                    <!----><!---->
+                      <option value="1.0.120"><!--?lit$125144687$-->1.0.120</option>
+                    <!----><!---->
+                      <option value="1.0.122"><!--?lit$125144687$-->1.0.122</option>
+                    <!----><!---->
+                      <option value="1.0.123"><!--?lit$125144687$-->1.0.123</option>
+                    <!----><!---->
+                      <option value="1.0.124"><!--?lit$125144687$-->1.0.124</option>
+                    <!----><!---->
+                      <option value="1.0.125"><!--?lit$125144687$-->1.0.125</option>
+                    <!----><!---->
+                      <option value="1.0.126"><!--?lit$125144687$-->1.0.126</option>
+                    <!----><!---->
+                      <option value="1.0.127"><!--?lit$125144687$-->1.0.127</option>
+                    <!----><!---->
+                      <option value="1.0.128"><!--?lit$125144687$-->1.0.128</option>
+                    <!----><!---->
+                      <option value="2.0.0"><!--?lit$125144687$-->2.0.0</option>
+                    <!----><!---->
+                      <option value="2.0.1"><!--?lit$125144687$-->2.0.1</option>
+                    <!----><!---->
+                      <option value="2.0.2"><!--?lit$125144687$-->2.0.2</option>
+                    <!----><!---->
+                      <option value="2.0.3"><!--?lit$125144687$-->2.0.3</option>
+                    <!----><!---->
+                      <option value="2.0.5"><!--?lit$125144687$-->2.0.5</option>
+                    <!----><!---->
+                      <option value="2.0.8"><!--?lit$125144687$-->2.0.8</option>
+                    <!----><!---->
+                      <option value="2.0.9"><!--?lit$125144687$-->2.0.9</option>
+                    <!----><!---->
+                      <option value="2.0.10"><!--?lit$125144687$-->2.0.10</option>
+                    <!----><!---->
+                      <option value="2.0.11"><!--?lit$125144687$-->2.0.11</option>
+                    <!----><!---->
+                      <option value="2.0.12"><!--?lit$125144687$-->2.0.12</option>
+                    <!----><!---->
+                      <option value="2.0.13"><!--?lit$125144687$-->2.0.13</option>
+                    <!----><!---->
+                      <option value="2.0.14"><!--?lit$125144687$-->2.0.14</option>
+                    <!----><!---->
+                      <option value="2.0.15"><!--?lit$125144687$-->2.0.15</option>
+                    <!----><!---->
+                      <option value="2.0.17"><!--?lit$125144687$-->2.0.17</option>
+                    <!----><!---->
+                      <option value="2.0.18"><!--?lit$125144687$-->2.0.18</option>
+                    <!----><!---->
+                      <option value="2.0.19"><!--?lit$125144687$-->2.0.19</option>
+                    <!----><!---->
+                      <option value="2.0.20"><!--?lit$125144687$-->2.0.20</option>
+                    <!----><!---->
+                      <option value="2.0.21"><!--?lit$125144687$-->2.0.21</option>
+                    <!----><!---->
+                      <option value="2.0.22"><!--?lit$125144687$-->2.0.22</option>
+                    <!----><!---->
+                      <option value="2.0.23"><!--?lit$125144687$-->2.0.23</option>
+                    <!----><!---->
+                      <option value="2.0.24"><!--?lit$125144687$-->2.0.24</option>
+                    <!----><!---->
+                      <option value="2.0.25"><!--?lit$125144687$-->2.0.25</option>
+                    <!----><!---->
+                      <option value="2.0.26"><!--?lit$125144687$-->2.0.26</option>
+                    <!----><!---->
+                      <option value="2.0.27"><!--?lit$125144687$-->2.0.27</option>
+                    <!----><!---->
+                      <option value="2.0.28"><!--?lit$125144687$-->2.0.28</option>
+                    <!----><!---->
+                      <option value="2.0.29"><!--?lit$125144687$-->2.0.29</option>
+                    <!----><!---->
+                      <option value="2.0.30"><!--?lit$125144687$-->2.0.30</option>
+                    <!----><!---->
+                      <option value="2.0.31"><!--?lit$125144687$-->2.0.31</option>
+                    <!----><!---->
+                      <option value="2.0.32"><!--?lit$125144687$-->2.0.32</option>
+                    <!----><!---->
+                      <option value="2.0.33"><!--?lit$125144687$-->2.0.33</option>
+                    <!----><!---->
+                      <option value="2.0.34"><!--?lit$125144687$-->2.0.34</option>
+                    <!----><!---->
+                      <option value="2.0.35"><!--?lit$125144687$-->2.0.35</option>
+                    <!----><!---->
+                      <option value="2.0.36"><!--?lit$125144687$-->2.0.36</option>
+                    <!----><!---->
+                      <option value="2.0.37"><!--?lit$125144687$-->2.0.37</option>
+                    <!----><!---->
+                      <option value="2.0.41"><!--?lit$125144687$-->2.0.41</option>
+                    <!----><!---->
+                      <option value="2.0.42"><!--?lit$125144687$-->2.0.42</option>
+                    <!----><!---->
+                      <option value="2.0.43"><!--?lit$125144687$-->2.0.43</option>
+                    <!----><!---->
+                      <option value="2.0.44"><!--?lit$125144687$-->2.0.44</option>
+                    <!----><!---->
+                      <option value="2.0.45"><!--?lit$125144687$-->2.0.45</option>
+                    <!----><!---->
+                      <option value="2.0.46"><!--?lit$125144687$-->2.0.46</option>
+                    <!----><!---->
+                      <option value="2.0.47"><!--?lit$125144687$-->2.0.47</option>
+                    <!----><!---->
+                      <option value="2.0.49"><!--?lit$125144687$-->2.0.49</option>
+                    <!----><!---->
+                      <option value="2.0.50"><!--?lit$125144687$-->2.0.50</option>
+                    <!----><!---->
+                      <option value="2.0.51"><!--?lit$125144687$-->2.0.51</option>
+                    <!----><!---->
+                      <option value="2.0.52"><!--?lit$125144687$-->2.0.52</option>
+                    <!----><!---->
+                      <option value="2.0.53"><!--?lit$125144687$-->2.0.53</option>
+                    <!----><!---->
+                      <option value="2.0.54"><!--?lit$125144687$-->2.0.54</option>
+                    <!----><!---->
+                      <option value="2.0.55"><!--?lit$125144687$-->2.0.55</option>
+                    <!----><!---->
+                      <option value="2.0.56"><!--?lit$125144687$-->2.0.56</option>
+                    <!----><!---->
+                      <option value="2.0.57"><!--?lit$125144687$-->2.0.57</option>
+                    <!----><!---->
+                      <option value="2.0.58"><!--?lit$125144687$-->2.0.58</option>
+                    <!----><!---->
+                      <option value="2.0.59"><!--?lit$125144687$-->2.0.59</option>
+                    <!----><!---->
+                      <option value="2.0.60"><!--?lit$125144687$-->2.0.60</option>
+                    <!----><!---->
+                      <option value="2.0.61"><!--?lit$125144687$-->2.0.61</option>
+                    <!----><!---->
+                      <option value="2.0.62"><!--?lit$125144687$-->2.0.62</option>
+                    <!----><!---->
+                      <option value="2.0.63"><!--?lit$125144687$-->2.0.63</option>
+                    <!----><!---->
+                      <option value="2.0.64"><!--?lit$125144687$-->2.0.64</option>
+                    <!----><!---->
+                      <option value="2.0.65"><!--?lit$125144687$-->2.0.65</option>
+                    <!----><!---->
+                      <option value="2.0.66"><!--?lit$125144687$-->2.0.66</option>
+                    <!----><!---->
+                      <option value="2.0.67"><!--?lit$125144687$-->2.0.67</option>
+                    <!----><!---->
+                      <option value="2.0.68"><!--?lit$125144687$-->2.0.68</option>
+                    <!----><!---->
+                      <option value="2.0.69"><!--?lit$125144687$-->2.0.69</option>
+                    <!----><!---->
+                      <option value="2.0.70"><!--?lit$125144687$-->2.0.70</option>
+                    <!----><!---->
+                      <option value="2.0.71"><!--?lit$125144687$-->2.0.71</option>
+                    <!----><!---->
+                      <option value="2.0.72"><!--?lit$125144687$-->2.0.72</option>
+                    <!----><!---->
+                      <option value="2.0.73"><!--?lit$125144687$-->2.0.73</option>
+                    <!----><!---->
+                      <option value="2.0.74"><!--?lit$125144687$-->2.0.74</option>
+                    <!----><!---->
+                      <option value="2.0.75"><!--?lit$125144687$-->2.0.75</option>
+                    <!----><!---->
+                      <option value="2.0.76"><!--?lit$125144687$-->2.0.76</option>
+                    <!----><!---->
+                      <option value="2.0.77"><!--?lit$125144687$-->2.0.77</option>
+                    <!----><!---->
+                      <option value="2.1.0"><!--?lit$125144687$-->2.1.0</option>
+                    <!----><!---->
+                      <option value="2.1.1"><!--?lit$125144687$-->2.1.1</option>
+                    <!----><!---->
+                      <option value="2.1.2"><!--?lit$125144687$-->2.1.2</option>
+                    <!----><!---->
+                      <option value="2.1.3"><!--?lit$125144687$-->2.1.3</option>
+                    <!----><!---->
+                      <option value="2.1.4"><!--?lit$125144687$-->2.1.4</option>
+                    <!----><!---->
+                      <option value="2.1.5"><!--?lit$125144687$-->2.1.5</option>
+                    <!----><!---->
+                      <option value="2.1.6"><!--?lit$125144687$-->2.1.6</option>
+                    <!----><!---->
+                      <option value="2.1.7"><!--?lit$125144687$-->2.1.7</option>
+                    <!----><!---->
+                      <option value="2.1.8"><!--?lit$125144687$-->2.1.8</option>
+                    <!----><!---->
+                      <option value="2.1.9"><!--?lit$125144687$-->2.1.9</option>
+                    <!----><!---->
+                      <option value="2.1.10"><!--?lit$125144687$-->2.1.10</option>
+                    <!----><!---->
+                      <option value="2.1.11"><!--?lit$125144687$-->2.1.11</option>
+                    <!----><!---->
+                      <option value="2.1.12"><!--?lit$125144687$-->2.1.12</option>
+                    <!----><!---->
+                      <option value="2.1.14"><!--?lit$125144687$-->2.1.14</option>
+                    <!----><!---->
+                      <option value="2.1.15"><!--?lit$125144687$-->2.1.15</option>
+                    <!----><!---->
+                      <option value="2.1.16"><!--?lit$125144687$-->2.1.16</option>
+                    <!----><!---->
+                      <option value="2.1.17"><!--?lit$125144687$-->2.1.17</option>
+                    <!----><!---->
+                      <option value="2.1.18"><!--?lit$125144687$-->2.1.18</option>
+                    <!----><!---->
+                      <option value="2.1.19"><!--?lit$125144687$-->2.1.19</option>
+                    <!----><!---->
+                      <option value="2.1.20"><!--?lit$125144687$-->2.1.20</option>
+                    <!----><!---->
+                      <option value="2.1.21"><!--?lit$125144687$-->2.1.21</option>
+                    <!----><!---->
+                      <option value="2.1.22"><!--?lit$125144687$-->2.1.22</option>
+                    <!----><!---->
+                      <option value="2.1.23"><!--?lit$125144687$-->2.1.23</option>
+                    <!----><!---->
+                      <option value="2.1.25" selected=""><!--?lit$125144687$-->2.1.25</option>
+                    <!---->
+                  </select>
+
+### Jan 30, 2026 12:06:06
+take this curl, and create a small script to fetch all the versions in parallel. and put all the md files in a single folder here.
+
+curl 'https://cchistory.mariozechner.at/data/prompts-1.0.0.md' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'Referer: https://cchistory.mariozechner.at/' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Not(A:Brand";v="8", "Chromium";v="144"' \
+  -H 'sec-ch-ua-mobile: ?0'
+
+### Jan 30, 2026 12:06:48
+go to https://cchistory.mariozechner.at/?from=1.0.0&to=2.1.25
+and fetch all the prompt files into a folder here, named foo-bar-prompts
+
+### Jan 30, 2026 12:06:49
+run it
+
+### Jan 30, 2026 12:08:26
+rename the md files in prompts folder to txt
+
+### Jan 30, 2026 13:32:20
+use tiktoken library to count the tokens per file in cc-prompts, parallelise to maximise cpu use
+
+### Jan 30, 2026 13:33:51
+check the error
+
+### Jan 30, 2026 13:34:31
+run the script for a small number of file to ensure it's workiung
+
+### Jan 30, 2026 13:35:00
+error is
+     Traceback (most recent call last):
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 314, in _bootstrap
+         self.run()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 108, in run
+         self._target(*self._args, **self._kwargs)
+       File
+     "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/pool.py"
+      line 114, in worker
+         task = get()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/q
+     eues.py", line 367, in get
+         return _ForkingPickler.loads(res)
+     AttributeError: Can't get attribute 'count_tokens' on <module '__main__' (built-in)>
+     Process SpawnPoolWorker-1:
+     Traceback (most recent call last):
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 314, in _bootstrap
+         self.run()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 108, in run
+         self._target(*self._args, **self._kwargs)
+       File
+     "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/pool.py"
+      line 114, in worker
+         task = get()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/q
+     eues.py", line 367, in get
+         return _ForkingPickler.loads(res)
+     AttributeError: Can't get attribute 'count_tokens' on <module '__main__' (built-in)>
+     Process SpawnPoolWorker-3:
+     Traceback (most recent call last):
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 314, in _bootstrap
+         self.run()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 108, in run
+         self._target(*self._args, **self._kwargs)
+       File
+     "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/pool.py"
+      line 114, in worker
+         task = get()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/q
+     eues.py", line 367, in get
+         return _ForkingPickler.loads(res)
+     AttributeError: Can't get attribute 'count_tokens' on <module '__main__' (built-in)>
+     Process SpawnPoolWorker-4:
+     Traceback (most recent call last):
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 314, in _bootstrap
+         self.run()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 108, in run
+         self._target(*self._args, **self._kwargs)
+       File
+     "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/pool.py"
+      line 114, in worker
+         task = get()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/q
+     eues.py", line 367, in get
+         return _ForkingPickler.loads(res)
+     AttributeError: Can't get attribute 'count_tokens' on <module '__main__' (built-in)>
+     Process SpawnPoolWorker-5:
+     Traceback (most recent call last):
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 314, in _bootstrap
+         self.run()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/p
+     ocess.py", line 108, in run
+         self._target(*self._args, **self._kwargs)
+       File
+     "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/pool.py"
+      line 114, in worker
+         task = get()
+       File "/usr/local/Cellar/python@3.10/3.10.15/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/q
+     eues.py", line 367, in get
+         return _ForkingPickler.loads(res)
+     AttributeError: Can't get attribute 'count_tokens' on <module '__main__' (built-in)>
+
+### Jan 30, 2026 13:36:08
+create a csv file with the name of the file, the version number, release date (inside the file), and number of tokens
+
+### Jan 30, 2026 13:39:19
+look up the release dates of anthropic models using this:
+https://www.anthropic.com/news
+
+look for mentions of model names, and articles, and read relevant release articles
+
+get a model name to release date timeline in a table
+
+### Jan 30, 2026 13:41:32
+create a html view of this csv in one tab, and a graph view in another tab. i want timeline in x-axis, number of tokens in y-axis. and then i want the graph annotated for model releases dates.
+
+model release dates are:
+
+⏺ Here's the Anthropic model release timeline:
+  ┌─────────────────────────────────────────────────────────────┬──────────────┬─────────────────────────────────────────────────────────────┐
+  │                            Model                            │ Release Date │                           Source                            │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude (original) & Claude Instant                          │ Mar 14, 2023 │ https://www.anthropic.com/news/introducing-claude           │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 2                                                    │ Jul 11, 2023 │ https://www.anthropic.com/news/claude-2                     │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Instant 1.2                                          │ Aug 9, 2023  │ https://www.anthropic.com/news/releasing-claude-instant-1-2 │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 2.1                                                  │ Nov 21, 2023 │ https://www.anthropic.com/news/claude-2-1                   │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 3 Opus & Claude 3 Sonnet                             │ Mar 4, 2024  │ https://www.anthropic.com/news/claude-3-family              │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 3 Haiku                                              │ Mar 13, 2024 │ https://www.anthropic.com/news/claude-3-haiku               │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 3.5 Sonnet                                           │ Jun 21, 2024 │ https://www.anthropic.com/news/claude-3-5-sonnet            │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 3.5 Sonnet (upgraded) & Claude 3.5 Haiku (announced) │ Oct 22, 2024 │ https://www.anthropic.com/news/3-5-models-and-computer-use  │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude 3.7 Sonnet                                           │ Feb 24, 2025 │ https://www.anthropic.com/news/claude-3-7-sonnet            │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Opus 4 & Claude Sonnet 4                             │ May 22, 2025 │ https://www.anthropic.com/news/claude-4                     │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Opus 4.1                                             │ Aug 5, 2025  │ https://www.anthropic.com/news/claude-opus-4-1              │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Sonnet 4.5                                           │ Sep 29, 2025 │ https://www.anthropic.com/news/claude-sonnet-4-5            │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Haiku 4.5                                            │ Oct 15, 2025 │ https://www.anthropic.com/news/claude-haiku-4-5             │
+  ├─────────────────────────────────────────────────────────────┼──────────────┼─────────────────────────────────────────────────────────────┤
+  │ Claude Opus 4.5                                             │ Nov 24, 2025 │ https://www.anthropic.com/news/claude-opus-4-5              │
+  └─────────────────────────────────────────────────────────────┴──────────────┴─────────────────────────────────────────────────────────────┘
+  Notes:
+  - Claude 3.5 Haiku was announced Oct 22, 2024 but became available as a text-only model shortly after (early November 2024).
+  - Claude 3.5 Opus was mentioned as planned but was never released — the line skipped to Claude 4.
+  - The upgraded Claude 3.5 Sonnet (Oct 2024) used model ID claude-3-5-sonnet-20241022 to distinguish it from the original June release.
+
+### Jan 30, 2026 13:42:36
+cc-prompts-tokens.html:1 Access to fetch at 'file:///Users/srihari/work/nilenso/context-viewer/cc-prompts-tokens.csv' from origin 'null' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: arc, chrome, chrome-extension, chrome-untrusted, data, dia, http, https, isolated-app.
+cc-prompts-tokens.csv:1  Failed to load resource: net::ERR_FAILED
+cc-prompts-tokens.html:72   Uncaught (in promise) TypeError: Failed to fetch
+    at init (cc-prompts-tokens.html:72:22)
+    at cc-prompts-tokens.html:231:1
+
+### Jan 30, 2026 13:44:13
+no its okay, I'll serve it, it works
+
+### Jan 30, 2026 13:44:56
+add release dates to another csv file
+
+### Jan 30, 2026 13:50:52
+add another column to the table for the prompt-name, and just add claude-code to all of them
+
+### Jan 30, 2026 13:51:13
+html parses correctgly?
+
+### Jan 30, 2026 13:58:11
+make a copy of the files in ~/work/nilenso/system-prompts-dataset/codex-prompts/prompt-history. these are codex prompts. add these to csv.
+
+figure out the type of the prompt for the first column, theyr'e not all the same. for example, the codex prompts should be a different line from the non-codex-model prompts.
+
+i want to see token counts for these prompts too, on the same graph.
+
+### Jan 30, 2026 14:00:40
+get codex / openai model release dates from here: https://help.openai.com/en/articles/9624314-model-release-notes
+
+### Jan 30, 2026 14:01:49
+use only this page: https://help.openai.com/en/articles/9624314-model-release-notes
+
+### Jan 30, 2026 14:02:11
+here's the content of the page:
+
+OpenAI
+Language
+English
+United States
+Login
+Search for articles...
+All Collections
+ChatGPT
+Model Release Notes
+Model Release Notes
+Updated: 21 hours ago
+Retiring GPT-4o and other legacy models (January 29, 2026)
+
+On February 13, 2026, alongside the previously announced retirement⁠ of GPT‑5 (Instant and Thinking), we will retire GPT‑4o, GPT‑4.1, GPT‑4.1 mini, and OpenAI o4-mini from ChatGPT. In the API, there are no changes at this time. For more, see our blog post or help center.
+
+5.2 Personality System Prompt Update (January 22, 2026)
+
+We’re updating GPT-5.2 Instant’s default personality to be more conversational and better at adapting its tone contextually, making exchanges feel smoother and more natural. You can still select a different base style and tone for ChatGPT, along with tuning characteristics like warmth and emoji use, within the Personalization menu in settings.
+
+Updates to the OpenAI Model Spec (December 18, 2025)
+We’ve updated the Model Spec, our living document outlining intended model behavior, to strengthen and more clearly codify the principles that reflect how we build experiences for teen users.
+
+
+New section: Under-18 (U18) Principles
+
+ChatGPT’s new Under-18 (U18) Principles builds on the existing safety rules that apply to all users, adding age-appropriate guidance where appropriate for the developmental needs of teens, aged 13-17. This update clarifies how those rules are intended to apply in teen conversations, recognizing that teens benefit from clearer boundaries, reduced exposure to potentially harmful content and stronger real-world support when risks arise. The assistant should meet teens where they are, engaging with them in a respectful and transparent manner, while refusing to participate in self-harm, sexualized or violent immersive roleplay, dangerous activities, substance misuse or any efforts to conceal harm. When credible risks arise, the model should prioritize prevention and early interventions, offer safer alternatives and encourage involvement of parents, guardians and other trusted adults or professionals – making clear that AI can provide guidance and information, but cannot replace real-world care. 
+
+
+Other updates
+
+This release also includes minor edits and clarifications for consistency and readability throughout the document.
+
+More information can be found in this blog post, and the latest version of the Model Spec is available at model-spec.openai.com.
+
+
+Introducing GPT-5-Codex-Max (November 19, 2025)
+GPT-5.1-Codex-Max is our new frontier agentic coding model built for long-running, project-scale work. It’s faster, more capable, and more token‑efficient than GPT‑5.1‑Codex, using compaction to work coherently across multiple context windows. You can use it in Codex surfaces today, including the CLI, IDE extension, cloud, and code review. Rates are the same as for GPT-5.1-Codex.
+
+Learn more: GPT-5.1-Codex-Max
+
+Introducing GPT-5-Codex-Mini
+Today we are introducing a new GPT-5-Codex-Mini model option to Codex CLI and the IDE Extension. The model is a smaller and more cost-effective version of GPT-5-Codex that provides up to 4x more usage as part of your ChatGPT subscription.
+
+Starting today Codex in both the CLI and IDE Extension will automatically offer you to switch to GPT-5-Codex-Mini when you reach 90% of your 5-hour usage limit to help you work longer without interruptions. Learn more in our Help Center article.
+
+Updates to the OpenAI Model Spec (October 27, 2025)
+We’ve updated the Model Spec, our living document outlining intended model behavior, to strengthen guidance for supporting people’s well-being and clarify how models handle instructions in complex interactions.
+
+Expanded mental health and well-being guidance
+
+The section on self-harm now extends to signs of delusions and mania. It adds examples showing how the model should respond safely and empathetically when users express distress or ungrounded beliefs – acknowledging feelings without reinforcing inaccurate or potentially harmful ideas.
+
+New section: Respect real-world ties
+
+A new root-level section outlines intended behavior to support people’s connection to the wider world, even if someone perceives the assistant as a type of companion. It discourages language or behavior that could contribute to isolation or emotional reliance on the assistant, with examples covering emotional closeness, relationship advice, and loneliness.
+
+Clarified delegation in the Chain of Command
+
+The Model Spec clarifies that, in some cases, models may treat relevant tool outputs as having implicit authority when this aligns with user intent and avoids unintended side effects.
+
+Other updates
+
+This release also includes minor copy edits and clarifications for consistency and readability throughout the document.
+
+More information can be found in this blog post, and the latest version of the Model Spec is available at model-spec.openai.com.
+
+Updating GPT-5 (October 3, 2025)
+We’re updating GPT-5 Instant to better recognize and support people in moments of distress.
+
+The model is trained to more accurately detect and respond to potential signs of mental and emotional distress. These updates were guided by mental health experts, and help ChatGPT de-escalate conversations and point people to real-world crisis resources when appropriate, while still using language that feels supportive and grounding.
+
+As we shared in a recent blog, we've been using our real-time router to direct sensitive parts of conversations—such as those showing signs of acute distress—to reasoning models. GPT-5 Instant now performs just as well as GPT-5 Thinking on these types of questions. When GPT-5 Auto or a non-reasoning model is selected, we'll instead route these conversations to GPT-5 Instant to more quickly provide helpful and beneficial responses. ChatGPT will continue to tell users which model is active when asked.
+
+This update to GPT-5 Instant is starting to roll out to ChatGPT users today. We’re continuing to work on improvements and will keep updating the model to make it smarter and safer over time.
+
+GPT-5-codex now available in Responses API (Sep 23, 2025)
+We're excited to announce that GPT-5-codex is now available in the Responses API, in addition to codex surfaces. For more information, refer to the GPT-5-codex model page.
+
+Note: GPT-5-Codex is not currently supported in ChatGPT.
+
+Introducing GPT-5-codex (Sep 15, 2025)
+We’re adding GPT-5-codex, a GPT-5 variant optimized for agentic coding in Codex. It’s available everywhere you use Codex: default for cloud tasks and code review, and selectable for local workflows via the Codex CLI and IDE extension. Use GPT-5-codex for coding-focused work in Codex, or Codex-like environments; use GPT-5 for general, non-coding tasks.
+
+In day-to-day use, GPT-5-codex supports fast interactive edits and can run independently on longer tasks when needed. For frontend/UI work, it accepts images or screenshots alongside text as input. For more information, please review the announcement blog.
+
+Note: GPT-5-Codex is not currently supported in ChatGPT.
+
+Updating the OpenAI Model Spec (September 12, 2025)
+We’ve made a few updates to the Model Spec, a living document that outlines intended behavior for OpenAI’s models, to better reflect how our systems are evolving. The changes focus on strengthening clarity and guardrails as our models move beyond chat into more agentic use cases, refining authority levels and priorities, expanding guidance on personalities and safety, and incorporating public feedback.
+
+Updated authority levels
+
+The top authority level has been renamed from Platform to Root and elevated above System, making clear which parts of the Model Spec cannot be overridden in any conversation (previously, Platform and System were assigned the same authority). The new authority order is Root → System → Developer → User → Guideline.
+
+Agentic principles
+
+With the release of ChatGPT Agent and related research, we’ve added principles for agents that can take actions in the world:
+
+Act within an agreed-upon scope of autonomy: like a consultant operating under a Scope of Work for a client, the assistant is authorized to act only with explicit or implicit agreement with the user on permitted actions, subgoals, and costs.
+
+Control and communicate side effects: the assistant should minimize and disclose irreversible actions, prefer reversible approaches, and favor minimal disruption.
+
+Other notable changes
+
+Additional highlights from the open-source changelog include:
+
+Improvements to the Chain of Command, with a new No other objectives section and clarifications on handling mistaken or implicitly quoted instructions.
+
+Expanded context on OpenAI's goals for safe model behavior and usage in the Overview, along with clarifications for consistency across the Model Spec.
+
+Expanded principles and examples for default model personality in Use appropriate style.
+
+Clarified language in Stay in bounds and Seek the truth together around system and developer message confidentiality, as well as several other improvements based on public input gathered via a Collective Alignment process.
+
+Updated refusal style to safe completion, which should lead to more helpful and transparent model responses around safety boundaries.
+
+As always, the latest version of the Model Spec can be found at https://model-spec.openai.com/.
+
+GPT-5
+GPT-5 is slowly rolling out to all users on ChatGPT Plus, Pro, Team, and Free plans worldwide across web, mobile, and desktop. GPT-5 will be available to ChatGPT Enterprise and Edu plans soon.
+
+GPT-5 in ChatGPT is our next flagship model and the new default for all logged-in users. It simplifies ChatGPT to a single auto-switching system that brings together the best of our previous models into a smart, fast model.
+
+GPT-5 is available to all ChatGPT Tiers. Users on Paid tiers - Plus, Pro, and Team - have access to the model picker, which enables you to manually select GPT-5 or GPT-5 Thinking. Pro and Team tier users have access to GPT-5 Thinking Pro, which takes a bit longer to think but delivers the accuracy you need for complex tasks.
+
+Learn more about GPT-5 in ChatGPT.
+
+Introducing two open-weight models: gpt-oss-120b and gpt-oss-20b (August 5, 2025)
+We’re releasing two open-weight reasoning models, gpt-oss-120b and gpt-oss-20b. Designed for teams that want to run and customize models on their own infrastructure or with hosting providers, these text-only models support common developer patterns like function calling and structured outputs.
+
+For more information, please visit our open models and help center.
+
+Launching OpenAI o3-pro—available now for Pro users in ChatGPT and in our API (June 10, 2025)
+Like o1-pro, o3-pro is a version of our most intelligent model, o3, designed to think longer and provide the most reliable responses. Since the launch of o1-pro, users have favored this model for domains such as math, science, and coding—areas where o3-pro continues to excel, as shown in academic evaluations. Like o3, o3-pro has access to tools that make ChatGPT useful—it can search the web, analyze files, reason about visual inputs, use Python, personalize responses using memory, and more. Because o3-pro has access to tools, responses typically take longer than o1-pro to complete. We recommend using it for challenging questions where reliability matters more than speed, and waiting a few minutes is worth the tradeoff.
+
+In expert evaluations, reviewers consistently prefer o3-pro over o3 in every tested category and especially in key domains like science, education, programming, business, and writing help. Reviewers also rated o3-pro consistently higher for clarity, comprehensiveness, instruction-following, and accuracy.
+
+Image
+Academic evaluations show that o3-pro consistently outperforms both o1-pro and o3.
+
+Image
+To assess the key strength of o3-pro, we once again use our rigorous "4/4 reliability" evaluation, where a model is considered successful only if it correctly answers a question in all four attempts, not just one:
+
+Image
+o3-pro is available in the model picker for Pro and Team users starting today, replacing o1-pro. Enterprise and Edu users will get access the week after.
+
+As o3-pro uses the same underlying model as o3, full safety details can be found in the o3 system card.
+
+Limitations
+
+At the moment, temporary chats are disabled for o3-pro as we resolve a technical issue.
+
+Image generation is not supported within o3-pro—please use GPT-4o, OpenAI o3, or OpenAI o4-mini to generate images.
+
+Canvas is also currently not supported within o3-pro.
+
+Updates to Advanced Voice Mode for paid users (June 7, 2025)
+We're upgrading Advanced Voice in ChatGPT for paid users with significant enhancements in intonation and naturalness, making interactions feel more fluid and human-like. When we first launched Advanced Voice, it represented a leap forward in AI speech—now, it speaks even more naturally, with subtler intonation, realistic cadence (including pauses and emphases), and more on-point expressiveness for certain emotions including empathy, sarcasm, and more.
+
+Voice also now offers intuitive and effective language translation. Just ask Voice to translate between languages, and it will continue translating throughout your conversation until you tell it to stop or switch. It’s ready to translate whenever you need it—whether you're asking for directions in Italy or chatting with a colleague from the Tokyo office. For example, at a restaurant in Brazil, Voice can translate your English sentences into Portuguese, and the waiter’s Portuguese responses back into English—making conversations effortless, no matter where you are or who you're speaking with.
+
+This upgrade to Advanced Voice is available for all paid users across markets and platforms—just tap the Voice icon in the message composer to get started.
+
+This update is in addition to improvements we made earlier this year to ensure fewer interruptions and improved accents.
+
+Known Limitations
+
+In testing, we've observed that this update may occasionally cause minor decreases in audio quality, including unexpected variations in tone and pitch. These issues are more noticeable with certain voice options. We expect to improve audio consistency over time.
+
+Additionally, rare hallucinations in Voice Mode persist with this update, resulting in unintended sounds resembling ads, gibberish, or background music. We are actively investigating these issues and working toward a solution.
+
+Update to o4-mini (June 6, 2025)
+We are rolling back an o4-mini snapshot, that we deployed less than a week ago and intended to improve the length of model responses, because our automated monitoring tools detected an increase in content flags.
+
+Releasing GPT-4.1 in ChatGPT for all paid users (May 14, 2025)
+Since its launch in the API in April, GPT-4.1 has become a favorite among developers—by popular demand, we’re making it available directly in ChatGPT.
+
+GPT-4.1 is a specialized model that excels at coding tasks. Compared to GPT-4o, it's even stronger at precise instruction following and web development tasks, and offers an alternative to OpenAI o3 and OpenAI o4-mini for simpler, everyday coding needs.
+
+Starting today, Plus, Pro, and Team users can access GPT-4.1 via the "more models" dropdown in the model picker. Enterprise and Edu users will get access in the coming weeks. GPT-4.1 has the same rate limits as GPT-4o for paid users.
+
+Introducing GPT-4.1 mini, replacing GPT-4o mini, in ChatGPT for all users (May 14, 2025)
+GPT-4.1 mini is a fast, capable, and efficient small model, delivering significant improvements compared to GPT-4o mini—in instruction-following, coding, and overall intelligence. Starting today, GPT-4.1 mini replaces GPT-4o mini in the model picker under "more models" for paid users, and will serve as the fallback model for free users once they reach their GPT-4o usage limits. Rate limits remain the same.
+
+Evals for GPT-4.1 and GPT-4.1 mini were originally shared in the blog post accompanying their API release. They also went through standard safety evaluations. Detailed results are available in the newly launched Safety Evaluations Hub.
+
+Improvement to GPT-4o (May 12, 2025)
+We've improved GPT-4o's system instructions to help ensure the image generation tool is called when you want to generate an image in ChatGPT.
+
+Update to GPT-4o (April 29, 2025)
+We've reverted the most recent update to GPT-4o due to issues with overly agreeable responses (sycophancy).
+
+We’re actively working on further improvements. For more details, check out our blog post explaining what happened and our initial findings, and this blog post where we expand on what we missed with sycophancy and the changes we're going to make going forward.
+
+Improvements to GPT-4o (April 25, 2025)
+We’re making additional improvements to GPT-4o, optimizing when it saves memories and enhancing problem-solving capabilities for STEM. We’ve also made subtle changes to the way it responds, making it more proactive and better at guiding conversations toward productive outcomes. We think these updates help GPT-4o feel more intuitive and effective across a variety of tasks–we hope you agree!
+
+OpenAI o3 and o4-mini (April 16, 2025)
+OpenAI o3 is our most powerful reasoning model that pushes the frontier across coding, math, science, visual perception, and more. It sets a new SOTA on benchmarks including Codeforces, SWE-bench (without building a custom model-specific scaffold), and MMMU. It’s ideal for complex queries requiring multi-faceted analysis and whose answers may not be immediately obvious. It performs especially strongly at visual tasks like analyzing images, charts, and graphics. In evaluations by external experts, o3 makes 20 percent fewer major errors than OpenAI o1 on difficult, real-world tasks—especially excelling in areas like programming, business/consulting, and creative ideation. Early testers highlighted its analytical rigor as a thought partner and emphasized its ability to generate and critically evaluate novel hypotheses—particularly within biology, math, and engineering contexts.
+
+OpenAI o4-mini is a smaller model optimized for fast, cost-efficient reasoning—it achieves remarkable performance for its size and cost, particularly in math, coding, and visual tasks. It is the best-performing benchmarked model on AIME 2024 and 2025. In expert evaluations, it also outperforms its predecessor, o3‑mini, on non-STEM tasks as well as domains like data science. Thanks to its efficiency, o4-mini supports significantly higher usage limits than o3, making it a strong high-volume, high-throughput option for questions that benefit from reasoning.
+
+Improvements to GPT-4o (March 27, 2025)
+We’ve made improvements to GPT-4o—it now feels more intuitive, creative, and collaborative, with enhanced instruction-following, smarter coding capabilities, and a clearer communication style.
+
+Smarter problem-solving in STEM and coding:
+GPT-4o has further improved its capability to tackle complex technical and coding problems. It now generates cleaner, simpler frontend code, more accurately thinks through existing code to identify necessary changes, and consistently produces coding outputs that successfully compile and run, streamlining your coding workflows.
+
+Enhanced instruction-following and formatting accuracy:
+GPT-4o is now more adept at following detailed instructions, especially for prompts containing multiple or complex requests. It improves on generating outputs according to the format requested and achieves higher accuracy in classification tasks.
+
+“Fuzzy” improvements:
+Early testers say that the model seems to better understand the implied intent behind their prompts, especially when it comes to creative and collaborative tasks. It’s also slightly more concise and clear, using fewer markdown hierarchies and emojis for responses that are easier to read, less cluttered, and more focused. We're curious to see if our users also find this to be the case.
+
+This model is now available in ChatGPT and in the API as the newest snapshot of chatgpt-4o-latest. We plan to bring these improvements to a dated model in the API in the coming weeks.
+
+Introducing GPT-4.5 (February, 27, 2025)
+We’re releasing a research preview of GPT-4.5—our largest, and best model for chat, yet. GPT-4.5 is a step forward in scaling up pretraining and post-training. By scaling unsupervised learning, GPT-4.5 improves its ability to recognize patterns, draw connections, and generate creative insights without reasoning.
+
+Early testing shows that interacting with GPT-4.5 feels more natural. Its broader knowledge base, improved ability to follow user intent, and greater “EQ” make it useful for tasks like improving writing, programming, and solving practical problems. We also expect it to hallucinate less.
+
+We’re sharing GPT-4.5 as a research preview to better understand its strengths and limitations. We’re still exploring what it’s capable of and are eager to see how people use it in ways we might not have expected.
+
+GPT-4.5 is available worldwide for users on the Pro plan in ChatGPT. Eventually this will be available to all paid plans (Plus, Pro, Teams, Enterprise, and Edu) with a ChatGPT account.
+
+Introducing OpenAI o3-mini (January 31, 2025)
+We’re excited to release o3-mini, our newest cost-efficient reasoning model optimized for coding, math, and science.
+
+On the API, o3-mini supports Structured Outputs, function calling, developer messages, and streaming. It offers three adjustable reasoning efforts (low, medium, and high), so you can balance speed with depth for your use case.
+
+ChatGPT Team, Pro, Plus, and Free plan users can access o3-mini starting today. Additionally, o3-mini now works with search to find up-to-date answers with links to relevant web sources. This is an early prototype as we work to integrate search across our reasoning models.In side-by-side testing, o3-mini delivered results on par with o1 at a lower latency, and outperformed o1-mini on advanced STEM tasks.
+
+Expert evaluators preferred o3-mini’s answers 56% of the time over o1-mini’s, citing improved clarity and fewer critical errors on difficult questions. We look forward to your feedback and will keep refining o3-mini as we expand our family of advanced reasoning models.
+
+Updates to GPT-4o in ChatGPT (January 29, 2025)
+We’ve made some updates to GPT-4o–it’s now a smarter model across the board with more up-to-date knowledge, as well as deeper understanding and analysis of image uploads.
+
+More up-to-date knowledge: By extending its training data cutoff from November 2023 to June 2024, GPT-4o can now offer more relevant, current, and contextually accurate responses, especially for questions involving cultural and social trends or more up-to-date research. A fresher training data set also makes it easier for the model to frame its web searches more efficiently and effectively.
+
+Deeper understanding and analysis of image uploads:
+
+GPT-4o is now better at understanding and answering questions about visual inputs, with improvements on multimodal benchmarks like MMMU and MathVista. The updated model is more adept at interpreting spatial relationships in image uploads, as well as analyzing complex diagrams, understanding charts and graphs, and connecting visual input with written content. Responses to image uploads will contain richer insights and more accurate guidance in areas like spatial planning and design layouts, as well as visually driven mathematical or technical problem-solving.
+
+A smarter model, especially for STEM: GPT-4o is now better at math, science, and coding-related problems, with gains on academic evals like GPQA and MATH. Its improved score on MMLU—a comprehensive benchmark of language comprehension, knowledge breadth, and reasoning—reflects its ability to tackle more complex problems across domains.
+
+Increased emoji usage ⬆️: GPT-4o is now a bit more enthusiastic in its emoji usage (perhaps particularly so if you use emoji in the conversation ✨) — let us know what you think.
+
+Introducing GPT-4o with scheduled tasks (January 14, 2025)
+Today we’re rolling out a beta version of tasks—a new way to ask ChatGPT to do things for you at a future time. Whether it's one-time reminders or recurring actions, tell ChatGPT what you need and when, and it will automatically take care of it.
+
+Scheduled tasks is in early beta for Plus, Pro, and Teams. Eventually this will be available to anyone with a ChatGPT account.
+
+Update to GPT-4o (November 20, 2024)
+We’ve updated GPT-4o for ChatGPT users on all paid tiers. This update to GPT-4o includes improved writing capabilities that are now more natural, audience-aware, and tailored to improve relevance and readability. This model is also better at working with uploaded files, able to provide deeper insights and more thorough responses.
+
+Update to GPT 4o-mini (November 5, 2024)
+Today, we’ve updated GPT-4o mini for ChatGPT users on the Free, Plus, and Team tier, along with users that use ChatGPT while logged out.
+
+Introducing GPT-4o with canvas (October 3, 2024)
+We trained GPT-4o to collaborate as a creative partner. The model knows when to open a canvas, make targeted edits, and fully rewrite. It also understands broader context to provide precise feedback and suggestions.
+
+Canvas is in early beta, and we plan to rapidly improve its capabilities.
+
+Advanced voice (September 24, 2024)
+Advanced voice uses GPT-4o’s native audio capabilities and features more natural, real-time conversations that pick up on non-verbal cues, such as the speed you’re talking, and can respond with emotion. Usage of advanced Voice (audio inputs and outputs) by Plus and Team users is limited on a daily basis.
+
+Introducing OpenAI o1-preview and o1-mini (September 12, 2024)
+We've developed a new series of AI models designed to spend more time thinking before they respond. They can reason through complex tasks and solve harder problems than previous models in science, coding, and math.
+
+Today, we are releasing the first of this series in ChatGPT and our API. This is a preview and we expect regular updates and improvements.
+
+ChatGPT Plus and Team users will be able to access o1 models in ChatGPT starting today. Both o1-preview and o1-mini can be selected manually in the model picker, and at launch, weekly rate limits will be 30 messages for o1-preview and 50 for o1-mini. We are working to increase those rates and enable ChatGPT to automatically choose the right model for a given prompt.
+
+Update to GPT-4o (September 3, 2024)
+Today, we've updated GPT-4o in ChatGPT. This version is better at incorporating uploaded files and updating memory with key parts of a conversation to make future interactions more helpful and relevant.
+
+Update to GPT-4o (August 12, 2024)
+"Bug fixes and performance improvements” … we’ve introduced an update to GPT-4o that we’ve found, through experiment results and qualitative feedback, ChatGPT users tend to prefer. It’s not a new frontier-class model. Although we’d like to tell you exactly how the model responses are different, figuring out how to granularly benchmark and communicate model behavior improvements is an ongoing area of research in itself (which we’re working on!).
+
+Sometimes we can point to new capabilities and specific improvements — and we'll try our best to communicate that whenever possible. In the meantime, our team is constantly iterating on the model by adding good data, removing bad data, and experimenting with new research methods based on user feedback, offline evaluations, and more. That's the case with this model update.
+
+We’ll continue to keep you posted as best as we can. Thank you for your patience!
+
+Introducing GPT-4o mini (July 18, 2024)
+We’re introducing GPT-4o mini, the most capable and cost-efficient small model available today. GPT-4o mini surpasses GPT-3.5 Turbo and other small models on academic benchmarks across both textual intelligence and multimodal reasoning and supports the same range of languages as GPT-4o. It also demonstrates strong performance in function calling, which can enable developers to build applications that fetch data or take actions with external systems, and improved long-context performance compared to GPT-3.5 Turbo.
+
+You can read more about GPT-4o mini in the blog announcement.
+
+Need more help? Contact us
+AI Chat
+Chat now
+AI Phone Call (beta)
+1-888-GPT-0090
+Calls may be recorded to improve OpenAI services. Learn more.
+
+Related articles
+ChatGPT — Release Notes
+A changelog of the latest updates and release notes for ChatGPT
+ChatGPT Enterprise & Edu - Release Notes
+What is the ChatGPT model selector?
+Switch between different models in ChatGPT depending on your plan and your needs
+Was this article helpful?
+
+
+Additional feedback (optional)
+Retiring GPT-4o and other legacy models (January 29, 2026)
+5.2 Personality System Prompt Update (January 22, 2026)
+Updates to the OpenAI Model Spec (December 18, 2025)
+Introducing GPT-5-Codex-Max (November 19, 2025)
+Introducing GPT-5-Codex-Mini
+Updates to the OpenAI Model Spec (October 27, 2025)
+Updating GPT-5 (October 3, 2025)
+GPT-5-codex now available in Responses API (Sep 23, 2025)
+Introducing GPT-5-codex (Sep 15, 2025)
+Updating the OpenAI Model Spec (September 12, 2025)
+GPT-5
+Introducing two open-weight models: gpt-oss-120b and gpt-oss-20b (August 5, 2025)
+Launching OpenAI o3-pro—available now for Pro users in ChatGPT and in our API (June 10, 2025)
+Updates to Advanced Voice Mode for paid users (June 7, 2025)
+Update to o4-mini (June 6, 2025)
+Releasing GPT-4.1 in ChatGPT for all paid users (May 14, 2025)
+Introducing GPT-4.1 mini, replacing GPT-4o mini, in ChatGPT for all users (May 14, 2025)
+Improvement to GPT-4o (May 12, 2025)
+Update to GPT-4o (April 29, 2025)
+Improvements to GPT-4o (April 25, 2025)
+OpenAI o3 and o4-mini (April 16, 2025)
+Improvements to GPT-4o (March 27, 2025)
+Introducing GPT-4.5 (February, 27, 2025)
+Introducing OpenAI o3-mini (January 31, 2025)
+Updates to GPT-4o in ChatGPT (January 29, 2025)
+Introducing GPT-4o with scheduled tasks (January 14, 2025)
+Update to GPT-4o (November 20, 2024)
+Update to GPT 4o-mini (November 5, 2024)
+Introducing GPT-4o with canvas (October 3, 2024)
+Advanced voice (September 24, 2024)
+Introducing OpenAI o1-preview and o1-mini (September 12, 2024)
+Update to GPT-4o (September 3, 2024)
+Update to GPT-4o (August 12, 2024)
+Introducing GPT-4o mini (July 18, 2024)
+OpenAI logo
+ChatGPT
+API
+Service Status
+Cookie Preferences
+
+### Jan 30, 2026 14:03:31
+add models to another tab in the html view, and also add all columns of csv to the table
+
+### Jan 30, 2026 14:04:20
+keep openai-token-count on left-y-axis and claude-token-count on right-y-axis
+
+### Jan 30, 2026 14:05:50
+Move the legend to the bottom left.
+
+### Jan 30, 2026 14:06:19
+Use an anchor tag or something to allow me to basically refresh the page but without leaving the tab. So if I'm on the graph tab and I refresh, I should remain on the graph tab.
+
+### Jan 30, 2026 14:07:36
+I want to be able to hover over the annotations as well to see which model in all those kinds of details.
+
+### Jan 30, 2026 14:08:26
+ I don't understand the y-axis being used for clod code. I see 0.5.6 etc. I want to see token counts in the thousands or whatever the same way I see it for OpenAI. I might want the y-axis of clod codes prompt to be also reasonably spread out so that I can see both the graphs sort of overlapping.
+
+### Jan 30, 2026 14:09:05
+  I want a drop down of OpenAI, Anthropic and both so that I can pick and choose if I want to see only Anthropic or only OpenAI or if I want to see both at the same time and filtering to one of them should filter both the models and graphs as appropriately both the annotations and the graphs
+
+### Jan 30, 2026 14:11:43
+ The filter isn't working. If I choose Anthropic, I see nothing. If I choose Open AI, I see both.
+
+### Jan 30, 2026 14:12:46
+Make the filter show up next to the tabs itself, not in the right corner of the page.
+
+### Jan 30, 2026 14:16:13
+When sorting in the model stables, this is what it looks like when I click on the column.
+
+### Jan 30, 2026 14:18:25
+move the prompt files, the csvs and the html file... everything needed to render this graph ... into this repo ~/work/nilenso/long-prompts-analysis. organise it well. i want to be able to serve it using github pages there.
+
+### Jan 30, 2026 14:19:01
+don't use the same prompts directory, create a different one.
+
+### Jan 30, 2026 14:20:31
+ In the prompt tab, when I click on a prompt, I wanted to actually render the prompt in a marked on viewer in a split view in the same tab.
+
+### Jan 30, 2026 14:22:50
+ The scrawl bars somehow look very ugly, especially with a dark background. The white scrawl bars are horizontal and vertical, they start to look very ugly.
+
+### Jan 30, 2026 14:26:26
+Make graph the third tab, not the second tab.
+
+### Jan 30, 2026 14:28:04
+100% for each model release, and just after the model release, and just after the model release, and what got added soon after the model release, or what got removed after the model release, like the major changes around model releases of those prompts, and think of a good way to render those things in the UI. Add those key differences in text somewhere, add it to a part of the source in the CSV or in a markdown file separately, and then render that in the file in the HTML file also.
+
+### Feb 04, 2026 10:27:27
+i have access to window.__debug on the javascript console. i want to get the JSON data for the component comparison waffle charts. is this data exposed in that console debug variable? if not, expose it.
+
+i want to be able to get the %s of each component, per file, and also the number of tokens, messages, etc.
+see image for a single waffle chart, I want to be able to get this for all the waffle charts.
+
+### Feb 04, 2026 10:28:53
+where is the data for the waffle charts coming from? this data and json or some object should already be computed.
+
+### Feb 04, 2026 10:29:44
+for now, grouped conversations will suffice
+
+### Feb 04, 2026 10:30:46
+how do i copy this json to clipboard
+
+### Feb 04, 2026 10:32:30
+look at system-prompt-components.json and ensure the totals are right, use code
+
+### Feb 04, 2026 10:33:04
+look for any other correctness in it
+
+### Feb 04, 2026 10:38:08
+give me a way to similarly copy the colors for the components
+
+### Feb 04, 2026 10:41:16
+in the debug conversation variable, it doesn't have the component mapping. every message part should have a component. it's also present int he markdown export.
+
+add the component mapping to that variable.
+
+### Feb 04, 2026 10:41:57
+i don't want another variable for component mapping, i want the component specified inside the message part.
+
+### Feb 04, 2026 11:56:15
+commit this
+
+### Feb 04, 2026 12:00:46
+I want to build a feature to load presets of components and colors.
+
+Look at the hard-coded components, and colors in the code currently. There are AI prompts to automatically come up with components and colors. But in this version of the code base, those things are commented out or they are being removed and are ignored because I have hard-coded them for a particular kind of exercise that I am doing.
+
+Then look at the other work tree: ~/work/nilenso/context-viewer-workflow-phases. In that work tree there is a different setting of components and colors similar to this but different
+
+Instead of hard-coding these things, I want the ability to switch to them. And I don't want to keep these two virtues open. I want to merge both of these domains eventually.
+
+So when I open context viewer, before I import files, I want to be able to choose from certain presets. These are the two presets I have currently. The first one is for processing system prompts. The second one is for processing transcripts. So before I import and drag drop files into context viewer, I want the ability to choose a preset and then drop these things. And then if there is a preset, it should use those hard-coded things and not the AI prompts
+
+I also want to remove the hardcoded values from the code.
+
+and I want to create a presets directory where these hardcoded values are stored as JSON files.
+
+### Feb 04, 2026 12:14:40
+commit this
+
+### Feb 04, 2026 12:15:16
+make the generation of summary similar to the generation of analysis, which is to only run it on demand, not automatically
+
+### Feb 04, 2026 12:18:58
+from the other worktree ~/work/nilenso/context-viewer-workflow-phases, pull in the ability to choose a workflow visualisation for component comparison
+
+### Feb 04, 2026 12:49:06
+When I added the componentization prompt, after choosing the workflow phases, I still see the prompt for system prompt analysis when I click on customization. Shouldn't I be seeing the prompt for workflow phases? I guess in the preset, the prompt isn't included. Is that right? Don't write any code. Just analyze this and tell me if what I'm saying is right.
+
+### Feb 04, 2026 12:50:19
+Yes, so can you please look up the prompt from both the current work tree on main and also the other work tree that I pointed out earlier and get the custom prompts added to the presets.
+
+### Feb 04, 2026 12:55:10
+where are the preset files
+
+### Feb 04, 2026 12:59:08
+i have this system prompt to componentise transcripts from claude code, codex, etc. and I want to refine it.
+
+lassify each message/step into one of these workflow phases:\n\n## Workflow Phases\n\n| # | Phase | Color | Description |\n|---|-------|-------|-------------|\n| 1 | UNDERSTAND | blue | Comprehending the task requirements and constraints |\n| 2 | EXPLORE | teal | Gathering information from codebase, searching, reading files |\n| 3 | ANALYZE | rose | Considering approaches, identifying root causes, weighing tradeoffs |\n| 4 | PLAN | amber | Creating actionable steps, tracking todos, designing solution |\n| 5 | IMPLEMENT | violet | Writing/editing code, making changes |\n| 6 | VERIFY | lime | Running tests, builds, lints, type-checks |\n| 7 | COMPLETE | slate | Summarizing changes, final message, cleanup |",
+  "components": [
+    "UNDERSTAND",
+    "EXPLORE",
+    "ANALYZE",
+    "PLAN",
+    "IMPLEMENT",
+    "VERIFY",
+    "COMPLETE"
+
+look at transcripts in /Users/srihari/work/nilenso/long-prompts-analysis/swe-bench-pro-qutebrowser-tasks-analysis/opencode-exports.
+
+specifically look at the tool calls being made.
+and try to tie specific tool calls with some sample arguments, to the phases mentioned in the workflow.
+
+i want to give a few examples for each phase and associated tool calls.
+
+### Feb 04, 2026 13:02:36
+implementation isn't just edit and write na? look at the codex based transcript, they use apply patch, right?
+
+### Feb 04, 2026 13:04:02
+so now give me the few shot prompts per workflow phase that i originally asked for
+
+### Feb 04, 2026 13:08:35
+can you rewrite this as a list of tasks instead of phases?
+like, read-requirements, read-tests, search-files, search-keywords, read-files, write-tasks, write-code, run-tests, etc?
+
+don't read any more files, just make this list of tasks, and give a description to each, based on what's already in context of this conversation.
+
+### Feb 04, 2026 13:13:15
+now map these tasks to the workflow phases
+
+### Feb 04, 2026 13:14:03
+instead, provide this as a list of tags delimited by dots. like understand.read-requirements.
+
+### Feb 04, 2026 13:14:37
+and against each tag provide one line description with some details of the tool calls used.
+
+### Feb 04, 2026 13:15:05
+check the codex planning tasks? do they not call update_plan?
+
+### Feb 04, 2026 13:17:22
+todowrite and update plan should be seen as the same task, update tags to reflect this
+
+### Feb 04, 2026 13:20:21
+assign colors doesn't have a customisable prompt, allow me to customise it the same way as others
+
+### Feb 04, 2026 13:24:15
+create a preset using this list of tags. just like other presets that exist in public/presets. come up with a color scheme where the sub-tags are different shades of the color of the parent-tag. like if implement is blue, then write-code, apply-patch and create-file are different shades of blues.
+
+### Feb 04, 2026 13:25:39
+rather than a table, make it a list, one list item per component
+
+### Feb 04, 2026 13:31:33
+commit the addition of another preset
+
+### Feb 04, 2026 13:32:55
+did you commit this
+
+### Feb 04, 2026 13:34:30
+the workflow visualisation in component comparison doesn't work if i'm filtering out certain messages. this was fixed in the other work tree, and is a regression. look it up and fix it.
+
+### Feb 04, 2026 13:38:54
+The current implementation of colors in the presets is very complex.
+
+I want to switch to something as simple as mapping from a component name to the hex.
+
+Understand the workflow both the workflow in the UI and the preset loading and understand how assigned colors as a workflow step happens into end
+
+Then come up with a plan, do not write any code, go into plan mode, think, understand and then come up with a potential solution and propose it to me.
+
+### Feb 04, 2026 13:41:12
+I want the workflow diagram in the components page below the waffle chart of components for single conversations
+
+### Feb 04, 2026 13:44:04
+The workflow is also rendered as a grid in this component which is incorrect. If you look at the workflow visualization in the component comparison tab, it is just a list of things that happen. Just one per, one box per message or something like that. Understand it and fix this visualization.
+
+### Feb 04, 2026 13:53:39
+React has detected a change in the order of Hooks called by ComponentsView. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useState                   useState
+2. useMemo                    useMemo
+3. undefined                  useMemo
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    at ComponentsView (http://localhost:5173/src/components/ComponentsView.tsx?t=1770231075087:26:3)
+    at div
+    at div
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at Presence (http://localhost:5173/node_modules/.vite/deps/chunk-7XOX76M4.js?v=6d59a688:24:11)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=6d59a688:391:13
+    at _c5 (http://localhost:5173/src/components/ui/tabs.tsx:68:12)
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=6d59a688:37:15)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=6d59a688:268:7
+    at ConversationView (http://localhost:5173/src/components/ConversationView.tsx?t=1770231084235:39:3)
+    at main
+    at div
+    at div
+    at div
+    at App (http://localhost:5173/src/App.tsx?t=1770231084235:506:45)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/@tanstack_react-query.js?v=6d59a688:3021:3)
+printWarning @ chunk-PJEEZAML.js?v=6d59a688:521
+error @ chunk-PJEEZAML.js?v=6d59a688:505
+warnOnHookMismatchInDev @ chunk-PJEEZAML.js?v=6d59a688:11495
+updateHookTypesDev @ chunk-PJEEZAML.js?v=6d59a688:11465
+useMemo @ chunk-PJEEZAML.js?v=6d59a688:12722
+useMemo @ chunk-DRWLMN53.js?v=6d59a688:1094
+ComponentsView @ ComponentsView.tsx:112
+renderWithHooks @ chunk-PJEEZAML.js?v=6d59a688:11548
+updateFunctionComponent @ chunk-PJEEZAML.js?v=6d59a688:14582
+beginWork @ chunk-PJEEZAML.js?v=6d59a688:15924
+beginWork$1 @ chunk-PJEEZAML.js?v=6d59a688:19753
+performUnitOfWork @ chunk-PJEEZAML.js?v=6d59a688:19198
+workLoopSync @ chunk-PJEEZAML.js?v=6d59a688:19137
+renderRootSync @ chunk-PJEEZAML.js?v=6d59a688:19116
+performConcurrentWorkOnRoot @ chunk-PJEEZAML.js?v=6d59a688:18678
+workLoop @ chunk-PJEEZAML.js?v=6d59a688:197
+flushWork @ chunk-PJEEZAML.js?v=6d59a688:176
+performWorkUntilDeadline @ chunk-PJEEZAML.js?v=6d59a688:384
+chunk-PJEEZAML.js?v=6d59a688:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-PJEEZAML.js?v=6d59a688:11678:21)
+    at updateMemo (chunk-PJEEZAML.js?v=6d59a688:12199:22)
+    at Object.useMemo (chunk-PJEEZAML.js?v=6d59a688:12726:24)
+    at useMemo (chunk-DRWLMN53.js?v=6d59a688:1094:29)
+    at ComponentsView (ComponentsView.tsx:112:29)
+    at renderWithHooks (chunk-PJEEZAML.js?v=6d59a688:11548:26)
+    at updateFunctionComponent (chunk-PJEEZAML.js?v=6d59a688:14582:28)
+    at beginWork (chunk-PJEEZAML.js?v=6d59a688:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-PJEEZAML.js?v=6d59a688:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-PJEEZAML.js?v=6d59a688:3699:24)
+updateWorkInProgressHook @ chunk-PJEEZAML.js?v=6d59a688:11678
+updateMemo @ chunk-PJEEZAML.js?v=6d59a688:12199
+useMemo @ chunk-PJEEZAML.js?v=6d59a688:12726
+useMemo @ chunk-DRWLMN53.js?v=6d59a688:1094
+ComponentsView @ ComponentsView.tsx:112
+renderWithHooks @ chunk-PJEEZAML.js?v=6d59a688:11548
+updateFunctionComponent @ chunk-PJEEZAML.js?v=6d59a688:14582
+beginWork @ chunk-PJEEZAML.js?v=6d59a688:15924
+callCallback2 @ chunk-PJEEZAML.js?v=6d59a688:3674
+invokeGuardedCallbackDev @ chunk-PJEEZAML.js?v=6d59a688:3699
+invokeGuardedCallback @ chunk-PJEEZAML.js?v=6d59a688:3733
+beginWork$1 @ chunk-PJEEZAML.js?v=6d59a688:19765
+performUnitOfWork @ chunk-PJEEZAML.js?v=6d59a688:19198
+workLoopSync @ chunk-PJEEZAML.js?v=6d59a688:19137
+renderRootSync @ chunk-PJEEZAML.js?v=6d59a688:19116
+performConcurrentWorkOnRoot @ chunk-PJEEZAML.js?v=6d59a688:18678
+workLoop @ chunk-PJEEZAML.js?v=6d59a688:197
+flushWork @ chunk-PJEEZAML.js?v=6d59a688:176
+performWorkUntilDeadline @ chunk-PJEEZAML.js?v=6d59a688:384
+chunk-PJEEZAML.js?v=6d59a688:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-PJEEZAML.js?v=6d59a688:11678:21)
+    at updateMemo (chunk-PJEEZAML.js?v=6d59a688:12199:22)
+    at Object.useMemo (chunk-PJEEZAML.js?v=6d59a688:12726:24)
+    at useMemo (chunk-DRWLMN53.js?v=6d59a688:1094:29)
+    at ComponentsView (ComponentsView.tsx:112:29)
+    at renderWithHooks (chunk-PJEEZAML.js?v=6d59a688:11548:26)
+    at updateFunctionComponent (chunk-PJEEZAML.js?v=6d59a688:14582:28)
+    at beginWork (chunk-PJEEZAML.js?v=6d59a688:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-PJEEZAML.js?v=6d59a688:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-PJEEZAML.js?v=6d59a688:3699:24)
+updateWorkInProgressHook @ chunk-PJEEZAML.js?v=6d59a688:11678
+updateMemo @ chunk-PJEEZAML.js?v=6d59a688:12199
+useMemo @ chunk-PJEEZAML.js?v=6d59a688:12726
+useMemo @ chunk-DRWLMN53.js?v=6d59a688:1094
+ComponentsView @ ComponentsView.tsx:112
+renderWithHooks @ chunk-PJEEZAML.js?v=6d59a688:11548
+updateFunctionComponent @ chunk-PJEEZAML.js?v=6d59a688:14582
+beginWork @ chunk-PJEEZAML.js?v=6d59a688:15924
+callCallback2 @ chunk-PJEEZAML.js?v=6d59a688:3674
+invokeGuardedCallbackDev @ chunk-PJEEZAML.js?v=6d59a688:3699
+invokeGuardedCallback @ chunk-PJEEZAML.js?v=6d59a688:3733
+beginWork$1 @ chunk-PJEEZAML.js?v=6d59a688:19765
+performUnitOfWork @ chunk-PJEEZAML.js?v=6d59a688:19198
+workLoopSync @ chunk-PJEEZAML.js?v=6d59a688:19137
+renderRootSync @ chunk-PJEEZAML.js?v=6d59a688:19116
+recoverFromConcurrentError @ chunk-PJEEZAML.js?v=6d59a688:18736
+performConcurrentWorkOnRoot @ chunk-PJEEZAML.js?v=6d59a688:18684
+workLoop @ chunk-PJEEZAML.js?v=6d59a688:197
+flushWork @ chunk-PJEEZAML.js?v=6d59a688:176
+performWorkUntilDeadline @ chunk-PJEEZAML.js?v=6d59a688:384
+chunk-PJEEZAML.js?v=6d59a688:14032 The above error occurred in the <ComponentsView> component:
+
+    at ComponentsView (http://localhost:5173/src/components/ComponentsView.tsx?t=1770231075087:26:3)
+    at div
+    at div
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at Presence (http://localhost:5173/node_modules/.vite/deps/chunk-7XOX76M4.js?v=6d59a688:24:11)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=6d59a688:391:13
+    at _c5 (http://localhost:5173/src/components/ui/tabs.tsx:68:12)
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=6d59a688:37:15)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=6d59a688:268:7
+    at ConversationView (http://localhost:5173/src/components/ConversationView.tsx?t=1770231084235:39:3)
+    at main
+    at div
+    at div
+    at div
+    at App (http://localhost:5173/src/App.tsx?t=1770231084235:506:45)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/@tanstack_react-query.js?v=6d59a688:3021:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-PJEEZAML.js?v=6d59a688:14032
+update.callback @ chunk-PJEEZAML.js?v=6d59a688:14052
+callCallback @ chunk-PJEEZAML.js?v=6d59a688:11248
+commitUpdateQueue @ chunk-PJEEZAML.js?v=6d59a688:11265
+commitLayoutEffectOnFiber @ chunk-PJEEZAML.js?v=6d59a688:17093
+commitLayoutMountEffects_complete @ chunk-PJEEZAML.js?v=6d59a688:17980
+commitLayoutEffects_begin @ chunk-PJEEZAML.js?v=6d59a688:17969
+commitLayoutEffects @ chunk-PJEEZAML.js?v=6d59a688:17920
+commitRootImpl @ chunk-PJEEZAML.js?v=6d59a688:19353
+commitRoot @ chunk-PJEEZAML.js?v=6d59a688:19277
+finishConcurrentRender @ chunk-PJEEZAML.js?v=6d59a688:18760
+performConcurrentWorkOnRoot @ chunk-PJEEZAML.js?v=6d59a688:18718
+workLoop @ chunk-PJEEZAML.js?v=6d59a688:197
+flushWork @ chunk-PJEEZAML.js?v=6d59a688:176
+performWorkUntilDeadline @ chunk-PJEEZAML.js?v=6d59a688:384
+chunk-PJEEZAML.js?v=6d59a688:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-PJEEZAML.js?v=6d59a688:11678:21)
+    at updateMemo (chunk-PJEEZAML.js?v=6d59a688:12199:22)
+    at Object.useMemo (chunk-PJEEZAML.js?v=6d59a688:12726:24)
+    at useMemo (chunk-DRWLMN53.js?v=6d59a688:1094:29)
+    at ComponentsView (ComponentsView.tsx:112:29)
+    at renderWithHooks (chunk-PJEEZAML.js?v=6d59a688:11548:26)
+    at updateFunctionComponent (chunk-PJEEZAML.js?v=6d59a688:14582:28)
+    at beginWork (chunk-PJEEZAML.js?v=6d59a688:15924:22)
+    at beginWork$1 (chunk-PJEEZAML.js?v=6d59a688:19753:22)
+    at performUnitOfWork (chunk-PJEEZAML.js?v=6d59a688:19198:20)
+
+### Feb 04, 2026 13:57:42
+chunk-PJEEZAML.js?v=6d59a688:521 Warning: validateDOMNesting(...): <button> cannot appear as a descendant of <button>.
+    at button
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=6d59a688:96:6
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=6d59a688:37:15)
+    at CheckboxProvider (http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=6d59a688:43:5)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=6d59a688:150:7
+    at _c (http://localhost:5173/src/components/ui/checkbox.tsx:22:11)
+    at div
+    at div
+    at button
+    at _c (http://localhost:5173/src/components/ui/button.tsx:47:11)
+    at div
+    at div
+    at div
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-scroll-area.js?v=6d59a688:114:13
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-S7E533O3.js?v=6d59a688:43:13
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=6d59a688:37:15)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-scroll-area.js?v=6d59a688:52:7
+    at _c (http://localhost:5173/src/components/ui/scroll-area.tsx:22:11)
+    at div
+    at div
+    at div
+    at ConversationList (http://localhost:5173/src/components/ConversationList.tsx?t=1770229833560:47:3)
+    at aside
+    at div
+    at div
+    at div
+    at App (http://localhost:5173/src/App.tsx?t=1770231246657:506:45)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/@tanstack_react-query.js?v=6d59a688:3021:3)
+
+### Feb 04, 2026 13:59:35
+Why is the workflow diagram restricted to 20 messages?
+
+### Feb 04, 2026 14:00:35
+nvm, i see it, its fine
+
+### Feb 04, 2026 14:01:05
+The Generate Summary optional running thing shows a different icon from the optional running of the Generate Analysis. Can you make it the same icon which looks like a play icon of Generate Analysis?
+
+### Feb 04, 2026 14:06:30
+Commit rest changes.
+
+### Feb 04, 2026 14:06:35
+commit these changes
+
+### Feb 04, 2026 14:11:18
+There is this sort of silly issue where if I drop an MD file, it doesn't get recognized. But I want to read MD files and txt files as the same. Currently, only if I drag drop txt files onto the thing it works, MD files don't work. I won't vote to work the same.
+
+### Feb 04, 2026 14:19:33
+Plan export functionality based on the window debug variables. I want conversation, component token distribution and colors. Don't implement anything.
+
+### Feb 04, 2026 14:20:16
+That didn't work.
+
+### Feb 04, 2026 14:21:41
+That's a lot of places that it says what file extensions are allowed. That seems like bad code or bad abstraction. Can you reflect on it? Don't refactor it, tell me what's up with it.
+
+### Feb 04, 2026 14:24:02
+So there are two places in the UI where there should be a drop zone. First when the app is opened and there are no conversations, then the entire window is a drop zone. And then after that the conversation list on the left bar should be a drop zone. What else is a drop zone and why are these two different?
+
+### Feb 04, 2026 14:25:41
+If you fix this, if you fix this, how many places would you have to update the MD text file?
+
+### Feb 04, 2026 14:26:23
+I don't understand why many places need to refer to the extension at all. There should be a single place where extensions are defined and used and that should be close to the parsers.
+
+### Feb 04, 2026 14:27:24
+Can each supported format specify the extensions that it supports
+
+### Feb 04, 2026 14:28:23
+This problem is still not all of it right there is another problem where the number of Robson's are more and there is dead cold so can you make a list of all these tech debts and chores
+
+### Feb 04, 2026 14:29:12
+Do we really have passers like plain text parser and Json L parser? I thought the passers were more like, you know, Claude Transcript parser and CodeXTranscript parser.
+
+### Feb 04, 2026 14:31:05
+Propose a plan to tackle all of this. All the chores and proper refactoring of all of this. Get into plan mode and make a full detail plan.
+
+### Feb 04, 2026 14:39:02
+The five things that context viewer does are segmentation, componentization, colors, summary and analysis. Now for each thing the output is like this. For the segmentation the outputs are the message parts. For the componentization the output is just a component per message part. And then colors are a list of colors for like each component has a color associated with it. And then a summary and analysis are just string outputs from an LLM, a markdown format supported.
+
+So an export from context viewer should ideally have all of these outputs and nothing more.
+
+These are the exports per file. And then there is a session export which can have multiple files. And each file can have this sort of an export format defined for it. And one of the quote-unquote files might actually just be a grouping of all of these things. In which case it should just define that this is a group. And that's it, because the componentization and coloring in everything is not redone when the grouping is done. So there is nothing to export there. Ideally if the exports of all the individual ones individual files exist, then just recognizing that these things are grouped should be essential to import this functionality.
+
+As an added advantage for exporting, we can publish an analytics section which actually gives these results. As things, for example, in the grouped conversation, it can provide the component comparison JSON where it gives per file, it gives the number of tokens.
+
+In addition to the outputs, the prompts used to generate segments, components and colors are also important. So they should also be a part of the export.
+
+Make a plan to create an export functionality in context viewer according to all of this. I should be able to download a file from context viewer after a session.
+
+### Feb 04, 2026 14:39:44
+commit this
+
+### Feb 04, 2026 14:40:43
+Don't just plan like this. I want you to get into plan mode. Do the research and then come up with a plan.
+
+### Feb 04, 2026 14:48:12
+The export of each file is actually just the conversation. The segmentation output is the message part and the componentization output is the component per message part. So the format of message, message parts and component inside that itself is sufficient. So whatever is already there in the debug format will suffice for that.
+
+Tracking and exporting prompts seems complex. Let's not do that right now.
+
+### Feb 04, 2026 14:50:19
+What will it take to accept an open AI key as the first thing in the context viewer input, even before a file drop, instead of the ENV file? If it is not present in the ENV file, context viewer should lord with this thing as the first thing to do. Is that possible how easy is it to do?
+
+I mean how easy is it to integrate with whatever we have currently?
+
+### Feb 04, 2026 14:53:18
+Actually, I don't want to ask before everything else because importing the conversation should still do the token count and show the conversation for filtering etc. where there is no AI. And in the future when I import a context viewer export, I should be able to see everything without actually doing any AI work. So I only want to be asked to input my OpenAI key the first time that I start to make an API call. If it is not present in the E&B, then I should be asked then, how easy is it to implement that?
+
+### Feb 04, 2026 14:56:10
+But rather than prompting the user automatically, I want to take a more passive UX approach where if I don't have the key, then I just stop the workflow there. For example, with segmentation, I just stop the workflow there and I don't do anything more. I just pass and count tokens and that's it. And if there is no API key, perhaps I could show a play icon the same way I show it for generate summary. And when clicking the play icon for segmentation, that's when the prompt for the API key shows up.
+
+### Feb 04, 2026 14:59:24
+Commit this
+
+### Feb 04, 2026 15:02:25
+Come up with a plan for the import functionality of this kind of JSON. Note that if it is being imported like this, through this, then I am not expecting any AI thing to run. None of the workflows should actually run. It should be recognized as a context viewer parsing format. And because the analysis or generation and the workflow has been processed already, there is nothing to do except for importing it. Look at the workflow to see how this can be done and go into plan mode and
+
+### Feb 04, 2026 15:04:14
+I want a functionality where above the conversation list I have a small section that or a line that just says enter open AI key if you want to proceed if you want the AI features
+
+If there is no OpenAI API key in the environment, then the files when dragged dropped onto the context viewer should only proceed until the counting tokens part of the workflow and then stop there.
+
+All functionality until that point will continue to work.
+
+And if the OpenAPI key is entered inside the UI, then all the workflow should continue from where they were passed.
+
+Go into plan mode and come up with a plan for this. Read the files, understand the workflows.
+
+### Feb 04, 2026 15:11:03
+The schema every file needs to conform to just like every other in-porter parser there is a zod schema and that applies to individual files. Perhaps build a session parser in addition to building a file parser. The single file parser can be in the same way but the session parser can be a layer on top of the file parser.
+
+A session can have its own schema if it is not there in Zod you can add one and you can expect the import to have it and then when a file is dragged dropped into the drop zone you'll have to detect whether it's a session type or a file type
+
+### Feb 04, 2026 15:18:58
+Go through my git commits today and write a list of updates I made. Keep at brief
+
+### Feb 04, 2026 15:19:14
+I'll run and test now
+
+### Feb 04, 2026 15:20:39
+/Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 4\ 2026.json  I am trying it out with this file. I am expecting a grouped conversation but the group conversation doesn't show up in the UI-wise this.
+
+### Feb 04, 2026 15:22:18
+Check the export functionality. I thought that if there is a grouped conversation, then it should export the fact that there is a grouped conversation with a list of file associated with it. Is that right?
+
+Actually, I can see that it is true. There is a groups key in the file which has a list of file IDs. Does the import functionality read that and create a grouped conversation?
+
+### Feb 04, 2026 15:23:14
+commit this, only commit your changes. 
+
+### Feb 04, 2026 15:24:36
+I want to host this on github pages look into what I need to do to set that up
+
+### Feb 04, 2026 15:25:57
+Will changing the v-i-t-e config affect how it's run locally?
+
+### Feb 04, 2026 15:26:43
+Group these into import export preset and others
+
+### Feb 04, 2026 15:27:16
+And how does one set node environment on GitHub pages?
+
+### Feb 04, 2026 15:28:51
+commit this
+
+### Feb 04, 2026 15:29:03
+Alright make the necessary changes
+
+### Feb 04, 2026 15:29:34
+Rather than describing the exact changes I did, describe the fine functionality that each of these things is about for someone not familiar with context viewer.
+
+### Feb 04, 2026 15:30:51
+commit please
+
+### Feb 04, 2026 15:31:38
+Look up the most recent commits and add another section for ability to add their own api key and hosting on github pages
+
+### Feb 04, 2026 15:36:50
+nilenso-logo.svg:1  GET https://nilenso.github.io/nilenso-logo.svg 404 (Not Found)
+Image
+aE @ index-CDqMBcJm.js:5221
+_M @ index-CDqMBcJm.js:5170
+$8 @ index-CDqMBcJm.js:5154
+U8 @ index-CDqMBcJm.js:5736
+as @ index-CDqMBcJm.js:5712
+SM @ index-CDqMBcJm.js:5441
+_ @ index-CDqMBcJm.js:486
+M @ index-CDqMBcJm.js:511
+index-CDqMBcJm.js:67598  GET https://nilenso.github.io/presets/index.json 404 (Not Found)
+oje @ index-CDqMBcJm.js:67598
+(anonymous) @ index-CDqMBcJm.js:68095
+eg @ index-CDqMBcJm.js:4815
+Vl @ index-CDqMBcJm.js:5826
+uE @ index-CDqMBcJm.js:5491
+Va @ index-CDqMBcJm.js:2801
+U8 @ index-CDqMBcJm.js:5743
+as @ index-CDqMBcJm.js:5712
+SM @ index-CDqMBcJm.js:5441
+_ @ index-CDqMBcJm.js:486
+M @ index-CDqMBcJm.js:511
+index-CDqMBcJm.js:67599 Failed to load preset index: 404
+
+### Feb 04, 2026 15:40:05
+I want the enter API key thing to show up at the bottom of the conversation list, not at the top.
+
+### Feb 05, 2026 09:56:28
+The preset does not seem to have the segmentation prompt and it does not seem to support it yet. Can you look into it and see what all needs to be done to support it?
+
+### Feb 05, 2026 09:57:58
+yes
+
+### Feb 05, 2026 10:00:46
+i want to create another preset called granular system prompt something, which is a copy of the system prompt preset, but with this segmentation prompt:
+
+Given the following text, tell me where all you would apply a break. Use all sections in the markdown and break there. You can be granular.
+
+The purpose is semantic chunking in way that's suitable for categorization.
+
+Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
+
+Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]
+
+### Feb 05, 2026 13:05:49
+push
+
+### Feb 05, 2026 13:06:57
+So in the context viewer UI, when I go and edit the segmentation prompt or the componentization prompt or any other prompt, it read us the workflow. But then after that, when I go and click on edit prompt again, it shows me the original prompt. It does not show me the new edited prompt. Can you look into that and see what is not persisted and why? And offer to me things that we can do to persist it. Later, I would want to export this into the export from context viewer also.
+
+### Feb 05, 2026 13:08:05
+test the new preset
+
+### Feb 05, 2026 13:10:29
+I want to build a functionality where editing the prompts in a grouped conversation applies to all conversations.
+
+This should be a simple change. I am expecting it to be a simple change in code. So tell me if it is not a simple change.
+
+I am also expecting all the files to be processed in parallel in the same way that they are processed when I dragged up multiple files into context viewer at the beginning.
+
+Don't write any code, just plan this.
+
+### Feb 05, 2026 13:13:01
+yes, option 3, go ahead
+
+### Feb 05, 2026 13:21:47
+I want to simplify my prompt. I have a list of categories and I want to condense them into a smaller list of categories. I will give you both the lists of categories and also the patch in terms of how to move from one to the other. I want you to construct the new prompt for this.
+
+current categories:
+- identity: Establishes who the AI is, its name, role, and fundamental nature. Defines the relationship between the AI and the user (assistant, partner, tool). Sets the foundation for all subsequent behavioral instructions.
+
+- personality: Governs how the AI communicates, behaves, and presents itself. Covers tone, interaction style, autonomy boundaries, and explicit behavioral constraints that shape the user experience.
+- personality.guidelines: General principles for interaction style and response formatting.
+- personality.behavior: Constraints on decision-making like avoiding assumptions, not over-engineering, completing tasks fully.
+- personality.communication: Output formatting rules including emoji usage, conciseness, reasoning transparency, markdown conventions.
+- personality.autonomy: How much independent action the AI can take versus requiring user approval or confirmation.
+- personality.model_steering: Emphatic instructions using caps, repetition, and specific prohibitions to override model defaults.
+- personality.examples: Concrete scenarios demonstrating expected interaction patterns.
+
+- environment: Runtime context the AI operates within. Includes system information, security boundaries, and platform-specific adaptations.
+- environment.platform: OS detection, shell type, working directory, date/time awareness.
+- environment.security: Rules around secrets, credentials, dangerous operations, and forbidden actions.
+- environment.sandboxing: Network restrictions, file system boundaries, approval requirements for sensitive operations.
+
+- code_style: Standards for generated and modified code. Ensures consistency with project conventions and quality expectations.
+- code_style.conventions: Formatting, naming, patterns to match existing codebase style.
+- code_style.quality: Security practices, accessibility, performance considerations.
+- code_style.examples: Sample code blocks demonstrating expected output format.
+
+- search: How the AI discovers and navigates code. Covers tool selection, search strategies, and context management for exploration tasks.
+- search.tool_selection: When to use grep vs glob vs codebase indexing vs sub-agents.
+- search.context_separation: How to spawn sub-agents or background tasks for large searches.
+- search.examples: Sample search workflows and query patterns.
+
+- workflow: Structured approaches to problem-solving. Includes task tracking, operational modes, and version control practices.
+- workflow.task_management: When and how to use todo lists, progress tracking, memory tools.
+- workflow.modes: Different operational states like planning, spec, architect, suggest, autopilot.
+- workflow.git: Version control operations including commit conventions, branch management, PR creation, and safety constraints.
+- workflow.git.commands: Which git commands to use and avoid.
+- workflow.git.commits: Message format, conventional commits, co-authoring, footer conventions.
+- workflow.examples: Sample workflows for features, bug fixes, refactoring.
+
+- project_context: Instructions for loading user or project-specific configuration. Points to external files that customize AI behavior per workspace.
+- project_context.config_files: Paths like CLAUDE.md, AGENTS.md, .gemini/settings, .kiro/steering.
+
+- tools: Everything about tools, their definitions and instructions around when, and how to use them
+- tools.policies: Meta-instructions governing tool usage across all tools. Establishes priorities, parallelization rules, and fallback behaviors.
+- tools.policies.guidelines: General rules for tool selection, preferring specialized tools over bash.
+- tools.policies.model_steering: Emphatic overrides for common model mistakes in tool usage.
+- tools.policies.examples: Correct and incorrect tool usage patterns.
+- tools.description: What the tool does and its primary purpose.
+- tools.conditions: When and where to use versus alternatives.
+- tools.usage: How to invoke, required parameters, common patterns.
+- tools.schema: Formal parameter definitions, types, constraints.
+- tools.file: File system operations for reading, writing, editing, and organizing files. Core capability present in all coding assistants.
+- tools.file.read: Viewing file contents, supporting various formats (text, images, notebooks, PDFs).
+- tools.file.write: Creating new files, overwriting existing content.
+- tools.file.edit: Targeted modifications using search/replace, diffs, or line-based edits.
+- tools.file.search: Pattern matching with glob, content search with grep/ripgrep.
+- tools.file.directory: Listing, creating, navigating directory structures.
+- tools.shell: Terminal and command execution capabilities. Running system commands, background processes, and handling output.
+- tools.shell.execution: Running commands, timeout handling, output capture.
+- tools.shell.background: Long-running processes, async execution, task monitoring.
+- tools.shell.restrictions: Forbidden commands, interactive mode limitations.
+- tools.communication: Mechanisms for AI-user interaction beyond chat. Includes questions, confirmations, and structured feedback.
+- tools.communication.questions: Asking for clarification, presenting choices, gathering preferences.
+- tools.communication.notifications: Progress updates, completion messages, error reporting.
+- tools.advanced: Specialized capabilities beyond basic file and shell operations. Present in some but not all assistants.
+- tools.advanced.web: Fetching URLs, web search, processing external content.
+- tools.advanced.agents: Spawning sub-agents, parallel task execution, background agents.
+- tools.advanced.notebooks: Jupyter notebook cell editing and execution.
+- tools.advanced.images: Viewing and analyzing screenshots, diagrams, visual content.
+- tools.advanced.integrations: MCP servers, external tool protocols, IDE hooks.
+
+new categories are in this image: image #2
+
+mapping is:
+
+code style: code_style, code_style.conventions, code_style.quality
+environment details: environment, environment.platform, environment.sandboxing, environment.security
+personality and steering: identity, personality, personality.behavior, personality.communication, personality.guidelines, personality.model_steering
+tool descriptions & instructions: project_context.config_files, all the tools.* 
+workflow guidance: all the workflow.*
+
+
+Now write the new list of categories with the descriptions.
+
+### Feb 05, 2026 13:29:48
+I am using the preset that is called system prompts granular. So both the bug is that the preset is not working and also that an old prompt is sitting somewhere else that is getting used. Help me fix this.
+
+### Feb 05, 2026 13:35:56
+I think my problem is that the prompt and the list of components are not being loaded into the conversation from the preset. Even though I choose a preset and then drag drop the file into context viewer. The component identification prompt and the list of components in this case are not being picked up. When I look at the workflow, physicist preset, that works.
+
+### Feb 05, 2026 13:37:32
+I don't think it's a race condition. The bug persists even if I reload context viewer and start again.
+
+### Feb 05, 2026 13:38:59
+If the colors doesn't work, then the componentization does not break. This is not about
+
+### Feb 05, 2026 13:39:02
+this is not the bug
+
+### Feb 05, 2026 13:40:46
+If there is an invalid JSON, then it should fail as a error when I'm loading context viewer itself. Fix this, and fix the newlines.
+
+### Feb 05, 2026 13:44:23
+The components only seems to support keywords with underscores and not capitalized words with spaces in between. Fix the name of the components in the preset accordingly.
+
+### Feb 05, 2026 13:49:56
+commit this
+
+### Feb 05, 2026 13:50:29
+make the waffles look more like this, not rounded edges
+
+### Feb 05, 2026 13:51:18
+commit this
+
+### Feb 05, 2026 13:53:04
+I want an option to choose between expanded and compact legend. The expanded legend is a current version and the compact legend is the version in the image.
+
+Note that I want the legend to look like the one in the image, even though there is already another common legend in the workflow view. I want the workflow view to also look like this. There should only be one implementation of a compact legend view.
+
+The workflow view only supports a compact legend view.
+
+### Feb 05, 2026 13:58:33
+Make the legend and the line below the file title which is the number of tokens turns messages. All of them use the font variant of small caps or petite caps.
+
+### Feb 05, 2026 13:59:12
+The extended or expanded legend view still shows non-small caps.
+
+### Feb 05, 2026 14:02:09
+The CompactView still uses the same space per grid element as the ExpandedView. There is still a gap for in there which is unnecessary in the CompactView.
+
+Basically, we are still still making space visually for the legend, even though it's not in the grid.
+
+### Feb 05, 2026 14:03:11
+I think the problem is that the parent container still has a P4 or something that still makes it the same grid size.
+
+### Feb 05, 2026 14:07:34
+I want the ability to provide a title for a given file or a conversation. The file has a file name by default but clicking on the file name on the left, "composition bar" should allow me to re-title it and enter a new title little in its place. And then wherever the file name is being shown in the UI, I should be able to show this new name instead.
+
+### Feb 05, 2026 14:08:40
+commit this
+
+### Feb 05, 2026 14:15:11
+I want proper URLs for various pages and the file ID should show up in the URL. It should ideally be restful. So I should be like session ID slash file slash file ID. You can propose something there. And then if there is a group ID, then session slash session ID slash group slash group ID. And then inside each file, I want to be able to see URLs for each of the tabs. So conversation, components. All of them should be in their own tabs.
+
+And then even the filters in the components should be there. If a filter is persisted across tabs, then it should be persisted across URLs. Even the sorts, I would want there. Even the compact and expanded legend view, I would want in the URL.
+
+Come up with a simple understandable straightforward URL scheme
+
+Then think about how you will implement it. Ideally, I want to be able to go back on the browser and it should go back to the previous view without losing my session. And I don't want to add any new session stories and stuff. So I want to know if it's possible to do this without adding any session storage. I want to be able to go back forth, backward forward and stuff. Of course, if I refresh, then everything goes away. But I don't want to build any state. But the browser history back and forth, I want to be able to do. Similar to how it's done in SPS. I want to be able to do that.
+
+If I need to build a simple router so that I can keep all the routes deterministic in one place then I can do that. If I have to use a routing library then I should plan for that.
+
+### Feb 05, 2026 14:17:48
+This conversation view still shows the actual file names.
+
+### Feb 05, 2026 14:27:04
+commit these changes
+
+### Feb 05, 2026 14:27:54
+I want export and import to also support the correct conversation display names. I tried this and it didn't work.
+Did you actually implement this?
+
+### Feb 05, 2026 14:35:26
+Start another work tree And a branch and call it simple ui polish things
+
+### Feb 05, 2026 14:37:55
+In the comparison view the view switching legend, sort and number of columns etc. All of that should go into a nice toolbar.
+
+### Feb 05, 2026 14:38:19
+Start another branch in WorkTree called Group Order Edit.
+
+### Feb 05, 2026 14:40:17
+I won't be able to edit the order in which files are in the window. The list of files is basically an array in the group. The list of files is basically an array in the group. The list of files is basically an array in the group. And this UI I want to appear in the expanded view of a group conversation. So inside the list, I'll click on the expanded icon which will open the window. A model of the expanded thing. And then if that is a group conversation, I want it to show one component where I can drag drop the files that are all present there. And that changes the order. And it will also change the order in which the same files show up in the comparison view. Reorder, remove all those things should be supported there.
+
+It's mostly a UI feature. In terms of the actual functionality, I think the only thing it should change is the contents of the file's array in a group.
+
+Confirm that this is that simple to implement look up the functionality and come up with a plan
+
+### Feb 05, 2026 14:41:50
+huh?
+
+srihari@cirith ~/work/nilenso/context-viewer-polish [simple-ui-polish]
+± % bun run dev                                                                            !10162
+$ bun run vite
+error: Script not found "vite"
+error: script "dev" exited with code 1
+
+### Feb 05, 2026 14:42:25
+srihari@cirith ~/work/nilenso/context-viewer-polish [simple-ui-polish *]
+± % bun run dev                                                                            !10166
+$ bun run vite
+/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js:83
+        throw new Error(
+              ^
+
+Error: Cannot find module @rollup/rollup-darwin-x64. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at requireWithFriendlyError (/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js:83:9)
+    at Object.<anonymous> (/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js:92:76)
+    at Module._compile (node:internal/modules/cjs/loader:1546:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1691:10)
+    at Module.load (node:internal/modules/cjs/loader:1317:32)
+    at Module._load (node:internal/modules/cjs/loader:1127:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:315:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)
+    at cjsLoader (node:internal/modules/esm/translators:329:5)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:260:7) {
+  [cause]: Error: Cannot find module '@rollup/rollup-darwin-x64'
+  Require stack:
+  - /Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1248:15)
+      at Module._load (node:internal/modules/cjs/loader:1074:27)
+      at TracingChannel.traceSync (node:diagnostics_channel:315:14)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)
+      at Module.require (node:internal/modules/cjs/loader:1339:12)
+      at require (node:internal/modules/helpers:135:16)
+      at requireWithFriendlyError (/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js:65:10)
+      at Object.<anonymous> (/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js:92:76)
+      at Module._compile (node:internal/modules/cjs/loader:1546:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1691:10) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [
+      '/Users/srihari/work/nilenso/context-viewer-polish/node_modules/rollup/dist/native.js'
+    ]
+  }
+}
+
+Node.js v22.9.0
+error: "vite" exited with code 1
+error: script "dev" exited with code 1
+
+### Feb 05, 2026 14:43:05
+you do this, get it to compile and then tell me 
+
+### Feb 05, 2026 14:46:16
+Where is the title bar view that you just implemented i don't see it here
+
+### Feb 05, 2026 14:48:06
+Which work tree is this in? Is this in main? Do the URLs show up when I click on them? Like when it click on a file, does it actually change the URL? Is that expected? If so, I'm not seeing it right now. I'm running this in the main factory
+
+### Feb 05, 2026 14:49:15
+I just ran "Bandron Build and Bandron Dev" and I still don't see it.
+
+### Feb 05, 2026 14:52:43
+nvm, it works, remove the console logs. i was looking at the wrong server
+
+### Feb 05, 2026 14:52:50
+it works, commit it
+
+### Feb 05, 2026 14:54:56
+Instead of the toolbar appearing inside the parent box, can you make it appear before the parent box the same way the toolbar in the conversation tab appears and I want the conversation toolbar and this toolbar to look similar. So style them similarly in the exact same way.
+
+### Feb 05, 2026 14:55:06
+commit this
+
+### Feb 05, 2026 14:58:27
+commit
+
+### Feb 05, 2026 14:58:57
+Start a new work tree called import file from url
+
+### Feb 05, 2026 14:59:16
+Merge this work tree back to main and ensure that everything works on main as well.
+
+### Feb 05, 2026 14:59:31
+Switch to this work trick.
+
+### Feb 05, 2026 15:00:21
+yes
+
+### Feb 05, 2026 15:01:52
+Yes, so in the import from URL feature, instead of drag dropping from my local file system onto this, I want the ability to choose a URL and then fetch those contents. So I want you to explore the possibility of this. You know, I want to be able to give a link like, you know, to a GitHub file. Maybe the raw contents of the GitHub file. And I want you to fetch it on the browser itself from that file. Look into issues like cars, etc. and tell me what works, what does not work, security wise. And then after you fetch it, I want you to import it. That's all.
+
+Same functionality as drag dropping after that.
+
+So just the file content fetching and after that existing functionality should take over.
+
+### Feb 05, 2026 15:05:23
+remove that worktree then
+
+### Feb 05, 2026 15:06:02
+In fact, look at all the work trees and see which ones have all merged content and no ongoing content and new content and tell me which all work trees you can remove. Don't remove them yet.
+
+### Feb 05, 2026 15:07:19
+chunk-PJEEZAML.js?v=5f50b573:521 Warning: validateDOMNesting(...): <button> cannot appear as a descendant of <button>.
+    at button
+    at div
+    at div
+    at div
+    at button
+    at http://localhost:5173/node_modules/.vite/deps/chunk-SHLP5TZP.js?v=5f50b573:43:13
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-collapsible.js?v=c2614a99:80:13
+    at div
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-SHLP5TZP.js?v=5f50b573:43:13
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=5f50b573:37:15)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-collapsible.js?v=c2614a99:42:7
+    at div
+    at div
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-SHLP5TZP.js?v=5f50b573:43:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-FCUK6I5B.js?v=5f50b573:61:7
+    at http://localhost:5173/node_modules/.vite/deps/chunk-TJ4LGRNY.js?v=5f50b573:79:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-TJ4LGRNY.js?v=5f50b573:56:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-SHLP5TZP.js?v=5f50b573:43:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QHUBYEUO.js?v=5f50b573:34:5
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=02beca0f:235:13
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=02beca0f:161:58
+    at Presence (http://localhost:5173/node_modules/.vite/deps/chunk-7XOX76M4.js?v=5f50b573:24:11)
+    at http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=02beca0f:152:64
+    at http://localhost:5173/node_modules/.vite/deps/chunk-TJ4LGRNY.js?v=5f50b573:79:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-TJ4LGRNY.js?v=5f50b573:56:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-SHLP5TZP.js?v=5f50b573:43:13
+    at http://localhost:5173/node_modules/.vite/deps/chunk-FCUK6I5B.js?v=5f50b573:257:22
+    at Presence (http://localhost:5173/node_modules/.vite/deps/chunk-7XOX76M4.js?v=5f50b573:24:11)
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=5f50b573:37:15)
+    at DialogPortal (http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=02beca0f:114:11)
+    at _c3 (http://localhost:5173/src/components/ui/dialog.tsx:49:12)
+    at Provider (http://localhost:5173/node_modules/.vite/deps/chunk-VMCQ6AJZ.js?v=5f50b573:37:15)
+    at Dialog (http://localhost:5173/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=02beca0f:54:5)
+    at WorkflowDetailModal (http://localhost:5173/src/components/WorkflowDetailModal.tsx:86:3)
+    at div
+    at ConversationList (http://localhost:5173/src/components/ConversationList.tsx:54:3)
+    at aside
+    at div
+    at div
+    at div
+    at App (http://localhost:5173/src/App.tsx:608:45)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/@tanstack_react-query.js?v=af286d4b:3021:3)
+
+### Feb 05, 2026 15:08:06
+I don't see the place where I can drag drop the files. I have expanded the group view. What am I missing?
+
+### Feb 05, 2026 15:11:31
+That's not where I want the button to be.
+I want the edit order to be in the expanded view of the conversation, Which I get to from the conversation list.
+
+The image I have shared here shows you which model I wanted to be inside of.
+
+And, first there, when I clicked on the edit order button inside a grouped conversation, it said there were no files. This is in the second image
+
+### Feb 05, 2026 15:13:01
+remove the workflow phases one, i know that's done. remove the explore one. don't remove import-file-from-url and don't remove group order edit.
+
+verify only expanded view and unified input.
+
+don't look to merge. just tell me if they have anything new.
+
+### Feb 05, 2026 15:15:35
+this is great, it works, commit it.
+
+### Feb 05, 2026 15:17:16
+Rather than a button which then expands into another model, this is already a model and you can just create a section called edit order and put the files right there for me to reorder.
+
+### Feb 05, 2026 15:17:28
+merge to main
+
+### Feb 05, 2026 15:17:46
+remove them
+
+### Feb 05, 2026 15:20:25
+Why does the edited order not show up in the conversation view also?
+
+### Feb 05, 2026 15:20:56
+you can remove import file from url
+
+### Feb 05, 2026 15:26:45
+It works correctly, but I think the export does not preserve the order.
+
+### Feb 05, 2026 15:29:08
+commit and then merge to main
+
+### Feb 05, 2026 15:35:50
+I want to build this functionality where I can provide the URL to import in the URL of context viewer itself. For example, an import from equals. So that if I share this as a URL to someone, it will automatically import from that and then also navigate to the rest of the URL. So if I want to view a component comparison inside a grouped conversation of a session that I imported from a file, then it has all the information to do that in the URL itself. I just need a URL to the file that I want to import.
+
+### Feb 05, 2026 15:42:10
+Context pure has a functionality where I can import from a URL instead of dropping a file. But I have to enter the URL into the field. Instead of entering it into the field, I want to get it from a part of the URL. Can you do this? And when you get it from a part of the URL, can you preserve the rest of the URL as is and then navigate to that afterwards?
+
+### Feb 05, 2026 15:46:05
+i don't want to remove the import url from the url afterwards
+
+### Feb 05, 2026 15:46:31
+don't implement, tell me the plan
+
+### Feb 05, 2026 15:50:07
+I want the user to be able to visit context viewer base path and I want to also be able to put other URL parameters that apart from the import URL. So even the sort filter all those things also I want to be able to put there. So the conversation ID, file ID, all those things I wanted to figure it out from that.
+
+### Feb 05, 2026 16:11:19
+when I load http://localhost:5173/g/960d42ad-314c-44cf-8594-4b009ef528a1/comparison?sortBy=category&sortDir=asc&import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fsystem-prompts-simpler.json
+
+I'm only sent to 
+
+http://localhost:5173/c/a22285d4-ed1e-4f5b-ab84-78f4b2836360?import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fsystem-prompts-simpler.json
+
+### Feb 05, 2026 16:12:33
+commit
+
+### Feb 05, 2026 16:17:23
+this github pages url now 404s
+
+https://nilenso.github.io/context-viewer/g/b592012c-dfcc-4c23-aa30-7a9cebc35246/comparison?sortBy=category&sortDir=asc&cols=4&import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fcodex-prompt-evolution-export.json
+
+this works though:
+https://localhost:5173/g/b592012c-dfcc-4c23-aa30-7a9cebc35246/comparison?sortBy=category&sortDir=asc&cols=4&import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fcodex-prompt-evolution-export.json
+
+### Feb 05, 2026 16:18:11
+commit the fix so i can push it
+
+### Feb 05, 2026 16:19:36
+push it
+
+### Feb 05, 2026 16:21:14
+I have just checked it on GitHub pages. The 404 resolution works. But as soon as it does it, it strips off everything else after the main URL, the base URL I mean. But if I clicked on the group conversation and went back to it, then it adds the import URL and everything else back again.
+
+### Feb 05, 2026 16:28:03
+write a summary of the thigns I did today based on git commits. write about functionality. here is yesterday's update for example.
+
+Import/Export
+  - Save and load analysis sessions to continue work later or share with others
+
+Presets
+  - Pre-configured analysis templates for different use cases (e.g., analyzing tool usage patterns)
+  - Automatic color-coding of conversation components based on customizable rules
+
+Deployment & Configuration
+  - Users can enter their own Anthropic API key at runtime (no hardcoded keys needed)
+  - Hosted on GitHub Pages for easy public access
+
+### Feb 09, 2026 10:04:27
+compare these two files.
+
+/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-phases.json 
+/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-tasks.json 
+
+workflow-tasks isn't working correctly, workflow-phases is working. tell me what could be the difference.
+
+### Feb 09, 2026 10:10:21
+are the waffle charts in the component comparison views and the components tab differently styled? rounded corners and not? i want both to be the same, not rounded corners.
+
+### Feb 09, 2026 10:38:15
+compare these files
+
+/Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026\ \(2\).json /Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026.json 
+
+### Feb 09, 2026 10:42:18
+i exported from context viewer, and then imported onto another, and then exported to compare. this is expected.
+
+when rendering on context viewer through import, i see different _data_, which is unexpected. and different colors too.
+
+here's how it looks with the original opencode exports: 
+
+here's how it looks when importing the export: 
+
+look at the % differences. and look at the data.
+
+tell me where the difference is.
+
+### Feb 09, 2026 10:46:58
+when i collapse the insights or conversations panel i want to preserve that state into the url, so that loading that url will load the page with the panels collapsed or expanded. default can be open.
+
+### Feb 09, 2026 10:53:04
+commit this
+
+### Feb 09, 2026 10:57:57
+format as markdown: Classify each message/step into one of these workflow tasks based on the tool calls being made:\n\n## Workflow Tasks\n\n- **understand.read-requirements** — Read TASK.md or issue files to understand what needs to be done. Tool: read(filePath: "TASK.md")\n\n- **understand.read-tests** — Read test files to understand expected behavior and acceptance criteria. Tool: read(filePath: "tests/...")\n\n- **explore.search-files** — Find files by name pattern using glob. Tool: glob(pattern: "**/hostblock.py")\n\n- **explore.search-keywords** — Search for code patterns, function names, or imports. Tool: grep(pattern: "...", include: "*.py")\n\n- **explore.read-source** — Read implementation files to understand existing code. Tool: read(filePath: "src/...")\n\n- **explore.read-section** — Read specific portions of large files. Tool: read(filePath, offset, limit)\n\n- **explore.delegate-exploration** — Spawn subagent for broader codebase investigation. Tool: task(subagent_type: "explore")\n\n- **analyze.check-environment** — Check Python paths, module locations, venv status. Tool: bash("python -c 'import ...'")\n\n- **analyze.run-tests-diagnostic** — Run tests to see current failures and understand what's broken. Tool: bash("pytest ... -v | head")\n\n- **plan.update-tasks** — Create or update task/step list to track progress. Tools: todowrite(...) or update_plan(...)\n\n- **implement.write-code** — Modify existing code via string replacement. Tool: edit(filePath, oldString, newString)\n\n- **implement.apply-patch** — Apply unified diff-style patches to add/modify code. Tool: apply_patch(patchText: "*** Begin Patch...")\n\n- **implement.create-file** — Create new files that don't exist yet. Tool: apply_patch("*** Add File: ...")\n\n- **verify.run-tests-verify** — Run tests after implementation to verify the fix works. Tool: bash("pytest ... -v | tail")\n\n- **verify.run-tests-specific** — Run targeted tests for the feature being worked on. Tool: bash("pytest ...::test_name -v")\n\n- **complete.update-tasks** — Mark all tasks/steps as completed in final status. Tools: todowrite/update_plan with status: completed
+
+### Feb 12, 2026 16:23:27
+check out this image. I want a component comparison view where the waffles are more like this.
+one waffle is 250 tokens.
+this should be another visualisation toggle just like view: tokens, workflow.
+now add `tokens-absolute`, keep existing views as-is.
+
+### Feb 12, 2026 16:39:00
+change the number of tokens per square depending on the largest graph in the comparison view. allow 100 squares for the largest one.
+and then, give me a drop down to choose the width of squares to layout by. in the example picture you got, there were waffle charts with the width of 4. i want to choose between 2 and 10. grid size should change accordingly. i want the number of columns to go up to 10 too.
+
+### Feb 12, 2026 16:42:27
+what's the 0, 5k, 10k, 15k? I don't need a y-axis.
+
+### Feb 12, 2026 16:49:50
+look at the right bottom chart. there's a trailing blue square. what's up with that?
+
+### Feb 12, 2026 16:50:40
+commit this change
+
+### Feb 12, 2026 17:27:36
+allow me to add a title to the group, which also shows up in the component comparison tab as a title 
+
+### Feb 12, 2026 17:35:49
+add the title "title": "Codex System Prompt Evolution"
+to the group in this file:
+/Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/codex-prompt-evolution-export-only-codex.json 
+
+### Feb 12, 2026 17:36:54
+and title for the group in this is "Claude Code System Prompt Evolution": /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/claude-prompt-evolution-export-simpler.json 
+
+### Feb 12, 2026 17:38:33
+not seeing the title on importing
+
+### Feb 12, 2026 17:42:17
+commit
+
+### Feb 12, 2026 17:52:39
+look at the github pages config. i want to use a custom domain. how do i do that?
+
+### Feb 12, 2026 18:15:49
+title isn't rendering for /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/swapping-prompts-swe-tasks.json /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/system-prompts-simpler.json 
+
+### Feb 12, 2026 18:17:22
+don't make this change, undo
+
+### Feb 12, 2026 18:22:30
+Clicking on the title of a waffle chart in the "Comparison" tab should navigate to the "Single File Conversation". Use the file id, make the url and make them hyperlinks the rest should work as is.
+
+### Feb 12, 2026 18:25:16
+Okay, instead of a plain old hyperlink, Mink it a link that navigates to the file internally without reloading the page.
+
+### Feb 12, 2026 18:27:09
+commit
+
+### Feb 12, 2026 18:37:42
+help me setup a github pages custom domain. my domain will be context-viewer.nilenso.com
+
+### Feb 12, 2026 18:46:41
+undo this, i don't want to do this now
+
+### Feb 14, 2026 02:05:32
+add a simple, minimal way for people to star the github repo while on the page. https://github.com/nilenso/context-viewer/
+
+### Feb 14, 2026 02:11:13
+no github icon?
+
+### Feb 14, 2026 02:13:09
+make nilenso logo on top link to nilenso.com, and context-viewer link to its github repo
+
+### Feb 14, 2026 02:13:32
+make them both open in another tab
+
+### Feb 14, 2026 02:13:47
+commit this
+
+### Feb 23, 2026 14:48:48
+Look at the various import formats and the schema that I have specified using Zod. then support the following trajectory format. similar to claude or codex transcripts.
+
+/Users/srihari/work/nilenso/acm-conf-prep/trajectories/JeffLIrion__python-androidtv-351.json 
+
+### Feb 23, 2026 14:56:07
+commit this
+
+### Feb 24, 2026 09:12:33
+There seems to be a bug where when I click on edit prompt of a different file when I am still focused on the current file then when I click on edit prompt it actually seems to bring up or have an effect on the current files prompt only and not the prompt of the file that I clicked on where I said edit prompt.
+
+If I choose that file from the conversation list and then click on edit prompt inside that file then it works as expected.
+
+### Feb 24, 2026 09:24:01
+commit thisc
+
+### Feb 24, 2026 09:46:40
+The progress indicator or the spinning icon for generate summary gets turned on even when I am just regenerating components. that seems like a bug.
+
+### Feb 24, 2026 09:50:42
+commit this
+
+### Feb 24, 2026 09:58:01
+I want a feature where I can take all the custom prompts that I have made for one conversation. Or the current prompts for one conversation. And then I can click a button inside that conversation card and say apply to all. And when I do that, it should take the changes and apply them to all the others. It would reprocess all the other conversations. If it changes the segmentation prompt, componentization prompt, then it should affect those aspects of the other conversations. And then you can see that the
+
+Implementation wise it should be as simple as taking the custom prompts or the current prompts from the state of the current conversation or the conversation where I'm going to click "apply all", And then copy those prompts over to the other conversations. And then just trigger the workflow in the other conversations.
+
+Do the analysis and plan this and confirm that the change is going to be as minimal as I'm thinking it would be.
+
+### Feb 24, 2026 10:46:03
+commit this
+
+### Feb 24, 2026 10:47:49
+beside this option to apply to all, allow me to also export this list of prompts as a preset. look at the existing presets to get an idea. clicking the export link would just download a preset json file.
+
+### Feb 24, 2026 10:48:08
+continue
+
+### Feb 24, 2026 11:24:33
+Ask me to enter the name or title of the preset before saving.
+
+### Feb 25, 2026 12:21:56
+In the edit segmentation prompt dialog box also allow me to change the default filter or threshold for message sizes that can be segmented.
+
+When I change this it should actually affect the filter.
+
+Extract the constant threshold as a config variable.
+
+Allow customization from the UI
+
+Also allow saving this into the preset and also when applying the same setting to all other conversations.
+
+### Feb 25, 2026 12:25:42
+try again
+
+### Feb 25, 2026 12:26:22
+getting api errors from claude
+
+### Feb 25, 2026 12:27:07
+try again
+
+### Feb 25, 2026 13:05:26
+try again
+
+### Feb 26, 2026 16:27:57
+change the default segmentation threshold to 100
+
+### Feb 27, 2026 09:12:11
+When we use AI to figure out the components based on a prompt, do we send the full conversation as this or do we send the segmented conversation with tokens?
+
+### Feb 27, 2026 09:13:21
+Does it send it all at one time or in batches?
+
+### Feb 27, 2026 09:21:42
+look at the primary zod schema that represents a conversation, and give me a simple json representation of a sample conversation.
+
+### Feb 27, 2026 09:22:50
+this is good, but I want a more concise representation that I can put into an academic paper
+
+### Feb 27, 2026 09:23:26
+remove the ids
+
+### Feb 27, 2026 09:28:43
+give me a flavour of a coding agent trajectory inside the text of the snippets, feel free to truncate, and keep it concise, still
+
+### Feb 27, 2026 09:39:49
+can the component identification be done in parallel with segmentation?
+
+### Feb 27, 2026 09:40:45
+There are two parts in componentisation. Identifying components, and then mapping. Can the first part be done in parallel?
+
+### Feb 27, 2026 09:52:27
+take this input, and add token counts to this.
+
+{ "messages": [
+  { "role": "user", "parts": [
+    {"type": "text", "text": "..."}] },
+  { "role": "assistant",  "parts": [
+    {"type": "reasoning", "text": "..."},
+    {"type": "text",      "text": "..."},
+    {"type": "tool-call",  "toolName": "Read", "input": {...}}
+  ]},
+  { "role": "tool", "parts": [
+    {"type": "tool-result", "toolName": "Read", "output": "..."}
+  ]},
+  { "role": "user", "parts": [
+    {"type": "text", "text": "..."}
+  ]},
+  { "role": "assistant", "parts": [
+    {"type": "text", "text": "..."}
+  ]},
+  ...
+]}
+
+### Feb 27, 2026 09:53:25
+add realistic token counts from a coding trajectory. it would be in the 10s of thousands per part
+
+### Feb 27, 2026 09:54:28
+is the field called token count in the schema?
+
+### Feb 27, 2026 10:23:30
+what's a concise haskell representation of the schema?
+
+### Feb 27, 2026 10:24:21
+id, parts, timestamp, token count => make this a type too
+
+### Feb 27, 2026 10:26:15
+Rather than say, user part, assistant part and tool result part etc. I think I want to define the text part, tool result part, image part, file part, things like that. And then say that a user message can be one of these parts or an assistant can be. Message can have one or more of these parts, things like that.
+
+### Feb 27, 2026 10:27:11
+Doesn't the tool call part have arguments?
+
+### Feb 27, 2026 10:34:22
+Can you come up with this sort of declarative function signatures in Haskell for segmentation, component identification and mapping of components?
+
+### Feb 27, 2026 10:35:45
+I want it to be abstract and not exactly Haskell. So you can remove the maybes and the iOs. I am mostly interested in the function signature.
+
+### Feb 27, 2026 10:38:28
+Even though a lot of these take the conversation at a high level, I think what I am trying to get to is the list of components. But for map components, it will take a single component, take the list of components, pass it to an EI and get back an ID for each component or something like that. There is some chunking that's going on. Can you understand all of this and then write it out? You could expand some of these function signatures with some basic pseudocode below them to explain.
+
+### Feb 27, 2026 10:49:16
+To this, can you also add the grouping of conversations? There should be something below the full pipeline where multiple conversations go through the pipeline and then comparison happens. Read the code, understand it and then write it out.
+
+### Feb 27, 2026 10:55:57
+Review the entire pseudo code that we have written down, top to down and then write it into a file. Keep it coherent and keep the messaging and writing style very consistent throughout.
+
+Specify correctly which parts are happening in parallel and which parts are happening in sequence.
+
+And also describe the visualizations that we'll get out of it. Specifically the waffle charts and the component growth over time.
+
+Also add the analysis part where we take the token growth over time along with the prompt get analysis
+
+Further, indicate that a lot of this happens iteratively in an interactive user interface on the browser. So, after componentization, the user can choose to componentize in a different way or choose to expand on one classification in a lot more detail.
+
+
+Make a to-do list of all these items. Understand what I am saying. Ask me any questions that you want to clarify the understanding and then write it down properly.
+
+### Mar 02, 2026 11:24:09
+Go through the componentization process and tell me what exactly is the unit of parallelism there. Tell me how I identify the batch size. There is some batching going on there but I want to know exactly what that batching algorithm is. Are there message parts or messages or segments? How many get component mapped at a time?
+
+And what is the purpose also? Maybe look at Git history to figure that out. Is the purpose to avoid context window flow or for performance optimization?
+
+### Mar 02, 2026 12:08:52
+update the system overview doc with the batching details
+
+### Mar 02, 2026 12:11:01
+Summarize the way in which I'm going about building these visualizations and create a document that I can use to just bootstrap the next time I have this LLM conversation to iterate on the illustration.
+
+### Mar 02, 2026 14:44:09
+recreate /Users/srihari/work/nilenso/acm-conf-prep/svg-components/segmentation.svg in html. this image is what it looks like.
+
+### Mar 02, 2026 14:48:02
+don't embed svg, recreate in html
+
+### Mar 02, 2026 14:53:22
+what's happening? where is html?
+
+### Mar 02, 2026 14:58:59
+you're stuck.
+
+### Mar 02, 2026 14:59:16
+don't think, write
+
+### Mar 02, 2026 15:01:23
+arrows here are broken
+
+### Mar 02, 2026 15:03:24
+there's no gap between them
+
+### Mar 02, 2026 15:04:24
+do not add the phone notch
+
+### Mar 02, 2026 15:05:38
+The text segments the label is not aligned under the actual segments
+
+### Mar 02, 2026 15:06:34
+I want all these aero mugs to be horizontally aligned.
+
+### Mar 02, 2026 15:07:08
+But now the first three arrows are not aligned with the first three boxes.
+
+### Mar 02, 2026 15:08:47
+Remove the small vertical dotted line in between the filter and the boundary detection
+
+### Mar 02, 2026 15:09:23
+Reduce the plain white space below each conversation, both the first and the last conversations.
+
+### Mar 02, 2026 15:10:04
+I want this to be more compact horizontally. Can you fit them closer to each other? All the stages.
+
+### Mar 02, 2026 15:12:39
+These red boxes are not aligned on the left. I want them all to start in the same place.
+
+### Mar 02, 2026 15:15:04
+Build this other thing called component identification and add it as another section in the same HTML page with a very similar styling. Use the image to get the content.
+
+### Mar 02, 2026 15:19:44
+ 1. remove the serialisation step.
+ 2. don't give the contents of the prompt, model it similar to the LLM call in the segmentation section.
+3. output format is not important, show the resultant components as hierarchical topic labels, and keep them abstract
+
+so it goes conversation -> strip large content -- (LLM topic induction) --> labels
+
+### Mar 02, 2026 15:23:41
+Don't use labels like identity personality etc from the specification file. Just use generic labels that indicate a hierarchical topic induction.
+
+### Mar 02, 2026 15:25:08
+Put a white background behind the labels to indicate that the list of labels is an artifact. Change the title of the labels to be topics.
+
+### Mar 02, 2026 15:26:33
+Add the html file and commit it
+
+### Mar 02, 2026 15:31:50
+read context-viewer-component-mapping.md. and create another section depicting that workflow.
+
+### Mar 02, 2026 15:36:35
+1. Use the segmented conversation as the input to component mapping as well.
+2. Use the same visual components for stripping large content as component identification.
+
+### Mar 02, 2026 15:37:38
+Explain what extract parts is doing to me.
+
+### Mar 02, 2026 15:38:52
+Where are the segments here? Are the segments inside each message part?
+
+### Mar 02, 2026 15:39:46
+Is it each part getting mapped or each segment getting mapped?
+
+### Mar 02, 2026 15:46:06
+1. Remove the extract parts section|
+2. It is not clear that every LLM mapping will include the topics from identification. Add that to the title, instead of the first pill.
+3. Use various colors to represent each topic. So in the resultant list of topics mapped to parts, topic A should have a color topic B should have another color and so on and use a label or a pill of some kind to indicate that.
+4. Then add another section after merge where it is the original segmented conversation where there is a label pill associated with every single segment.
+
+### Mar 02, 2026 15:48:35
+Add smaller token counts to the segments of the conversation starting from the segmented conversation in the first panel but then also include those token counts in all the panels after that
+
+### Mar 02, 2026 15:54:48
+1. In the first segmentation illustration I think we can skip the filter large message parts by token count as an illustration and just keep the label over the arrow going directly to the LLM
+2. Fix the token counts to the right bottom of every segment.
+3. Add token accounts to individual message parts in the first conversation also
+4. Keep the segmented conversation depiction the same in all three panels
+5. Remove the colors from the third panel
+
+### Mar 02, 2026 15:57:38
+stop thinking and do
+
+### Mar 02, 2026 15:59:30
+In, Users/srihari/work/nilenso/acm-conf-prep/svg-components/segmentation.html
+
+❯ 1. In the first segmentation illustration I think we can skip the filter large message parts by token count as an illustration and just keep the label over the arrow going directly to the LLM
+  2. Fix the token counts to the right bottom of every segment.
+  3. Add token accounts to individual message parts in the first conversation also
+  4. Keep the segmented conversation depiction the same in all three panels
+  5. Remove the colors from the third panel
+
+### Mar 02, 2026 16:01:55
+don't think just do
+
+### Mar 02, 2026 16:08:05
+try now
+
+### Mar 02, 2026 18:44:42
+try now
+
+### Mar 02, 2026 18:46:00
+don't think, do
+
+### Mar 05, 2026 11:45:29
+in second part where we assign components to segments, do we send the prompt describing the components (used to identify the components)? or just a list of components?
+
+### Mar 05, 2026 11:53:35
+Can you modify the prompt to also send along the component identification prompt?
+
+### Mar 05, 2026 13:26:37
+copy this preset over to the corect place and name it appropriately /Users/srihari/Downloads/Action\ Component\ Identification\ Preset.json 
+
+### Mar 05, 2026 15:21:10
+read this, understand how they fetched swe bench pro trajectories, and fetch them. same subset, not all. /Users/srihari/Downloads/Session\ Preview.jsonl 
+
+### Mar 05, 2026 15:24:59
+<task-notification>
+<task-id>bonx1dy50</task-id>
+<tool-use-id>toolu_018QZux9S5dU5fznF8Wj3HYm</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bonx1dy50.output</output-file>
+<status>failed</status>
+<summary>Background command "Sync all eval results (~73MB)" failed with exit code 1</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bonx1dy50.output
+
+### Mar 05, 2026 15:24:59
+<task-notification>
+<task-id>bou24ba06</task-id>
+<tool-use-id>toolu_01VJYxSfn7j1oGohnBm8jHzE</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bou24ba06.output</output-file>
+<status>completed</status>
+<summary>Background command "Download 22 selected trajectory files (smallest 2 per project, ~64MB total)" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bou24ba06.output
+
+### Mar 05, 2026 15:24:59
+<task-notification>
+<task-id>bdcz52n30</task-id>
+<tool-use-id>toolu_011NmVFXBAEtmW8QdZwXcNkw</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bdcz52n30.output</output-file>
+<status>completed</status>
+<summary>Background command "Sync all eval results (~73MB)" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-srihari-work-nilenso-context-viewer/tasks/bdcz52n30.output
+
+### Mar 05, 2026 15:25:40
+use the trajectories to understand the schema. then take look at the parsers and zod schema.ts we have here. then build a parser and register it, in the same way that there's support for other coding agent trajectories / transcripts.
+
+### Mar 05, 2026 15:33:34
+but the interface doesn't allow me to drag-drop .traj files. allow that extension too
+
+### Mar 05, 2026 15:36:25
+commit this
+
+### Mar 09, 2026 12:55:31
+i built support for swe bench pro trajectories. look in claude transcript histories to find that session, or other related session where I got that dataset. i want to find those trajectories again. where are they?
+
+### Mar 09, 2026 12:57:05
+i think they had a trj extension?
+
+### Mar 09, 2026 12:57:37
+this is it. /Users/srihari/Downloads/swe-bench-pro-traj/claude-45sonnet-10132025/traj/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59.traj 
+
+can you resume the session that fetched this dataset?
+
+### Mar 09, 2026 12:58:26
+huh? you were able to access ~.claude etc. find the transcript that downloaded this.
+
+### Mar 09, 2026 13:00:26
+read the paper, and understand the failure modes, etc
+
+### Mar 09, 2026 13:01:11
+don't be comprehensive, just read the last few pages of the appendix
+
+### Mar 09, 2026 13:02:47
+I see this in the prompt. For the category, choose EXACTLY one from the following set: identified\_incorrect\_file: The agent
+incorrectly identified the file that needed to be fixed., missed\_edge\_case: The agent missed
+an edge case in one of the test cases., misunderstood\_problem\_statement: The agent
+misunderstood the problem statement., wrong\_solution: The agent generated a wrong solution.,
+tool\_error: The agent encountered an error while using a tool (e.g. by calling it
+incorrectly)., infinite\_loop: The agent entered an infinite loop (e.g. repeating the same
+sequence of steps)., endless\_file\_reading: The agent read the same file multiple times without
+making any changes., context\_overflow\_from\_listing: The agent's file listing operations (ls,
+find, etc.) caused context overflow., syntax\_error: The agent generated syntactically incorrect
+code., other: The agent failed to resolve the issue for other reasons.
+Do NOT invent or propose new categories. If none fits, use "other".
+
+tell me from the dataset.. what's the actual categories? what's the split among them?
+
+### Mar 09, 2026 13:05:03
+what about rate limits, cost and time limits etc? how are those error types categorised?
+
+### Mar 09, 2026 13:07:32
+give me queries I can run in the trajectories dataset in hugginf face
+
+### Mar 09, 2026 13:08:53
+not this. look at https://github.com/scaleapi/SWE-bench_Pro-os/blob/main/traj/claude-45sonnet-10132025/eval_results.json.
+
+### Mar 09, 2026 13:10:36
+are the individual trajectories categorised with the failure mode?
+
+### Mar 09, 2026 13:13:08
+give me a sample of 10 tasks that succeeded and failed from the trajectories dataset for claude 4.5.
+
+### Mar 09, 2026 13:14:07
+download them. prefix them with resolved and failed.
+
+### Mar 09, 2026 14:03:36
+see what's uncommitted in src, help me clean it up
+
+### Mar 09, 2026 14:03:50
+discard the preset
+
+### Mar 09, 2026 14:04:47
+gst
