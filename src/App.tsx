@@ -626,12 +626,15 @@ class WorkflowRunner {
  * Call this after updating dimensions to keep backward-compatible fields in sync.
  */
 function syncLegacyFieldsFromDimensions(ctx: WorkflowState): void {
-  const defaultDim = ctx.dimensions?.["default"];
-  if (defaultDim) {
-    ctx.components = defaultDim.components;
-    ctx.componentMapping = defaultDim.componentMapping;
-    ctx.componentTimeline = defaultDim.componentTimeline;
-    ctx.componentColors = defaultDim.componentColors;
+  if (!ctx.dimensions) return;
+  // Use "default" if it exists, otherwise use the first dimension
+  const dimKeys = Object.keys(ctx.dimensions);
+  const primaryDim = ctx.dimensions["default"] || (dimKeys.length > 0 ? ctx.dimensions[dimKeys[0]!] : null);
+  if (primaryDim) {
+    ctx.components = primaryDim.components;
+    ctx.componentMapping = primaryDim.componentMapping;
+    ctx.componentTimeline = primaryDim.componentTimeline;
+    ctx.componentColors = primaryDim.componentColors;
   }
 }
 
@@ -643,8 +646,8 @@ function ensureDimensions(ctx: WorkflowState): Record<string, DimensionData> {
   if (!ctx.dimensions) {
     ctx.dimensions = {};
   }
-  // If we have legacy fields but no default dimension, migrate
-  if (!ctx.dimensions["default"] && ctx.components) {
+  // If we have legacy fields but no dimensions at all, migrate to "default"
+  if (Object.keys(ctx.dimensions).length === 0 && ctx.components) {
     ctx.dimensions["default"] = {
       name: "default",
       prompt: ctx.customPrompt,
@@ -1425,6 +1428,7 @@ export default function App() {
           title: conv.title,
           conversation: conv.conversation,
           componentMapping: conv.componentMapping,
+          dimensions: conv.dimensions,
         };
       })
       .filter((state): state is NonNullable<typeof state> => state !== null);
@@ -3153,7 +3157,18 @@ export default function App() {
                     componentMapping={selectedConversation.componentMapping}
                     componentTimeline={selectedConversation.componentTimeline}
                     componentColors={selectedConversation.componentColors}
-                    components={selectedConversation.components}
+                    components={(() => {
+                      // Merge components from all dimensions, not just the default/legacy field
+                      const dims = selectedConversation.dimensions;
+                      if (!dims || Object.keys(dims).length <= 1) {
+                        return selectedConversation.components;
+                      }
+                      const allComps = new Set(selectedConversation.components || []);
+                      for (const dim of Object.values(dims)) {
+                        for (const c of dim.components) allComps.add(c);
+                      }
+                      return [...allComps];
+                    })()}
                     dimensions={selectedConversation.dimensions}
                     activeDimensions={activeDimensions}
                     onActiveDimensionsChange={setActiveDimensions}

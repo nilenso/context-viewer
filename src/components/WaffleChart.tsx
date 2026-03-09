@@ -14,6 +14,7 @@ interface WaffleChartProps {
   getColorStyles: (component: string) => ColorStyles;
   getLabel: (component: string) => string;
   onComponentClick?: (component: string) => void;
+  hideLegend?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export function WaffleChart({
   getColorStyles,
   getLabel,
   onComponentClick,
+  hideLegend,
 }: WaffleChartProps) {
   const [sortMode, setSortMode] = useState<SortMode>("tokens");
   const GRID_SIZE = 400; // 20x20 grid
@@ -74,6 +76,7 @@ export function WaffleChart({
   return (
     <div className="flex gap-8 items-start">
       {/* Legend (left side) */}
+      {!hideLegend && (
       <div className="flex flex-col gap-1.5 min-w-[240px]">
         {/* Sort toggle */}
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 px-2">
@@ -130,6 +133,7 @@ export function WaffleChart({
           );
         })}
       </div>
+      )}
 
       {/* Waffle grid (right side) - fixed 20x20 square */}
       <div className="grid grid-cols-[repeat(20,minmax(0,1fr))] gap-0.5 flex-shrink-0">

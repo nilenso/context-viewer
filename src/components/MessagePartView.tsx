@@ -185,8 +185,9 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
 
   // Get component(s) for this part - support multi-dimension
   const component = componentMapping?.[part.id];
-  const dimensionBadges = dimensions && activeDimensions && activeDimensions.size > 1
-    ? [...activeDimensions].map((dimName) => {
+  const dimNames = dimensions ? Object.keys(dimensions) : [];
+  const dimensionBadges = dimensions && dimNames.length > 1
+    ? dimNames.map((dimName) => {
         const dim = dimensions[dimName];
         if (!dim) return null;
         const comp = dim.componentMapping[part.id];

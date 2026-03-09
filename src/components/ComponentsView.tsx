@@ -55,24 +55,23 @@ export function ComponentsView({
   );
   const hasMultipleDimensions = dimensionNames.length > 1;
 
+  // The "primary" dimension is the first active one (used for waffle grid layout)
+  const primaryDimName = useMemo(() => {
+    const active = [...activeDimensions];
+    return active[0] || (dimensionNames[0] ?? "default");
+  }, [activeDimensions, dimensionNames]);
+
   // Determine effective mapping and colors based on active dimensions
   const effectiveMapping = useMemo(() => {
-    if (!dimensions || activeDimensions.size <= 1) {
-      // Single dimension or no dimensions: use the single active one, or fall back to legacy
-      const activeName = [...activeDimensions][0] || "default";
-      return dimensions?.[activeName]?.componentMapping || componentMapping || {};
-    }
-    // Multiple active: use default for the mapping (waffle chart is per-dimension)
-    return componentMapping || {};
-  }, [dimensions, activeDimensions, componentMapping]);
+    if (!dimensions) return componentMapping || {};
+    // Always use the primary (first active) dimension's mapping
+    return dimensions[primaryDimName]?.componentMapping || componentMapping || {};
+  }, [dimensions, primaryDimName, componentMapping]);
 
   const effectiveColors = useMemo(() => {
-    if (!dimensions || activeDimensions.size <= 1) {
-      const activeName = [...activeDimensions][0] || "default";
-      return dimensions?.[activeName]?.componentColors || componentColors || {};
-    }
-    return componentColors || {};
-  }, [dimensions, activeDimensions, componentColors]);
+    if (!dimensions) return componentColors || {};
+    return dimensions[primaryDimName]?.componentColors || componentColors || {};
+  }, [dimensions, primaryDimName, componentColors]);
 
   // Helper to check if a part passes the message type filter
   const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
@@ -93,6 +92,57 @@ export function ComponentsView({
     }
     return ids;
   }, [filterByStaticComponent, staticMapping]);
+
+  // Compute tuple-based token data when multiple dimensions are active
+  // Each tuple is a unique combination of components across active dimensions (e.g. "error_types:X|workflow:Y")
+  const tupleData = useMemo(() => {
+    if (!dimensions || activeDimensions.size <= 1) return null;
+    const activeDimNames = [...activeDimensions].sort();
+    const tupleTokens: Record<string, number> = {};
+    let total = 0;
+    conversation.messages.forEach((message, msgIndex) => {
+      if (msgIndex <= currentMessageIndex) {
+        message.parts.forEach((part) => {
+          const tokenCount = ("token_count" in part && part.token_count) || 0;
+          if (!partPassesMessageTypeFilter(part, message.role)) return;
+          if (filteredPartIds && !filteredPartIds.has(part.id)) return;
+          // Build tuple key from all active dimensions
+          const parts: string[] = [];
+          for (const dimName of activeDimNames) {
+            const comp = dimensions[dimName]?.componentMapping[part.id];
+            if (comp) parts.push(`${dimName}:${comp}`);
+          }
+          if (parts.length === 0) return;
+          const tupleKey = parts.join("|");
+          tupleTokens[tupleKey] = (tupleTokens[tupleKey] || 0) + tokenCount;
+          total += tokenCount;
+        });
+      }
+    });
+    return { tupleTokens, total };
+  }, [dimensions, activeDimensions, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
+
+  // Helper to get blended color for a tuple key like "dim1:comp1|dim2:comp2"
+  const getTupleColorStyles = useMemo(() => {
+    if (!dimensions || !tupleData) return null;
+    return (tupleKey: string) => {
+      const parts = tupleKey.split("|");
+      const colors: string[] = [];
+      for (const part of parts) {
+        const sepIdx = part.indexOf(":");
+        const dimName = part.slice(0, sepIdx);
+        const comp = part.slice(sepIdx + 1);
+        const dim = dimensions[dimName];
+        if (dim) {
+          const hex = getComponentWaffleHex(comp, dim.componentColors);
+          if (hex) colors.push(hex);
+        }
+      }
+      if (colors.length === 0) return { classes: "bg-gray-300" as string | null, style: null as React.CSSProperties | null };
+      const blended = colors.length === 1 ? colors[0]! : blendColors(colors);
+      return { classes: null as string | null, style: { backgroundColor: blended } as React.CSSProperties | null };
+    };
+  }, [dimensions, tupleData]);
 
   // Compute messageComponents for workflow view (filtered, up to current slider position)
   // Must be before early return to follow React hooks rules
@@ -235,83 +285,47 @@ export function ComponentsView({
         </div>
       )}
 
-      {/* Active dimension indicator */}
-      {hasMultipleDimensions && (
-        <div className="mb-3 text-xs text-muted-foreground">
-          Viewing: {[...activeDimensions].join(", ")}
+
+      {/* Timeline Slider */}
+      <div className="mb-4 px-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Message {currentMessageIndex + 1} of {conversation.messages.length}
+          </span>
+          <span className="text-sm font-semibold text-foreground">
+            {fullTokensTotal.toLocaleString()} tokens
+          </span>
         </div>
-      )}
+        <Slider
+          value={[currentMessageIndex]}
+          onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
+          min={0}
+          max={conversation.messages.length - 1}
+          step={1}
+          className="w-full"
+        />
+      </div>
 
-      {/* Per-dimension waffle charts when multiple active */}
-      {hasMultipleDimensions && activeDimensions.size > 1 ? (
-        <div className="space-y-4">
-          {[...activeDimensions].map((dimName) => {
-            const dim = dimensions?.[dimName];
-            if (!dim) return null;
-
-            // Calculate per-dimension token data
-            const dimTokens: Record<string, number> = {};
-            let dimTotal = 0;
-            conversation.messages.forEach((message, msgIndex) => {
-              if (msgIndex <= currentMessageIndex) {
-                message.parts.forEach((part) => {
-                  const component = dim.componentMapping[part.id];
-                  if (component) {
-                    const tokenCount = ("token_count" in part && part.token_count) || 0;
-                    if (!partPassesMessageTypeFilter(part, message.role)) return;
-                    if (filteredPartIds && !filteredPartIds.has(part.id)) return;
-                    dimTokens[component] = (dimTokens[component] || 0) + tokenCount;
-                    dimTotal += tokenCount;
-                  }
-                });
-              }
-            });
-
-            return (
-              <div key={dimName}>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{dimName}</h4>
-                <WaffleChart
-                  componentTokens={dimTokens}
-                  totalTokens={dimTotal}
-                  getColorStyles={(component) => getComponentWaffleStyles(component, dim.componentColors)}
-                  getLabel={(component) => component}
-                  onComponentClick={handleComponentClick}
-                />
-              </div>
-            );
-          })}
-        </div>
+      {/* Waffle Chart - tuple-based when multi-dimension, single when one dimension */}
+      {tupleData && getTupleColorStyles ? (
+        <WaffleChart
+          componentTokens={tupleData.tupleTokens}
+          totalTokens={tupleData.total}
+          getColorStyles={getTupleColorStyles}
+          getLabel={(tupleKey) => tupleKey.split("|").map(p => {
+            const sepIdx = p.indexOf(":");
+            return `${p.slice(0, sepIdx)}:${p.slice(sepIdx + 1)}`;
+          }).join(" · ")}
+          onComponentClick={handleComponentClick}
+        />
       ) : (
-        <>
-          {/* Timeline Slider */}
-          <div className="mb-4 px-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Message {currentMessageIndex + 1} of {conversation.messages.length}
-              </span>
-              <span className="text-sm font-semibold text-foreground">
-                {fullTokensTotal.toLocaleString()} tokens
-              </span>
-            </div>
-            <Slider
-              value={[currentMessageIndex]}
-              onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
-              min={0}
-              max={conversation.messages.length - 1}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          {/* Waffle Chart */}
-          <WaffleChart
-            componentTokens={componentTokensForOverview}
-            totalTokens={filteredTokensTotal}
-            getColorStyles={(component) => getWaffleStylesForDimensions(component)}
-            getLabel={(component) => component}
-            onComponentClick={handleComponentClick}
-          />
-        </>
+        <WaffleChart
+          componentTokens={componentTokensForOverview}
+          totalTokens={filteredTokensTotal}
+          getColorStyles={(component) => getWaffleStylesForDimensions(component)}
+          getLabel={(component) => component}
+          onComponentClick={handleComponentClick}
+        />
       )}
 
       {/* Workflow Diagram - horizontal sequence of messages */}
@@ -347,3 +361,4 @@ export function ComponentsView({
     </div>
   );
 }
+
