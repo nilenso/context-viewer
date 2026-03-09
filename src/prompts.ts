@@ -79,10 +79,11 @@ ${JSON.stringify(conversationOverview, null, 2)}`;
   "component-mapping": {
     key: "component-mapping",
     description: "Maps message part IDs to identified components",
-    template: ({ conversationJson, componentsJson }) => `given this conversation and the list of components, give me a mapping
+    template: ({ conversationJson, componentsJson, componentDescriptions }) => `given this conversation and the list of components, give me a mapping
 of message part ids in the conversation, to a component from the list, for all the message parts
 just give me a simple json object {id: component}
 
+<component-descriptions>${componentDescriptions}</component-descriptions>
 <conversation>${conversationJson}</conversation>
 <components>${componentsJson}</components>`,
   },

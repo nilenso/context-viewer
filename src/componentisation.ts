@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
-import { getPrompt } from "./prompts";
+import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig, type AIConfig } from "./ai-config";
 import { workflowLog, type ProcessingPhase } from "./workflow-logger";
@@ -198,6 +198,7 @@ async function mapPartsBatch(
   parts: PartWithContext[],
   components: string[],
   config: ComponentisationConfig,
+  componentDescriptions?: string,
   conversationId?: string,
 ): Promise<Record<string, string>> {
   const openai = createOpenAI({
@@ -211,6 +212,7 @@ async function mapPartsBatch(
   const prompt = getPrompt("component-mapping", {
     conversationJson: partsJson,
     componentsJson,
+    componentDescriptions: componentDescriptions || "",
   });
 
   try {
@@ -257,6 +259,7 @@ export async function mapComponentsToIds(
   conversation: Conversation,
   components: string[],
   config: ComponentisationConfig,
+  componentDescriptions?: string,
   conversationId?: string,
 ): Promise<Record<string, string>> {
   const BATCH_SIZE = 20;
@@ -285,7 +288,7 @@ export async function mapComponentsToIds(
         conversationId,
         `Starting batch ${index + 1}/${batches.length} (${batch.length} parts)`,
       );
-      return mapPartsBatch(batch, components, config, conversationId);
+      return mapPartsBatch(batch, components, config, componentDescriptions, conversationId);
     }),
   );
 
@@ -523,10 +526,12 @@ export async function componentiseConversation(
 
   // Step 2: Map components to IDs
   onProgress?.("mapping");
+  const componentDescriptions = customPrompt || getDefaultComponentIdentificationPrompt();
   const mapping = await mapComponentsToIds(
     conversation,
     components,
     config,
+    componentDescriptions,
     conversationId,
   );
 
