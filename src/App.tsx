@@ -3127,6 +3127,10 @@ export default function App() {
                 onEditSummaryPrompt={handleOpenSummaryPromptEditor}
                 onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
                 onEditColoringPrompt={handleOpenColoringPromptEditor}
+                onAddDimension={handleAddDimension}
+                onRemoveDimension={handleRemoveDimension}
+                onRenameDimension={handleRenameDimension}
+                onEditDimensionPrompt={(id, dimName) => handleOpenPromptEditor(id, dimName)}
                 onApplyPromptsToAll={handleApplyPromptsToAll}
                 onExportPromptsAsPreset={handleExportPromptsAsPreset}
                 onExportSession={handleExportSession}

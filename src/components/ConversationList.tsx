@@ -25,10 +25,15 @@ import {
   Maximize2,
   Download,
   Pause,
+  ChevronDown,
+  Plus,
+  Pencil,
 } from "lucide-react";
+import type { DimensionData } from "@/componentisation";
+import { getComponentWaffleStyles } from "@/lib/component-colors";
+import { cn } from "@/lib/utils";
 import { ApiKeyInput } from "./ApiKeyInput";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
-import { cn } from "@/lib/utils";
 import {
   createFileValidator,
   SUPPORTED_EXTENSIONS_TEXT,
@@ -62,6 +67,8 @@ interface WorkflowState {
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   pausedAtStep?: ProcessingStep;
+  // Multi-dimensional component data
+  dimensions?: Record<string, DimensionData>;
   // Grouped conversation data
   isGrouped?: boolean;
   sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
@@ -88,6 +95,11 @@ interface ConversationListProps {
   onEditSummaryPrompt?: (id: string) => void;
   onEditAnalysisPrompt?: (id: string) => void;
   onEditColoringPrompt?: (id: string) => void;
+  // Dimension management
+  onAddDimension?: (name: string) => void;
+  onRemoveDimension?: (name: string) => void;
+  onRenameDimension?: (oldName: string, newName: string) => void;
+  onEditDimensionPrompt?: (id: string, dimensionName: string) => void;
   onApplyPromptsToAll?: (id: string) => void;
   onExportPromptsAsPreset?: (id: string) => void;
   onExportSession?: () => void;
@@ -120,6 +132,10 @@ export function ConversationList({
   onEditSummaryPrompt,
   onEditAnalysisPrompt,
   onEditColoringPrompt,
+  onAddDimension,
+  onRemoveDimension,
+  onRenameDimension,
+  onEditDimensionPrompt,
   onApplyPromptsToAll,
   onExportPromptsAsPreset,
   onExportSession,
@@ -143,6 +159,12 @@ export function ConversationList({
   // Inline title editing state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  // Dimension accordion state
+  const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  const [addingDimension, setAddingDimension] = useState(false);
+  const [newDimensionName, setNewDimensionName] = useState("");
+  const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // Count of selectable conversations (non-grouped, success status)
   const selectableConversations = conversations.filter(
@@ -790,34 +812,233 @@ export function ConversationList({
                                       </button>
                                     </div>
                                   )}
-                                  {/* Edit prompt and Edit components links - show below "Find components" step */}
-                                  {isFindComponentsStep &&
-                                    (onEditPrompt || onEditComponents) && (
-                                      <div className="flex gap-2 ml-5 mt-0.5">
-                                        {onEditPrompt && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onEditPrompt(conversation.id);
-                                            }}
-                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                          >
-                                            Edit prompt
-                                          </button>
-                                        )}
-                                        {onEditComponents && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onEditComponents(conversation.id);
-                                            }}
-                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                          >
-                                            Edit components
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
+                                  {/* Edit prompt, Edit components, and Dimension accordion - show below "Find components" step */}
+                                  {isFindComponentsStep && (
+                                    <>
+                                      {(onEditPrompt || onEditComponents) && (
+                                        <div className="flex gap-2 ml-5 mt-0.5">
+                                          {onEditPrompt && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditPrompt(conversation.id);
+                                              }}
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                              Edit prompt
+                                            </button>
+                                          )}
+                                          {onEditComponents && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditComponents(conversation.id);
+                                              }}
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                              Edit components
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                      {/* Dimension Accordion */}
+                                      {(() => {
+                                        const dims = conversation.dimensions;
+                                        const dimNames = dims ? Object.keys(dims) : [];
+                                        if (dimNames.length === 0 && !onAddDimension) return null;
+                                        return (
+                                          <div className="ml-5 mt-2 border rounded text-xs">
+                                            <div className="px-2 py-1 bg-muted/50 flex items-center justify-between">
+                                              <span className="font-medium text-muted-foreground uppercase tracking-wide" style={{ fontSize: "10px" }}>
+                                                Dimensions ({dimNames.length || 1})
+                                              </span>
+                                              {onAddDimension && (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAddingDimension(true);
+                                                  }}
+                                                  className="text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
+                                                >
+                                                  <Plus className="h-3 w-3" /> Add
+                                                </button>
+                                              )}
+                                            </div>
+
+                                            {/* Add dimension input */}
+                                            {addingDimension && (
+                                              <div className="px-2 py-1.5 border-t flex items-center gap-1.5">
+                                                <input
+                                                  type="text"
+                                                  value={newDimensionName}
+                                                  onChange={(e) => setNewDimensionName(e.target.value)}
+                                                  placeholder="Name..."
+                                                  className="flex-1 border rounded px-1.5 py-0.5 text-xs"
+                                                  autoFocus
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  onKeyDown={(e) => {
+                                                    e.stopPropagation();
+                                                    if (e.key === "Enter" && newDimensionName.trim()) {
+                                                      onAddDimension?.(newDimensionName.trim());
+                                                      setNewDimensionName("");
+                                                      setAddingDimension(false);
+                                                    }
+                                                    if (e.key === "Escape") {
+                                                      setAddingDimension(false);
+                                                      setNewDimensionName("");
+                                                    }
+                                                  }}
+                                                />
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (newDimensionName.trim()) onAddDimension?.(newDimensionName.trim());
+                                                    setNewDimensionName("");
+                                                    setAddingDimension(false);
+                                                  }}
+                                                  className="text-blue-600 hover:text-blue-700"
+                                                >
+                                                  OK
+                                                </button>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAddingDimension(false);
+                                                    setNewDimensionName("");
+                                                  }}
+                                                  className="text-muted-foreground hover:text-foreground"
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </button>
+                                              </div>
+                                            )}
+
+                                            {/* Dimension list */}
+                                            {dimNames.map((dimName) => {
+                                              const dimData = dims![dimName]!;
+                                              const isExpanded = expandedDimension === dimName;
+                                              return (
+                                                <div key={dimName} className="border-t">
+                                                  <div
+                                                    className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/30 cursor-pointer"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedDimension(isExpanded ? null : dimName);
+                                                    }}
+                                                  >
+                                                    {isExpanded ? (
+                                                      <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                                    ) : (
+                                                      <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                                    )}
+
+                                                    {renamingDimension === dimName ? (
+                                                      <input
+                                                        type="text"
+                                                        value={renameValue}
+                                                        onChange={(e) => setRenameValue(e.target.value)}
+                                                        className="flex-1 border rounded px-1 py-0 text-xs"
+                                                        autoFocus
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onKeyDown={(e) => {
+                                                          e.stopPropagation();
+                                                          if (e.key === "Enter" && renameValue.trim()) {
+                                                            onRenameDimension?.(dimName, renameValue.trim());
+                                                            setRenamingDimension(null);
+                                                          }
+                                                          if (e.key === "Escape") setRenamingDimension(null);
+                                                        }}
+                                                        onBlur={() => {
+                                                          if (renameValue.trim() && renameValue.trim() !== dimName) {
+                                                            onRenameDimension?.(dimName, renameValue.trim());
+                                                          }
+                                                          setRenamingDimension(null);
+                                                        }}
+                                                      />
+                                                    ) : (
+                                                      <span className="flex-1 font-medium truncate">{dimName}</span>
+                                                    )}
+
+                                                    <span className="text-muted-foreground flex-shrink-0">
+                                                      {dimData.components.length}
+                                                    </span>
+
+                                                    {onEditDimensionPrompt && (
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          onEditDimensionPrompt(conversation.id, dimName);
+                                                        }}
+                                                        className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
+                                                        title="Edit prompt"
+                                                      >
+                                                        <Pencil className="h-2.5 w-2.5" />
+                                                      </button>
+                                                    )}
+                                                    {onRenameDimension && (
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setRenamingDimension(dimName);
+                                                          setRenameValue(dimName);
+                                                        }}
+                                                        className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                                                        title="Rename"
+                                                        style={{ fontSize: "9px" }}
+                                                      >
+                                                        Aa
+                                                      </button>
+                                                    )}
+                                                    {dimName !== "default" && onRemoveDimension && (
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          onRemoveDimension(dimName);
+                                                        }}
+                                                        className="text-muted-foreground hover:text-red-600 flex-shrink-0"
+                                                        title="Remove"
+                                                      >
+                                                        <Trash2 className="h-2.5 w-2.5" />
+                                                      </button>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Expanded: show component list */}
+                                                  {isExpanded && (
+                                                    <div className="px-6 py-1.5 bg-muted/20 space-y-0.5">
+                                                      {dimData.components.length === 0 ? (
+                                                        <p className="text-muted-foreground italic">No components yet</p>
+                                                      ) : (
+                                                        dimData.components.map((comp) => {
+                                                          const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
+                                                          return (
+                                                            <div key={comp} className="flex items-center gap-1.5">
+                                                              <div
+                                                                className={cn("w-2.5 h-2.5 rounded-sm flex-shrink-0", colorStyles.classes)}
+                                                                style={colorStyles.style || undefined}
+                                                              />
+                                                              <span className="truncate">{comp}</span>
+                                                            </div>
+                                                          );
+                                                        })
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+
+                                            {/* Show "default" placeholder when no dimensions yet */}
+                                            {dimNames.length === 0 && (
+                                              <div className="border-t px-2 py-1 text-muted-foreground italic">
+                                                default (active)
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
                                   {/* Edit prompt link - show below "Assign colors" step */}
                                   {isColoringStep && onEditColoringPrompt && (
                                     <div className="flex gap-2 ml-5 mt-0.5">
@@ -968,6 +1189,11 @@ export function ConversationList({
               onEditColoringPrompt={onEditColoringPrompt}
               onGenerateAnalysis={onGenerateAnalysis}
               onGenerateSummary={onGenerateSummary}
+              dimensions={expandedConversation.dimensions}
+              onAddDimension={onAddDimension}
+              onRemoveDimension={onRemoveDimension}
+              onRenameDimension={onRenameDimension}
+              onEditDimensionPrompt={onEditDimensionPrompt}
               isGrouped={expandedConversation.isGrouped}
               sourceConversations={expandedConversation.sourceConversations}
               onUpdateGroupSources={

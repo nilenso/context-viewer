@@ -1106,10 +1106,6 @@ export function ConversationView({
               dimensions={dimensions}
               activeDimensions={activeDimensions}
               onActiveDimensionsChange={onActiveDimensionsChange}
-              onAddDimension={onAddDimension}
-              onRemoveDimension={onRemoveDimension}
-              onRenameDimension={onRenameDimension}
-              onEditDimensionPrompt={onEditDimensionPrompt}
               selectedComponent={selectedAutoComponent}
               onComponentSelect={(comp) => {
                 setSelectedAutoComponent(comp);

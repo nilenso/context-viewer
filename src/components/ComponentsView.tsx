@@ -7,7 +7,6 @@ import { getComponentWaffleStyles, blendColors, getComponentWaffleHex } from "@/
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot, DimensionData } from "@/componentisation";
-import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, X } from "lucide-react";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -21,11 +20,6 @@ interface ComponentsViewProps {
   dimensions?: Record<string, DimensionData>;
   activeDimensions?: Set<string>;
   onActiveDimensionsChange?: (dims: Set<string>) => void;
-  // Dimension management
-  onAddDimension?: (name: string) => void;
-  onRemoveDimension?: (name: string) => void;
-  onRenameDimension?: (oldName: string, newName: string) => void;
-  onEditDimensionPrompt?: (dimensionName: string) => void;
   selectedComponent?: string | null;
   onComponentSelect?: (component: string | null) => void;
   // Static component filter - when set, only show automatic components for parts matching this static component
@@ -43,10 +37,6 @@ export function ComponentsView({
   dimensions,
   activeDimensions: activeDimensionsProp,
   onActiveDimensionsChange,
-  onAddDimension,
-  onRemoveDimension,
-  onRenameDimension,
-  onEditDimensionPrompt,
   selectedComponent,
   onComponentSelect,
   staticMapping,
@@ -57,11 +47,6 @@ export function ComponentsView({
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
-  const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
-  const [addingDimension, setAddingDimension] = useState(false);
-  const [newDimensionName, setNewDimensionName] = useState("");
-  const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
 
   const activeDimensions = activeDimensionsProp || new Set(["default"]);
   const dimensionNames = useMemo(
@@ -220,185 +205,21 @@ export function ComponentsView({
 
   return (
     <div className="p-4">
-      {/* Dimension Management Accordion */}
-      {dimensionNames.length > 0 && (
-        <div className="mb-4 border rounded-lg">
-          <div className="px-3 py-2 bg-muted/50 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Dimensions ({dimensionNames.length})
-            </span>
-            {onAddDimension && (
-              <button
-                onClick={() => setAddingDimension(true)}
-                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-              >
-                <Plus className="h-3 w-3" /> Add
-              </button>
-            )}
-          </div>
-
-          {/* Add dimension input */}
-          {addingDimension && (
-            <div className="px-3 py-2 border-t flex items-center gap-2">
+      {/* Dimension selector checkboxes */}
+      {hasMultipleDimensions && (
+        <div className="mb-3 flex items-center gap-3 text-xs">
+          <span className="text-muted-foreground font-medium">Dimensions:</span>
+          {dimensionNames.map((dimName) => (
+            <label key={dimName} className="flex items-center gap-1 cursor-pointer">
               <input
-                type="text"
-                value={newDimensionName}
-                onChange={(e) => setNewDimensionName(e.target.value)}
-                placeholder="Dimension name..."
-                className="flex-1 text-sm border rounded px-2 py-1"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newDimensionName.trim()) {
-                    onAddDimension?.(newDimensionName.trim());
-                    setNewDimensionName("");
-                    setAddingDimension(false);
-                  }
-                  if (e.key === "Escape") {
-                    setAddingDimension(false);
-                    setNewDimensionName("");
-                  }
-                }}
+                type="checkbox"
+                checked={activeDimensions.has(dimName)}
+                onChange={() => handleToggleDimension(dimName)}
+                className="h-3 w-3 accent-blue-600"
               />
-              <button
-                onClick={() => {
-                  if (newDimensionName.trim()) {
-                    onAddDimension?.(newDimensionName.trim());
-                    setNewDimensionName("");
-                  }
-                  setAddingDimension(false);
-                }}
-                className="text-xs text-blue-600 hover:text-blue-700"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => { setAddingDimension(false); setNewDimensionName(""); }}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-
-          {/* Dimension list */}
-          {dimensionNames.map((dimName) => {
-            const dimData = dimensions![dimName]!;
-            const isExpanded = expandedDimension === dimName;
-            const isActive = activeDimensions.has(dimName);
-
-            return (
-              <div key={dimName} className="border-t">
-                <div className="flex items-center gap-2 px-3 py-1.5">
-                  {/* Active checkbox */}
-                  <input
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={() => handleToggleDimension(dimName)}
-                    className="h-3 w-3 accent-blue-600"
-                  />
-
-                  {/* Expand/collapse */}
-                  <button
-                    onClick={() => setExpandedDimension(isExpanded ? null : dimName)}
-                    className="flex items-center gap-1 flex-1 text-left"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                    )}
-
-                    {renamingDimension === dimName ? (
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        className="text-sm border rounded px-1 py-0 flex-1"
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-                          if (e.key === "Enter" && renameValue.trim()) {
-                            onRenameDimension?.(dimName, renameValue.trim());
-                            setRenamingDimension(null);
-                          }
-                          if (e.key === "Escape") setRenamingDimension(null);
-                        }}
-                        onBlur={() => {
-                          if (renameValue.trim() && renameValue.trim() !== dimName) {
-                            onRenameDimension?.(dimName, renameValue.trim());
-                          }
-                          setRenamingDimension(null);
-                        }}
-                      />
-                    ) : (
-                      <span className="text-sm font-medium">{dimName}</span>
-                    )}
-                  </button>
-
-                  {/* Component count badge */}
-                  <span className="text-xs text-muted-foreground">
-                    {dimData.components.length} components
-                  </span>
-
-                  {/* Actions */}
-                  {onEditDimensionPrompt && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onEditDimensionPrompt(dimName); }}
-                      className="text-muted-foreground hover:text-foreground"
-                      title="Edit prompt"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                  )}
-                  {onRenameDimension && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenamingDimension(dimName);
-                        setRenameValue(dimName);
-                      }}
-                      className="text-muted-foreground hover:text-foreground text-xs"
-                      title="Rename"
-                    >
-                      Aa
-                    </button>
-                  )}
-                  {dimName !== "default" && onRemoveDimension && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRemoveDimension(dimName); }}
-                      className="text-muted-foreground hover:text-red-600"
-                      title="Remove dimension"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Expanded: show components list */}
-                {isExpanded && (
-                  <div className="px-8 py-2 bg-muted/30 text-xs space-y-1">
-                    {dimData.components.length === 0 ? (
-                      <p className="text-muted-foreground italic">No components yet. Edit the prompt to run componentisation.</p>
-                    ) : (
-                      dimData.components.map((comp) => {
-                        const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
-                        return (
-                          <div key={comp} className="flex items-center gap-2">
-                            <div
-                              className={cn("w-3 h-3 rounded-sm flex-shrink-0", colorStyles.classes)}
-                              style={colorStyles.style || undefined}
-                            />
-                            <span>{comp}</span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              <span>{dimName}</span>
+            </label>
+          ))}
         </div>
       )}
 

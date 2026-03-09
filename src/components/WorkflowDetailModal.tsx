@@ -14,6 +14,7 @@ import {
 import {
   Check,
   ChevronRight,
+  ChevronDown,
   Circle,
   Clock,
   Loader2,
@@ -21,8 +22,14 @@ import {
   AlertTriangle,
   Play,
   ListOrdered,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { DimensionData } from "@/componentisation";
+import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import {
   type ProcessingPhase,
@@ -107,6 +114,12 @@ interface WorkflowDetailModalProps {
   onEditColoringPrompt?: (id: string) => void;
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
+  // Dimension management
+  dimensions?: Record<string, DimensionData>;
+  onAddDimension?: (name: string) => void;
+  onRemoveDimension?: (name: string) => void;
+  onRenameDimension?: (oldName: string, newName: string) => void;
+  onEditDimensionPrompt?: (id: string, dimensionName: string) => void;
   // Grouped conversation support
   isGrouped?: boolean;
   sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
@@ -132,6 +145,11 @@ export function WorkflowDetailModal({
   onEditColoringPrompt,
   onGenerateAnalysis,
   onGenerateSummary,
+  dimensions,
+  onAddDimension,
+  onRemoveDimension,
+  onRenameDimension,
+  onEditDimensionPrompt,
   isGrouped,
   sourceConversations,
   onUpdateGroupSources,
@@ -140,6 +158,12 @@ export function WorkflowDetailModal({
   const [expandedSteps, setExpandedSteps] = useState<Set<ProcessingStep>>(
     new Set(),
   );
+  // Dimension accordion state
+  const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  const [addingDimension, setAddingDimension] = useState(false);
+  const [newDimensionName, setNewDimensionName] = useState("");
+  const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // Subscribe to log updates
   useEffect(() => {
@@ -495,6 +519,203 @@ export function WorkflowDetailModal({
 
                     <CollapsibleContent>
                       <div className="border-t px-3 py-2 bg-muted/30">
+                        {/* Dimension Accordion - show inside Find components step */}
+                        {isFindComponentsStep && (() => {
+                          const dims = dimensions;
+                          const dimNames = dims ? Object.keys(dims) : [];
+                          if (dimNames.length === 0 && !onAddDimension) return null;
+                          return (
+                            <div className="mb-3 border rounded text-xs">
+                              <div className="px-2 py-1.5 bg-muted/50 flex items-center justify-between">
+                                <span className="font-medium text-muted-foreground uppercase tracking-wide" style={{ fontSize: "10px" }}>
+                                  Dimensions ({dimNames.length || 1})
+                                </span>
+                                {onAddDimension && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setAddingDimension(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
+                                  >
+                                    <Plus className="h-3 w-3" /> Add
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Add dimension input */}
+                              {addingDimension && (
+                                <div className="px-2 py-1.5 border-t flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={newDimensionName}
+                                    onChange={(e) => setNewDimensionName(e.target.value)}
+                                    placeholder="Dimension name..."
+                                    className="flex-1 border rounded px-1.5 py-0.5 text-xs"
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => {
+                                      e.stopPropagation();
+                                      if (e.key === "Enter" && newDimensionName.trim()) {
+                                        onAddDimension?.(newDimensionName.trim());
+                                        setNewDimensionName("");
+                                        setAddingDimension(false);
+                                      }
+                                      if (e.key === "Escape") {
+                                        setAddingDimension(false);
+                                        setNewDimensionName("");
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (newDimensionName.trim()) onAddDimension?.(newDimensionName.trim());
+                                      setNewDimensionName("");
+                                      setAddingDimension(false);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-700"
+                                  >
+                                    OK
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setAddingDimension(false);
+                                      setNewDimensionName("");
+                                    }}
+                                    className="text-muted-foreground hover:text-foreground"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Dimension list */}
+                              {dimNames.map((dimName) => {
+                                const dimData = dims![dimName]!;
+                                const isDimExpanded = expandedDimension === dimName;
+                                return (
+                                  <div key={dimName} className="border-t">
+                                    <div
+                                      className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-muted/30 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedDimension(isDimExpanded ? null : dimName);
+                                      }}
+                                    >
+                                      {isDimExpanded ? (
+                                        <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                      ) : (
+                                        <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                      )}
+
+                                      {renamingDimension === dimName ? (
+                                        <input
+                                          type="text"
+                                          value={renameValue}
+                                          onChange={(e) => setRenameValue(e.target.value)}
+                                          className="flex-1 border rounded px-1 py-0 text-xs"
+                                          autoFocus
+                                          onClick={(e) => e.stopPropagation()}
+                                          onKeyDown={(e) => {
+                                            e.stopPropagation();
+                                            if (e.key === "Enter" && renameValue.trim()) {
+                                              onRenameDimension?.(dimName, renameValue.trim());
+                                              setRenamingDimension(null);
+                                            }
+                                            if (e.key === "Escape") setRenamingDimension(null);
+                                          }}
+                                          onBlur={() => {
+                                            if (renameValue.trim() && renameValue.trim() !== dimName) {
+                                              onRenameDimension?.(dimName, renameValue.trim());
+                                            }
+                                            setRenamingDimension(null);
+                                          }}
+                                        />
+                                      ) : (
+                                        <span className="flex-1 font-medium truncate">{dimName}</span>
+                                      )}
+
+                                      <span className="text-muted-foreground flex-shrink-0">
+                                        {dimData.components.length} components
+                                      </span>
+
+                                      {onEditDimensionPrompt && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditDimensionPrompt(conversationId, dimName);
+                                          }}
+                                          className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
+                                          title="Edit prompt"
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                      {onRenameDimension && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRenamingDimension(dimName);
+                                            setRenameValue(dimName);
+                                          }}
+                                          className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                                          title="Rename"
+                                          style={{ fontSize: "10px" }}
+                                        >
+                                          Aa
+                                        </button>
+                                      )}
+                                      {dimName !== "default" && onRemoveDimension && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemoveDimension(dimName);
+                                          }}
+                                          className="text-muted-foreground hover:text-red-600 flex-shrink-0"
+                                          title="Remove"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Expanded: show component list */}
+                                    {isDimExpanded && (
+                                      <div className="px-7 py-1.5 bg-muted/20 space-y-0.5">
+                                        {dimData.components.length === 0 ? (
+                                          <p className="text-muted-foreground italic">No components yet. Edit the prompt to run componentisation.</p>
+                                        ) : (
+                                          dimData.components.map((comp) => {
+                                            const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
+                                            return (
+                                              <div key={comp} className="flex items-center gap-1.5">
+                                                <div
+                                                  className={cn("w-2.5 h-2.5 rounded-sm flex-shrink-0", colorStyles.classes)}
+                                                  style={colorStyles.style || undefined}
+                                                />
+                                                <span className="truncate">{comp}</span>
+                                              </div>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                              {/* Placeholder when no dimensions */}
+                              {dimNames.length === 0 && (
+                                <div className="border-t px-2 py-1.5 text-muted-foreground italic">
+                                  default (active)
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         {/* Step timing details */}
                         {(timing?.startTime || timing?.endTime) && (
                           <div className="mb-2 text-xs text-muted-foreground space-y-1">
