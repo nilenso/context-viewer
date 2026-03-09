@@ -26,7 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message, SourceInfo } from "@/schema";
-import type { ComponentTimelineSnapshot } from "@/componentisation";
+import type { ComponentTimelineSnapshot, DimensionData } from "@/componentisation";
 import {
   type MessageFilter,
   type SortOption as UrlSortOption,
@@ -59,6 +59,15 @@ interface ConversationViewProps {
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
   components?: string[];
+  // Multi-dimensional component data
+  dimensions?: Record<string, DimensionData>;
+  activeDimensions?: Set<string>;
+  onActiveDimensionsChange?: (dims: Set<string>) => void;
+  // Dimension management
+  onAddDimension?: (name: string) => void;
+  onRemoveDimension?: (name: string) => void;
+  onRenameDimension?: (oldName: string, newName: string) => void;
+  onEditDimensionPrompt?: (dimensionName: string) => void;
   // Static componentisation (deterministic, no AI)
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
@@ -107,6 +116,13 @@ export function ConversationView({
   componentTimeline,
   componentColors,
   components,
+  dimensions,
+  activeDimensions,
+  onActiveDimensionsChange,
+  onAddDimension,
+  onRemoveDimension,
+  onRenameDimension,
+  onEditDimensionPrompt,
   staticMapping,
   staticTimeline,
   warnings,
@@ -1046,6 +1062,8 @@ export function ConversationView({
                 sourceInfo={isGrouped ? messageSourceMap?.[message.id] : undefined}
                 messageSourceMap={isGrouped ? messageSourceMap : undefined}
                 conversationStartTime={conversationStartTime}
+                dimensions={dimensions}
+                activeDimensions={activeDimensions}
               />
             ))}
           </div>
@@ -1085,6 +1103,13 @@ export function ConversationView({
               conversation={conversation}
               componentTimeline={componentTimeline}
               componentColors={componentColors}
+              dimensions={dimensions}
+              activeDimensions={activeDimensions}
+              onActiveDimensionsChange={onActiveDimensionsChange}
+              onAddDimension={onAddDimension}
+              onRemoveDimension={onRemoveDimension}
+              onRenameDimension={onRenameDimension}
+              onEditDimensionPrompt={onEditDimensionPrompt}
               selectedComponent={selectedAutoComponent}
               onComponentSelect={(comp) => {
                 setSelectedAutoComponent(comp);

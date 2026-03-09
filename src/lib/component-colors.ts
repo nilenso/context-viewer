@@ -301,6 +301,47 @@ export function getComponentWaffleStyles(
 }
 
 /**
+ * Blend multiple hex colors by averaging their RGB components.
+ * Used when visualising multiple dimensions simultaneously.
+ */
+export function blendColors(hexColors: string[]): string {
+  if (hexColors.length === 0) return colorNameToWaffleHex.gray!;
+  if (hexColors.length === 1) return hexColors[0]!;
+
+  const rgbs = hexColors.map(hexToRgb);
+  const avg = {
+    r: Math.round(rgbs.reduce((s, c) => s + c.r, 0) / rgbs.length),
+    g: Math.round(rgbs.reduce((s, c) => s + c.g, 0) / rgbs.length),
+    b: Math.round(rgbs.reduce((s, c) => s + c.b, 0) / rgbs.length),
+  };
+  return rgbToHex(avg.r, avg.g, avg.b);
+}
+
+/**
+ * Get a blended color for a part across multiple active dimensions.
+ * Returns a single hex color representing the blend of all active dimension colors.
+ */
+export function getBlendedColorForPart(
+  partId: string,
+  dimensions: Record<string, { componentMapping: Record<string, string>; componentColors: Record<string, string> }>,
+  activeDimensionNames: string[],
+): string {
+  const colors = activeDimensionNames
+    .map((dim) => {
+      const dimData = dimensions[dim];
+      if (!dimData) return null;
+      const component = dimData.componentMapping[partId];
+      if (!component) return null;
+      return getComponentWaffleHex(component, dimData.componentColors);
+    })
+    .filter((c): c is string => c !== null);
+
+  if (colors.length === 0) return colorNameToWaffleHex.gray!;
+  if (colors.length === 1) return colors[0]!;
+  return blendColors(colors);
+}
+
+/**
  * Get the raw waffle hex for a component (the main saturated color).
  * Used for charts and visualizations where we need the actual hex value.
  */

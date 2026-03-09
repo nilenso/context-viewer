@@ -3,10 +3,11 @@ import { Slider } from "@/components/ui/slider";
 import { WaffleChart } from "./WaffleChart";
 import { CompactLegend } from "./ComponentComparisonView";
 import { cn } from "@/lib/utils";
-import { getComponentWaffleStyles } from "@/lib/component-colors";
+import { getComponentWaffleStyles, blendColors, getComponentWaffleHex } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
-import type { ComponentTimelineSnapshot } from "@/componentisation";
+import type { ComponentTimelineSnapshot, DimensionData } from "@/componentisation";
+import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, X } from "lucide-react";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -16,6 +17,15 @@ interface ComponentsViewProps {
   conversation: Conversation;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+  // Multi-dimensional component data
+  dimensions?: Record<string, DimensionData>;
+  activeDimensions?: Set<string>;
+  onActiveDimensionsChange?: (dims: Set<string>) => void;
+  // Dimension management
+  onAddDimension?: (name: string) => void;
+  onRemoveDimension?: (name: string) => void;
+  onRenameDimension?: (oldName: string, newName: string) => void;
+  onEditDimensionPrompt?: (dimensionName: string) => void;
   selectedComponent?: string | null;
   onComponentSelect?: (component: string | null) => void;
   // Static component filter - when set, only show automatic components for parts matching this static component
@@ -30,6 +40,13 @@ export function ComponentsView({
   conversation,
   componentTimeline,
   componentColors,
+  dimensions,
+  activeDimensions: activeDimensionsProp,
+  onActiveDimensionsChange,
+  onAddDimension,
+  onRemoveDimension,
+  onRenameDimension,
+  onEditDimensionPrompt,
   selectedComponent,
   onComponentSelect,
   staticMapping,
@@ -40,6 +57,37 @@ export function ComponentsView({
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
   );
+  const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  const [addingDimension, setAddingDimension] = useState(false);
+  const [newDimensionName, setNewDimensionName] = useState("");
+  const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const activeDimensions = activeDimensionsProp || new Set(["default"]);
+  const dimensionNames = useMemo(
+    () => dimensions ? Object.keys(dimensions) : [],
+    [dimensions],
+  );
+  const hasMultipleDimensions = dimensionNames.length > 1;
+
+  // Determine effective mapping and colors based on active dimensions
+  const effectiveMapping = useMemo(() => {
+    if (!dimensions || activeDimensions.size <= 1) {
+      // Single dimension or no dimensions: use the single active one, or fall back to legacy
+      const activeName = [...activeDimensions][0] || "default";
+      return dimensions?.[activeName]?.componentMapping || componentMapping || {};
+    }
+    // Multiple active: use default for the mapping (waffle chart is per-dimension)
+    return componentMapping || {};
+  }, [dimensions, activeDimensions, componentMapping]);
+
+  const effectiveColors = useMemo(() => {
+    if (!dimensions || activeDimensions.size <= 1) {
+      const activeName = [...activeDimensions][0] || "default";
+      return dimensions?.[activeName]?.componentColors || componentColors || {};
+    }
+    return componentColors || {};
+  }, [dimensions, activeDimensions, componentColors]);
 
   // Helper to check if a part passes the message type filter
   const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
@@ -64,7 +112,7 @@ export function ComponentsView({
   // Compute messageComponents for workflow view (filtered, up to current slider position)
   // Must be before early return to follow React hooks rules
   const messageComponents = useMemo(() => {
-    if (!componentMapping) return [];
+    if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) return [];
     const components: string[] = [];
     conversation.messages.forEach((message, msgIndex) => {
       if (msgIndex <= currentMessageIndex) {
@@ -77,7 +125,7 @@ export function ComponentsView({
           // Apply static component filter if set
           if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
 
-          const component = componentMapping[part.id];
+          const component = effectiveMapping[part.id];
           if (component) {
             messageComponent = component;
             break;
@@ -90,9 +138,9 @@ export function ComponentsView({
       }
     });
     return components;
-  }, [conversation.messages, currentMessageIndex, componentMapping, filteredPartIds, messageTypeFilters]);
+  }, [conversation.messages, currentMessageIndex, effectiveMapping, filteredPartIds, messageTypeFilters]);
 
-  if (!componentMapping || Object.keys(componentMapping).length === 0) {
+  if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
         <p>No component mapping available yet.</p>
@@ -112,7 +160,7 @@ export function ComponentsView({
   conversation.messages.forEach((message, msgIndex) => {
     if (msgIndex <= currentMessageIndex) {
       message.parts.forEach((part) => {
-        const component = componentMapping[part.id];
+        const component = effectiveMapping[part.id];
         if (component) {
           const tokenCount = ("token_count" in part && part.token_count) || 0;
           fullTokensTotal += tokenCount;
@@ -139,8 +187,221 @@ export function ComponentsView({
   // Check if message type filters are active
   const hasMessageTypeFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
 
+  // Helper to get blended waffle styles for multi-dimension view
+  const getWaffleStylesForDimensions = (component: string) => {
+    if (!dimensions || activeDimensions.size <= 1) {
+      return getComponentWaffleStyles(component, effectiveColors);
+    }
+    // Multi-dimension: blend colors
+    const activeDimNames = [...activeDimensions];
+    const colors = activeDimNames
+      .map((dimName) => {
+        const dim = dimensions[dimName];
+        if (!dim) return null;
+        // Find the component color in this dimension
+        return getComponentWaffleHex(component, dim.componentColors);
+      })
+      .filter((c): c is string => c !== null);
+
+    if (colors.length === 0) return getComponentWaffleStyles(component, effectiveColors);
+    const blended = colors.length === 1 ? colors[0]! : blendColors(colors);
+    return { classes: null, style: { backgroundColor: blended } };
+  };
+
+  const handleToggleDimension = (dimName: string) => {
+    const next = new Set(activeDimensions);
+    if (next.has(dimName)) {
+      if (next.size > 1) next.delete(dimName); // Keep at least one active
+    } else {
+      next.add(dimName);
+    }
+    onActiveDimensionsChange?.(next);
+  };
+
   return (
     <div className="p-4">
+      {/* Dimension Management Accordion */}
+      {dimensionNames.length > 0 && (
+        <div className="mb-4 border rounded-lg">
+          <div className="px-3 py-2 bg-muted/50 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Dimensions ({dimensionNames.length})
+            </span>
+            {onAddDimension && (
+              <button
+                onClick={() => setAddingDimension(true)}
+                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" /> Add
+              </button>
+            )}
+          </div>
+
+          {/* Add dimension input */}
+          {addingDimension && (
+            <div className="px-3 py-2 border-t flex items-center gap-2">
+              <input
+                type="text"
+                value={newDimensionName}
+                onChange={(e) => setNewDimensionName(e.target.value)}
+                placeholder="Dimension name..."
+                className="flex-1 text-sm border rounded px-2 py-1"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newDimensionName.trim()) {
+                    onAddDimension?.(newDimensionName.trim());
+                    setNewDimensionName("");
+                    setAddingDimension(false);
+                  }
+                  if (e.key === "Escape") {
+                    setAddingDimension(false);
+                    setNewDimensionName("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (newDimensionName.trim()) {
+                    onAddDimension?.(newDimensionName.trim());
+                    setNewDimensionName("");
+                  }
+                  setAddingDimension(false);
+                }}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setAddingDimension(false); setNewDimensionName(""); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Dimension list */}
+          {dimensionNames.map((dimName) => {
+            const dimData = dimensions![dimName]!;
+            const isExpanded = expandedDimension === dimName;
+            const isActive = activeDimensions.has(dimName);
+
+            return (
+              <div key={dimName} className="border-t">
+                <div className="flex items-center gap-2 px-3 py-1.5">
+                  {/* Active checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={() => handleToggleDimension(dimName)}
+                    className="h-3 w-3 accent-blue-600"
+                  />
+
+                  {/* Expand/collapse */}
+                  <button
+                    onClick={() => setExpandedDimension(isExpanded ? null : dimName)}
+                    className="flex items-center gap-1 flex-1 text-left"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    )}
+
+                    {renamingDimension === dimName ? (
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        className="text-sm border rounded px-1 py-0 flex-1"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter" && renameValue.trim()) {
+                            onRenameDimension?.(dimName, renameValue.trim());
+                            setRenamingDimension(null);
+                          }
+                          if (e.key === "Escape") setRenamingDimension(null);
+                        }}
+                        onBlur={() => {
+                          if (renameValue.trim() && renameValue.trim() !== dimName) {
+                            onRenameDimension?.(dimName, renameValue.trim());
+                          }
+                          setRenamingDimension(null);
+                        }}
+                      />
+                    ) : (
+                      <span className="text-sm font-medium">{dimName}</span>
+                    )}
+                  </button>
+
+                  {/* Component count badge */}
+                  <span className="text-xs text-muted-foreground">
+                    {dimData.components.length} components
+                  </span>
+
+                  {/* Actions */}
+                  {onEditDimensionPrompt && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEditDimensionPrompt(dimName); }}
+                      className="text-muted-foreground hover:text-foreground"
+                      title="Edit prompt"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  )}
+                  {onRenameDimension && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamingDimension(dimName);
+                        setRenameValue(dimName);
+                      }}
+                      className="text-muted-foreground hover:text-foreground text-xs"
+                      title="Rename"
+                    >
+                      Aa
+                    </button>
+                  )}
+                  {dimName !== "default" && onRemoveDimension && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRemoveDimension(dimName); }}
+                      className="text-muted-foreground hover:text-red-600"
+                      title="Remove dimension"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Expanded: show components list */}
+                {isExpanded && (
+                  <div className="px-8 py-2 bg-muted/30 text-xs space-y-1">
+                    {dimData.components.length === 0 ? (
+                      <p className="text-muted-foreground italic">No components yet. Edit the prompt to run componentisation.</p>
+                    ) : (
+                      dimData.components.map((comp) => {
+                        const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
+                        return (
+                          <div key={comp} className="flex items-center gap-2">
+                            <div
+                              className={cn("w-3 h-3 rounded-sm flex-shrink-0", colorStyles.classes)}
+                              style={colorStyles.style || undefined}
+                            />
+                            <span>{comp}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Filter indicator */}
       {(filterByStaticComponent || hasMessageTypeFilters) && (
         <div className="mb-3 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md">
@@ -153,34 +414,84 @@ export function ComponentsView({
         </div>
       )}
 
-      {/* Timeline Slider */}
-      <div className="mb-4 px-2">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            Message {currentMessageIndex + 1} of {conversation.messages.length}
-          </span>
-          <span className="text-sm font-semibold text-foreground">
-            {fullTokensTotal.toLocaleString()} tokens
-          </span>
+      {/* Active dimension indicator */}
+      {hasMultipleDimensions && (
+        <div className="mb-3 text-xs text-muted-foreground">
+          Viewing: {[...activeDimensions].join(", ")}
         </div>
-        <Slider
-          value={[currentMessageIndex]}
-          onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
-          min={0}
-          max={conversation.messages.length - 1}
-          step={1}
-          className="w-full"
-        />
-      </div>
+      )}
 
-      {/* Waffle Chart */}
-      <WaffleChart
-        componentTokens={componentTokensForOverview}
-        totalTokens={filteredTokensTotal}
-        getColorStyles={(component) => getComponentWaffleStyles(component, componentColors)}
-        getLabel={(component) => component}
-        onComponentClick={handleComponentClick}
-      />
+      {/* Per-dimension waffle charts when multiple active */}
+      {hasMultipleDimensions && activeDimensions.size > 1 ? (
+        <div className="space-y-4">
+          {[...activeDimensions].map((dimName) => {
+            const dim = dimensions?.[dimName];
+            if (!dim) return null;
+
+            // Calculate per-dimension token data
+            const dimTokens: Record<string, number> = {};
+            let dimTotal = 0;
+            conversation.messages.forEach((message, msgIndex) => {
+              if (msgIndex <= currentMessageIndex) {
+                message.parts.forEach((part) => {
+                  const component = dim.componentMapping[part.id];
+                  if (component) {
+                    const tokenCount = ("token_count" in part && part.token_count) || 0;
+                    if (!partPassesMessageTypeFilter(part, message.role)) return;
+                    if (filteredPartIds && !filteredPartIds.has(part.id)) return;
+                    dimTokens[component] = (dimTokens[component] || 0) + tokenCount;
+                    dimTotal += tokenCount;
+                  }
+                });
+              }
+            });
+
+            return (
+              <div key={dimName}>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">{dimName}</h4>
+                <WaffleChart
+                  componentTokens={dimTokens}
+                  totalTokens={dimTotal}
+                  getColorStyles={(component) => getComponentWaffleStyles(component, dim.componentColors)}
+                  getLabel={(component) => component}
+                  onComponentClick={handleComponentClick}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          {/* Timeline Slider */}
+          <div className="mb-4 px-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Message {currentMessageIndex + 1} of {conversation.messages.length}
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {fullTokensTotal.toLocaleString()} tokens
+              </span>
+            </div>
+            <Slider
+              value={[currentMessageIndex]}
+              onValueChange={(value) => setCurrentMessageIndex(value[0] ?? 0)}
+              min={0}
+              max={conversation.messages.length - 1}
+              step={1}
+              className="w-full"
+            />
+          </div>
+
+          {/* Waffle Chart */}
+          <WaffleChart
+            componentTokens={componentTokensForOverview}
+            totalTokens={filteredTokensTotal}
+            getColorStyles={(component) => getWaffleStylesForDimensions(component)}
+            getLabel={(component) => component}
+            onComponentClick={handleComponentClick}
+          />
+        </>
+      )}
 
       {/* Workflow Diagram - horizontal sequence of messages */}
       {messageComponents.length > 0 && (
@@ -190,7 +501,7 @@ export function ComponentsView({
           </h4>
           <div className="flex flex-wrap gap-0.5">
             {messageComponents.map((component, index) => {
-              const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+              const colorStyles = component ? getWaffleStylesForDimensions(component) : null;
               return (
                 <div
                   key={index}
@@ -207,7 +518,7 @@ export function ComponentsView({
           <div className="mt-3">
             <CompactLegend
               components={messageComponents}
-              componentColors={componentColors}
+              componentColors={effectiveColors}
             />
           </div>
         </div>

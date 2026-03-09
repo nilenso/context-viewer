@@ -16,6 +16,7 @@ import {
   getComponentisationConfig,
   buildComponentTimeline,
   type ComponentTimelineSnapshot,
+  type DimensionData,
 } from "./componentisation";
 import { staticComponentise } from "./static-componentisation";
 import {
@@ -127,10 +128,15 @@ interface WorkflowState {
   analysis?: string;
 
   // Component data (automatic - AI-based)
+  // Legacy single-dimension fields (still used as primary accessors, mapped from dimensions["default"])
   components?: string[];
   componentMapping?: Record<string, string>;
   componentTimeline?: ComponentTimelineSnapshot[];
   componentColors?: Record<string, string>;
+
+  // Multi-dimensional component data
+  dimensions?: Record<string, DimensionData>;
+  targetDimension?: string; // When set, only reprocess this dimension
 
   // Static component data (deterministic - role.partType)
   staticComponents?: string[];
@@ -252,48 +258,101 @@ const segmentActivity: Activity<{
 };
 
 /**
- * Component identification activity: Identify components in conversation
+ * Component identification activity: Identify components in conversation.
+ * Processes all dimensions (or a single targetDimension if set).
  */
 const findComponentsActivity: Activity<{
   components: string[];
   mapping: Record<string, string>;
   timeline: ComponentTimelineSnapshot[];
+  dimensions: Record<string, DimensionData>;
   error?: string;
 }> = async (ctx) => {
-  const result = await componentiseConversation(
-    ctx.conversation!,
-    undefined,
-    ctx.customPrompt,
-    ctx.customComponents,
-    ctx.id, // Pass conversationId for logging
+  const dims = ensureDimensions(ctx);
+  const dimNames = ctx.targetDimension
+    ? [ctx.targetDimension]
+    : getDimensionNames(ctx).length > 0
+      ? getDimensionNames(ctx)
+      : ["default"];
+
+  const errors: string[] = [];
+
+  // Process each dimension (in parallel if multiple)
+  await Promise.all(
+    dimNames.map(async (dimName) => {
+      const dimData = dims[dimName];
+      const prompt = dimData?.prompt ?? ctx.customPrompt;
+      const customComponents = dimData?.customComponents ?? ctx.customComponents;
+
+      const result = await componentiseConversation(
+        ctx.conversation!,
+        undefined,
+        prompt,
+        customComponents,
+        ctx.id,
+      );
+
+      if (result.error) errors.push(`[${dimName}] ${result.error}`);
+
+      dims[dimName] = {
+        ...(dims[dimName] || { name: dimName }),
+        name: dimName,
+        prompt,
+        components: result.components,
+        componentMapping: result.mapping,
+        componentTimeline: result.timeline,
+        componentColors: dims[dimName]?.componentColors || {},
+        customComponents: customComponents,
+      };
+    }),
   );
 
+  // Return default dimension's data as legacy fields
+  const defaultDim = dims["default"];
   return {
-    components: result.components,
-    mapping: result.mapping,
-    timeline: result.timeline,
-    error: result.error,
+    components: defaultDim?.components || [],
+    mapping: defaultDim?.componentMapping || {},
+    timeline: defaultDim?.componentTimeline || [],
+    dimensions: dims,
+    error: errors.length > 0 ? errors.join("; ") : undefined,
   };
 };
 
 /**
- * Color assignment activity: Assign colors to components
+ * Color assignment activity: Assign colors to all dimensions.
  */
 const assignColorsActivity: Activity<{
   colors: Record<string, string>;
+  dimensions: Record<string, DimensionData>;
 }> = async (ctx) => {
-  if (!ctx.config || !ctx.components?.length) {
-    return { colors: {} };
-  }
+  const dims = ensureDimensions(ctx);
+  const dimNames = ctx.targetDimension
+    ? [ctx.targetDimension]
+    : getDimensionNames(ctx);
 
-  const colors = await assignComponentColors(
-    ctx.components,
-    ctx.config,
-    ctx.id,
-    ctx.presetColors,
-    ctx.customColoringPrompt,
+  // Assign colors for each dimension in parallel
+  await Promise.all(
+    dimNames.map(async (dimName) => {
+      const dimData = dims[dimName];
+      if (!dimData || !ctx.config || !dimData.components?.length) return;
+
+      const colors = await assignComponentColors(
+        dimData.components,
+        ctx.config,
+        ctx.id,
+        ctx.presetColors,
+        dimData.customColoringPrompt ?? ctx.customColoringPrompt,
+      );
+      dims[dimName] = { ...dimData, componentColors: colors };
+    }),
   );
-  return { colors };
+
+  // Return default dimension's colors as legacy field
+  const defaultDim = dims["default"];
+  return {
+    colors: defaultDim?.componentColors || {},
+    dimensions: dims,
+  };
 };
 
 /**
@@ -456,6 +515,7 @@ class WorkflowRunner {
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
       components: ctx.components,
+      dimensions: ctx.dimensions,
       staticComponents: ctx.staticComponents,
       staticMapping: ctx.staticMapping,
       staticTimeline: ctx.staticTimeline,
@@ -485,6 +545,7 @@ class WorkflowRunner {
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
+      dimensions: ctx.dimensions,
       staticComponents: ctx.staticComponents,
       staticMapping: ctx.staticMapping,
       staticTimeline: ctx.staticTimeline,
@@ -516,6 +577,7 @@ class WorkflowRunner {
       componentMapping: ctx.componentMapping,
       componentTimeline: ctx.componentTimeline,
       componentColors: ctx.componentColors,
+      dimensions: ctx.dimensions,
       staticComponents: ctx.staticComponents,
       staticMapping: ctx.staticMapping,
       staticTimeline: ctx.staticTimeline,
@@ -553,6 +615,56 @@ class WorkflowRunner {
       pausedAtStep: nextStep,
     });
   }
+}
+
+// ============================================================================
+// Dimension Helpers
+// ============================================================================
+
+/**
+ * Sync legacy single-dimension fields from the "default" dimension in ctx.dimensions.
+ * Call this after updating dimensions to keep backward-compatible fields in sync.
+ */
+function syncLegacyFieldsFromDimensions(ctx: WorkflowState): void {
+  const defaultDim = ctx.dimensions?.["default"];
+  if (defaultDim) {
+    ctx.components = defaultDim.components;
+    ctx.componentMapping = defaultDim.componentMapping;
+    ctx.componentTimeline = defaultDim.componentTimeline;
+    ctx.componentColors = defaultDim.componentColors;
+  }
+}
+
+/**
+ * Ensure ctx.dimensions exists and has at least a "default" entry.
+ * If legacy fields exist but dimensions don't, migrate them.
+ */
+function ensureDimensions(ctx: WorkflowState): Record<string, DimensionData> {
+  if (!ctx.dimensions) {
+    ctx.dimensions = {};
+  }
+  // If we have legacy fields but no default dimension, migrate
+  if (!ctx.dimensions["default"] && ctx.components) {
+    ctx.dimensions["default"] = {
+      name: "default",
+      prompt: ctx.customPrompt,
+      components: ctx.components || [],
+      componentMapping: ctx.componentMapping || {},
+      componentTimeline: ctx.componentTimeline || [],
+      componentColors: ctx.componentColors || {},
+    };
+  }
+  return ctx.dimensions;
+}
+
+/**
+ * Get dimension names from a WorkflowState, defaulting to ["default"].
+ */
+function getDimensionNames(ctx: WorkflowState): string[] {
+  if (!ctx.dimensions || Object.keys(ctx.dimensions).length === 0) {
+    return ["default"];
+  }
+  return Object.keys(ctx.dimensions);
 }
 
 // ============================================================================
@@ -624,6 +736,7 @@ async function processConversationWorkflow(
       ctx.components = componentResult.components;
       ctx.componentMapping = componentResult.mapping;
       ctx.componentTimeline = componentResult.timeline;
+      ctx.dimensions = componentResult.dimensions;
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
       runner.updateState(ctx, "coloring");
@@ -633,6 +746,7 @@ async function processConversationWorkflow(
       const { result: colorResult, timing: colorTiming } =
         await runner.runActivity(ctx, assignColorsActivity, "coloring");
       ctx.componentColors = colorResult.colors;
+      ctx.dimensions = colorResult.dimensions;
       ctx.stepTimings!.coloring = colorTiming;
 
       runner.markComplete(ctx);
@@ -765,6 +879,7 @@ async function processConversationWorkflow(
       const { result: colorResult, timing: colorTiming } =
         await runner.runActivity(ctx, assignColorsActivity, "coloring");
       ctx.componentColors = colorResult.colors;
+      ctx.dimensions = colorResult.dimensions;
       ctx.stepTimings!.coloring = colorTiming;
       runner.markComplete(ctx);
       return;
@@ -798,6 +913,7 @@ async function processConversationWorkflow(
       ctx.components = componentResult.components;
       ctx.componentMapping = componentResult.mapping;
       ctx.componentTimeline = componentResult.timeline;
+      ctx.dimensions = componentResult.dimensions;
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
       runner.updateState(ctx, "coloring");
@@ -807,6 +923,7 @@ async function processConversationWorkflow(
       const { result: colorResult, timing: colorTiming } =
         await runner.runActivity(ctx, assignColorsActivity, "coloring");
       ctx.componentColors = colorResult.colors;
+      ctx.dimensions = colorResult.dimensions;
       ctx.stepTimings!.coloring = colorTiming;
 
       // For new files, mark complete without analysis (user can trigger it manually)
@@ -925,6 +1042,7 @@ async function runWorkflows(
         componentMapping: ctx.componentMapping,
         componentTimeline: ctx.componentTimeline,
         componentColors: ctx.componentColors,
+        dimensions: ctx.dimensions,
         staticComponents: ctx.staticComponents,
         staticMapping: ctx.staticMapping,
         staticTimeline: ctx.staticTimeline,
@@ -1029,6 +1147,10 @@ export default function App() {
   const [editingColoringPrompt, setEditingColoringPrompt] = useState(
     getDefaultColoringPrompt(),
   );
+
+  // Multi-dimension state
+  const [activeDimensions, setActiveDimensions] = useState<Set<string>>(new Set(["default"]));
+  const [editingDimensionName, setEditingDimensionName] = useState<string | null>(null); // Which dimension's prompt is being edited
 
   // Preset state
   const [availablePresets, setAvailablePresets] = useState<PresetSummary[]>([]);
@@ -1430,12 +1552,17 @@ export default function App() {
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   // Handle opening the prompt editor
-  const handleOpenPromptEditor = (id: string) => {
+  const handleOpenPromptEditor = (id: string, dimensionName?: string) => {
     // Select the conversation so the apply handler targets it
     setSelectedId(id);
     const conv = conversations.find((c) => c.id === id);
-    // Get the prompt: conversation custom > preset > default
+    const dimName = dimensionName || "default";
+    setEditingDimensionName(dimName);
+
+    // Get the prompt: dimension-specific > conversation custom > preset > default
+    const dimPrompt = conv?.dimensions?.[dimName]?.prompt;
     const currentPrompt =
+      dimPrompt ||
       conv?.customPrompt ||
       loadedPreset?.componentIdentificationPrompt ||
       getDefaultComponentIdentificationPrompt();
@@ -1443,12 +1570,9 @@ export default function App() {
     setIsPromptDialogOpen(true);
   };
 
-  // Handle applying the edited prompt
+  // Handle applying the edited prompt (dimension-aware)
   const handleApplyPrompt = async () => {
-    setIsPromptDialogOpen(false);
-    if (selectedConversation && selectedConversation.conversation) {
-      await handleReprocessComponents({ customPrompt: editingPrompt });
-    }
+    await handleApplyDimensionPrompt();
   };
 
   // Handle opening the components editor
@@ -1600,6 +1724,171 @@ export default function App() {
     }
   };
 
+  // Dimension management handlers
+  const handleAddDimension = async (name: string) => {
+    if (!selectedConversation?.conversation) return;
+    const id = selectedConversation.id;
+
+    // Add empty dimension to state
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        dims[name] = {
+          name,
+          components: [],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        };
+        return { ...conv, dimensions: dims };
+      }),
+    );
+
+    // Activate this dimension
+    setActiveDimensions((prev) => new Set([...prev, name]));
+
+    // Open prompt editor for this new dimension
+    setEditingDimensionName(name);
+    setEditingPrompt(getDefaultComponentIdentificationPrompt());
+    setIsPromptDialogOpen(true);
+  };
+
+  const handleRemoveDimension = (name: string) => {
+    if (name === "default") return; // Can't remove default
+    if (!selectedConversation) return;
+    const id = selectedConversation.id;
+
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        delete dims[name];
+        return { ...conv, dimensions: dims };
+      }),
+    );
+    setActiveDimensions((prev) => {
+      const next = new Set(prev);
+      next.delete(name);
+      return next;
+    });
+  };
+
+  const handleRenameDimension = (oldName: string, newName: string) => {
+    if (!selectedConversation) return;
+    const id = selectedConversation.id;
+
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        if (!dims[oldName]) return conv;
+        dims[newName] = { ...dims[oldName]!, name: newName };
+        delete dims[oldName];
+
+        // Update legacy fields if renaming default
+        const updates: Partial<WorkflowState> = { dimensions: dims };
+        if (oldName === "default") {
+          // The "default" key is special for legacy fields - keep synced
+        }
+        return { ...conv, ...updates };
+      }),
+    );
+    setActiveDimensions((prev) => {
+      const next = new Set(prev);
+      if (next.has(oldName)) {
+        next.delete(oldName);
+        next.add(newName);
+      }
+      return next;
+    });
+  };
+
+  const handleEditDimensionPrompt = (dimensionName: string) => {
+    if (!selectedConversation) return;
+    const dims = selectedConversation.dimensions;
+    const dimData = dims?.[dimensionName];
+    const currentPrompt = dimData?.prompt || getDefaultComponentIdentificationPrompt();
+
+    setEditingDimensionName(dimensionName);
+    setEditingPrompt(currentPrompt);
+    setIsPromptDialogOpen(true);
+  };
+
+  // Override handleApplyPrompt to be dimension-aware
+  const handleApplyDimensionPrompt = async () => {
+    setIsPromptDialogOpen(false);
+    if (!selectedConversation?.conversation) return;
+
+    const dimName = editingDimensionName || "default";
+
+    // Update the dimension's prompt in state
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== selectedConversation.id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        if (dims[dimName]) {
+          dims[dimName] = { ...dims[dimName]!, prompt: editingPrompt };
+        } else {
+          dims[dimName] = {
+            name: dimName,
+            prompt: editingPrompt,
+            components: [],
+            componentMapping: {},
+            componentTimeline: [],
+            componentColors: {},
+          };
+        }
+        return {
+          ...conv,
+          dimensions: dims,
+          // Also update legacy customPrompt if editing default
+          ...(dimName === "default" ? { customPrompt: editingPrompt } : {}),
+        };
+      }),
+    );
+
+    // Reprocess only this dimension
+    const id = selectedConversation.id;
+    setReprocessingId(id);
+    try {
+      const runner = new WorkflowRunner((id, update) => {
+        setConversations((prev) =>
+          prev.map((conv) => (conv.id === id ? { ...conv, ...update } : conv)),
+        );
+      });
+
+      const conv = conversations.find((c) => c.id === id)!;
+      const ctx = buildBaseContext(conv);
+
+      // Set up dimension-specific processing
+      const dims = ensureDimensions(ctx);
+      if (!dims[dimName]) {
+        dims[dimName] = {
+          name: dimName,
+          components: [],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        };
+      }
+      dims[dimName]!.prompt = editingPrompt;
+      ctx.targetDimension = dimName;
+      ctx.customPrompt = dimName === "default" ? editingPrompt : ctx.customPrompt;
+
+      await processConversationWorkflow(
+        WorkflowEvent.ComponentPromptChanged,
+        ctx,
+        runner,
+        { onAnalysisChunk },
+      );
+    } catch (error) {
+      console.error("Failed to reprocess dimension:", error);
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   // Sidebar toggle handlers
   const handleToggleSidebar = () => {
     setSidebarCollapsed(!isSidebarCollapsed);
@@ -1623,6 +1912,7 @@ export default function App() {
     componentMapping: conv.componentMapping,
     componentTimeline: conv.componentTimeline,
     componentColors: conv.componentColors,
+    dimensions: conv.dimensions ? { ...conv.dimensions } : undefined,
     staticComponents: conv.staticComponents,
     staticMapping: conv.staticMapping,
     staticTimeline: conv.staticTimeline,
@@ -2860,6 +3150,9 @@ export default function App() {
                     componentTimeline={selectedConversation.componentTimeline}
                     componentColors={selectedConversation.componentColors}
                     components={selectedConversation.components}
+                    dimensions={selectedConversation.dimensions}
+                    activeDimensions={activeDimensions}
+                    onActiveDimensionsChange={setActiveDimensions}
                     staticMapping={selectedConversation.staticMapping}
                     staticTimeline={selectedConversation.staticTimeline}
                     warnings={selectedConversation.warnings}
@@ -2871,6 +3164,10 @@ export default function App() {
                     onConversationClick={setSelectedId}
                     sourceConversationComponents={sourceConversationComponents}
                     sourceWorkflowStates={sourceWorkflowStates}
+                    onAddDimension={handleAddDimension}
+                    onRemoveDimension={handleRemoveDimension}
+                    onRenameDimension={handleRenameDimension}
+                    onEditDimensionPrompt={(dimName) => handleOpenPromptEditor(selectedConversation.id, dimName)}
                     // URL-controlled state
                     activeTab={urlState.tab as TabType}
                     onTabChange={(tab) => navigateToTab(tab)}
@@ -2994,13 +3291,16 @@ export default function App() {
       <PromptEditorDialog
         open={isPromptDialogOpen}
         onOpenChange={setIsPromptDialogOpen}
-        title="Edit Component Identification Prompt"
+        title={`Edit Component Identification Prompt${editingDimensionName && editingDimensionName !== "default" ? ` (${editingDimensionName})` : ""}`}
         description="Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components."
         value={editingPrompt}
         onChange={setEditingPrompt}
         onApply={handleApplyPrompt}
         placeholder="Enter your componentisation prompt..."
-        warningText="This will re-run componentisation, visualization, and analysis"
+        warningText={editingDimensionName && editingDimensionName !== "default"
+          ? `This will re-run componentisation for the "${editingDimensionName}" dimension`
+          : "This will re-run componentisation, visualization, and analysis"
+        }
       />
 
       <PromptEditorDialog

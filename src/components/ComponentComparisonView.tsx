@@ -17,6 +17,11 @@ export interface ConversationComponentData {
   messageCount: number; // Total messages
   durationMs?: number; // Duration in milliseconds (from first to last message)
   messageComponents?: string[]; // Component for each message in order (for workflow view)
+  // Multi-dimensional data
+  dimensionData?: Record<string, {
+    componentTokens: Record<string, number>;
+    messageComponents?: string[];
+  }>;
 }
 
 /**

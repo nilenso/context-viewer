@@ -17,6 +17,7 @@ import type {
   FilePart,
   SourceInfo,
 } from "@/schema";
+import type { DimensionData } from "@/componentisation";
 
 type MessagePart =
   | TextPart
@@ -33,9 +34,12 @@ interface MessagePartViewProps {
   componentColors?: Record<string, string>;
   onComponentClick?: (component: string) => void;
   sourceInfo?: SourceInfo;
+  // Multi-dimension support
+  dimensions?: Record<string, DimensionData>;
+  activeDimensions?: Set<string>;
 }
 
-export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo }: MessagePartViewProps) {
+export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, dimensions, activeDimensions }: MessagePartViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop
@@ -179,8 +183,17 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
 
   const tokenCount = getTokenCount();
 
-  // Get component for this part
+  // Get component(s) for this part - support multi-dimension
   const component = componentMapping?.[part.id];
+  const dimensionBadges = dimensions && activeDimensions && activeDimensions.size > 1
+    ? [...activeDimensions].map((dimName) => {
+        const dim = dimensions[dimName];
+        if (!dim) return null;
+        const comp = dim.componentMapping[part.id];
+        if (!comp) return null;
+        return { dimName, component: comp, colors: dim.componentColors };
+      }).filter((b): b is { dimName: string; component: string; colors: Record<string, string> } => b !== null)
+    : null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md">
@@ -200,7 +213,30 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
               {tokenCount} tokens
             </Badge>
           )}
-          {component && (() => {
+          {/* Multi-dimension badges */}
+          {dimensionBadges ? dimensionBadges.map(({ dimName, component: comp, colors }) => {
+            const { classes, style } = getComponentBadgeStyles(comp, colors);
+            return (
+              <Badge
+                key={dimName}
+                variant="outline"
+                className={cn(
+                  "text-xs font-medium border",
+                  classes,
+                  onComponentClick && "cursor-pointer hover:opacity-80 transition-opacity"
+                )}
+                style={style || undefined}
+                onClick={(e) => {
+                  if (onComponentClick) {
+                    e.stopPropagation();
+                    onComponentClick(comp);
+                  }
+                }}
+              >
+                <span className="text-muted-foreground">{dimName}:</span> {comp}
+              </Badge>
+            );
+          }) : component && (() => {
             const { classes, style } = getComponentBadgeStyles(component, componentColors);
             return (
               <Badge

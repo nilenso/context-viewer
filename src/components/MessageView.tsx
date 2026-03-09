@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { MessagePartView } from "./MessagePartView";
 import type { Message, SourceInfo } from "@/schema";
+import type { DimensionData } from "@/componentisation";
 import { cn } from "@/lib/utils";
 
 interface MessageViewProps {
@@ -22,6 +23,9 @@ interface MessageViewProps {
   messageSourceMap?: Record<string, SourceInfo>;
   // For relative time display
   conversationStartTime?: Date;
+  // Multi-dimension support
+  dimensions?: Record<string, DimensionData>;
+  activeDimensions?: Set<string>;
 }
 
 /**
@@ -46,7 +50,7 @@ function formatRelativeTime(startTime: Date, messageTime: Date): string {
   }
 }
 
-export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap, conversationStartTime }: MessageViewProps) {
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap, conversationStartTime, dimensions, activeDimensions }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Calculate relative time if we have timestamps
@@ -160,6 +164,8 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
               componentColors={componentColors}
               onComponentClick={onComponentClick}
               sourceInfo={messageSourceMap?.[part.id]}
+              dimensions={dimensions}
+              activeDimensions={activeDimensions}
             />
           ))}
         </div>
