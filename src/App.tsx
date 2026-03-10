@@ -1321,12 +1321,13 @@ export default function App() {
           );
         },
         (completed) => {
-          // Update the conversation in place as each file completes
+          // Merge update into existing conversation state
           // Preserve aiSummary and analysis if they're being streamed in parallel
           setConversations((prev) =>
             prev.map((conv) =>
               conv.id === completed.id
                 ? {
+                    ...conv,
                     ...completed,
                     aiSummary: completed.aiSummary || conv.aiSummary,
                     analysis: completed.analysis || conv.analysis,
