@@ -1,7 +1,7 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
-import type { ComponentTimelineSnapshot, DimensionData } from "./componentisation";
+import { computeTupleTokens, type ComponentTimelineSnapshot, type DimensionData } from "./componentisation";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
@@ -211,31 +211,38 @@ export async function generateContextAnalysis(
     apiKey: config.apiKey,
   });
 
-  // Generate CSV of component data over time (default/legacy dimension)
-  const componentDataCSV = generateComponentCSV(
-    componentTimeline,
-    components,
-    conversation,
-  );
-
-  // Generate per-dimension CSV data if multiple dimensions exist
-  let dimensionCSVs = "";
+  // Generate component data for analysis
+  let allCSVData: string;
   if (dimensions && Object.keys(dimensions).length > 1) {
-    const dimSections: string[] = [];
-    for (const [dimName, dim] of Object.entries(dimensions)) {
-      const dimCSV = generateComponentCSV(
-        dim.componentTimeline,
-        dim.components,
-        conversation,
-      );
-      dimSections.push(`## Dimension: ${dimName}\n${dimCSV}`);
-    }
-    dimensionCSVs = "\n\n" + dimSections.join("\n\n");
+    // Multi-dimension: use shared tuple computation (same data as waffle chart)
+    const { tupleTokens, total } = computeTupleTokens(conversation, dimensions);
+    const sorted = Object.entries(tupleTokens).sort((a, b) => b[1] - a[1]);
+    const dimNames = Object.keys(dimensions).sort();
+    const lines = sorted.map(([tuple, tokens]) => {
+      const pct = total > 0 ? ((tokens / total) * 100).toFixed(1) : "0.0";
+      return `${tuple}: ${tokens} tokens (${pct}%)`;
+    });
+    allCSVData = `Dimensions: ${dimNames.join(", ")}\nTotal: ${total} tokens\n\n${lines.join("\n")}`;
+  } else if (dimensions && Object.keys(dimensions).length === 1) {
+    // Single dimension: use its timeline
+    const dim = Object.values(dimensions)[0]!;
+    allCSVData = generateComponentCSV(
+      dim.componentTimeline,
+      [...new Set(dim.components)],
+      conversation,
+    );
+  } else {
+    // Fallback to legacy single-dimension data
+    allCSVData = generateComponentCSV(
+      componentTimeline,
+      components,
+      conversation,
+    );
   }
 
   const prompt = getPrompt("context-analysis", {
     conversationSummary: aiSummary,
-    componentDataCSV: componentDataCSV + dimensionCSVs,
+    componentDataCSV: allCSVData,
     customPrompt,
   });
 

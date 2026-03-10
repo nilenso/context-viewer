@@ -334,6 +334,56 @@ export interface ComponentTimelineSnapshot {
   totalTokens: number; // cumulative tokens up to this message
 }
 
+/** Separator used in tuple keys (e.g. "default:comp1 · relevance:comp2") */
+export const TUPLE_SEPARATOR = " · ";
+
+/**
+ * Compute tuple-based token aggregation across multiple dimensions.
+ * Each tuple key is a combination like "default:explore.search-files · relevance:relevant".
+ * Used by both the waffle chart (ComponentsView) and analysis generation.
+ *
+ * @param conversation - The conversation to aggregate over
+ * @param dimensions - All dimensions to combine
+ * @param activeDimNames - Which dimensions to include (sorted). If omitted, uses all.
+ * @param options - Optional filtering (message index limit, part ID filter, message type filter)
+ */
+export function computeTupleTokens(
+  conversation: Conversation,
+  dimensions: Record<string, DimensionData>,
+  activeDimNames?: string[],
+  options?: {
+    maxMessageIndex?: number;
+    filteredPartIds?: Set<string> | null;
+    partFilter?: (part: { type: string }, msgRole: string) => boolean;
+  },
+): { tupleTokens: Record<string, number>; total: number } {
+  const dimNames = activeDimNames || Object.keys(dimensions).sort();
+  const tupleTokens: Record<string, number> = {};
+  let total = 0;
+
+  for (let msgIdx = 0; msgIdx < conversation.messages.length; msgIdx++) {
+    if (options?.maxMessageIndex !== undefined && msgIdx > options.maxMessageIndex) break;
+    const message = conversation.messages[msgIdx]!;
+    for (const part of message.parts) {
+      const tokenCount = ("token_count" in part && part.token_count) || 0;
+      if (options?.partFilter && !options.partFilter(part, message.role)) continue;
+      if (options?.filteredPartIds && !options.filteredPartIds.has(part.id)) continue;
+
+      const segments: string[] = [];
+      for (const dimName of dimNames) {
+        const comp = dimensions[dimName]?.componentMapping[part.id];
+        if (comp) segments.push(`${dimName}:${comp}`);
+      }
+      if (segments.length === 0) continue;
+      const tupleKey = segments.join(TUPLE_SEPARATOR);
+      tupleTokens[tupleKey] = (tupleTokens[tupleKey] || 0) + tokenCount;
+      total += tokenCount;
+    }
+  }
+
+  return { tupleTokens, total };
+}
+
 /**
  * Build a timeline of component composition for each message in the conversation
  * This allows scrubbing through the conversation to see how components evolve

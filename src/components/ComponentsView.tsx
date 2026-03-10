@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles, blendColors, getComponentWaffleHex } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
-import type { ComponentTimelineSnapshot, DimensionData } from "@/componentisation";
+import { computeTupleTokens, TUPLE_SEPARATOR, type ComponentTimelineSnapshot, type DimensionData } from "@/componentisation";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -104,39 +104,26 @@ export function ComponentsView({
   }, [filterByStaticComponent, staticMapping]);
 
   // Compute tuple-based token data when multiple dimensions are active
-  // Each tuple is a unique combination of components across active dimensions (e.g. "error_types:X|workflow:Y")
+  // Each tuple is a unique combination of components across active dimensions (e.g. "error_types:X · workflow:Y")
   const tupleData = useMemo(() => {
     if (!dimensions || activeDimensions.size <= 1) return null;
-    const activeDimNames = [...activeDimensions].sort();
-    const tupleTokens: Record<string, number> = {};
-    let total = 0;
-    conversation.messages.forEach((message, msgIndex) => {
-      if (msgIndex <= currentMessageIndex) {
-        message.parts.forEach((part) => {
-          const tokenCount = ("token_count" in part && part.token_count) || 0;
-          if (!partPassesMessageTypeFilter(part, message.role)) return;
-          if (filteredPartIds && !filteredPartIds.has(part.id)) return;
-          // Build tuple key from all active dimensions
-          const parts: string[] = [];
-          for (const dimName of activeDimNames) {
-            const comp = dimensions[dimName]?.componentMapping[part.id];
-            if (comp) parts.push(`${dimName}:${comp}`);
-          }
-          if (parts.length === 0) return;
-          const tupleKey = parts.join("|");
-          tupleTokens[tupleKey] = (tupleTokens[tupleKey] || 0) + tokenCount;
-          total += tokenCount;
-        });
-      }
-    });
-    return { tupleTokens, total };
+    return computeTupleTokens(
+      conversation,
+      dimensions,
+      [...activeDimensions].sort(),
+      {
+        maxMessageIndex: currentMessageIndex,
+        filteredPartIds,
+        partFilter: (part, msgRole) => partPassesMessageTypeFilter(part, msgRole),
+      },
+    );
   }, [dimensions, dimensionsDataKey, activeDimensionsKey, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
 
-  // Helper to get blended color for a tuple key like "dim1:comp1|dim2:comp2"
+  // Helper to get blended color for a tuple key like "dim1:comp1 · dim2:comp2"
   const getTupleColorStyles = useMemo(() => {
     if (!dimensions || !tupleData) return null;
     return (tupleKey: string) => {
-      const parts = tupleKey.split("|");
+      const parts = tupleKey.split(TUPLE_SEPARATOR);
       const colors: string[] = [];
       for (const part of parts) {
         const sepIdx = part.indexOf(":");
@@ -176,7 +163,7 @@ export function ComponentsView({
               if (comp) tupleParts.push(`${dimName}:${comp}`);
             }
             if (tupleParts.length > 0) {
-              messageComponent = tupleParts.join("|");
+              messageComponent = tupleParts.join(TUPLE_SEPARATOR);
               break;
             }
           } else {
@@ -332,10 +319,7 @@ export function ComponentsView({
           componentTokens={tupleData.tupleTokens}
           totalTokens={tupleData.total}
           getColorStyles={getTupleColorStyles}
-          getLabel={(tupleKey) => tupleKey.split("|").map(p => {
-            const sepIdx = p.indexOf(":");
-            return `${p.slice(0, sepIdx)}:${p.slice(sepIdx + 1)}`;
-          }).join(" · ")}
+          getLabel={(tupleKey) => tupleKey}
           onComponentClick={handleComponentClick}
         />
       ) : (
@@ -359,9 +343,7 @@ export function ComponentsView({
               const colorStyles = component
                 ? (getTupleColorStyles ? getTupleColorStyles(component) : getWaffleStylesForDimensions(component))
                 : null;
-              const label = component?.includes("|")
-                ? component.split("|").map(p => { const i = p.indexOf(":"); return `${p.slice(0, i)}:${p.slice(i+1)}`; }).join(" · ")
-                : component;
+              const label = component;
               return (
                 <div
                   key={index}
@@ -407,9 +389,7 @@ function WorkflowTupleLegend({
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
       {unique.map((tupleKey) => {
         const colorStyles = getColorStyles(tupleKey);
-        const label = tupleKey.includes("|")
-          ? tupleKey.split("|").map(p => { const i = p.indexOf(":"); return `${p.slice(0, i)}:${p.slice(i+1)}`; }).join(" · ")
-          : tupleKey;
+        const label = tupleKey;
         return (
           <div key={tupleKey} className="flex items-center gap-1.5">
             <span
