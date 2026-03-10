@@ -1824,8 +1824,8 @@ tool results don't have the tool names, and I want them to have tool names. howe
 do this for claude and codex conversation parsing.
 
 ### Jan 13, 2026 14:57:42
-i want the waffle charts to respect the filters that I use in the conversation view. 
-for example, if i filter to only include assistant tool calls and texts, then, the waffle charts should depict the components of the filtered message parts only, and show me as though assistant tool calls and texts make up 100% of the conversation. 
+i want the waffle charts to respect the filters that I use in the conversation view.
+for example, if i filter to only include assistant tool calls and texts, then, the waffle charts should depict the components of the filtered message parts only, and show me as though assistant tool calls and texts make up 100% of the conversation.
 this allows me to filter the conversation by type and component, and then use the waffle charts to drill down further after filtering.
 the static and dynamic waffle charts can remain, so that I can also click on assistant tool calls then, for example to drill down into the components of only tool calls.
 
@@ -1871,7 +1871,7 @@ also, don't segment tool results.
 
 ### Jan 16, 2026 13:19:26
 this file that was parsing earlier is now failing to parse.
-/Users/srihari/work/nilenso/swe-bench-pro-task-setup/gpt-codex.json 
+/Users/srihari/work/nilenso/swe-bench-pro-task-setup/gpt-codex.json
 
 > gpt-codex.json
 > Cannot read properties of undefined (reading 'length')
@@ -1895,7 +1895,7 @@ commit this ability
 do we parse the models from claude or codex or opencode transcripts
 
 ### Jan 26, 2026 07:37:34
-do we send the tool results as a part of the input for summarisation? 
+do we send the tool results as a part of the input for summarisation?
 
 ### Jan 26, 2026 07:41:22
 add a card above the ai generated summary in the right column. it has a static summary. it should be a simple table. give the kind of conversation (as identified through schema), model used, number of message, number of turns, and duration of conversation.
@@ -1940,7 +1940,7 @@ give me map of agent to count per agent
 if format is opencode, add a field for the agent in the summary card
 
 ### Jan 26, 2026 08:05:36
-sometimes the summary is stripped like so: 
+sometimes the summary is stripped like so:
 
 ### Jan 26, 2026 08:08:13
 commit this
@@ -1963,7 +1963,7 @@ AISummary.tsx:22  GET http://localhost:5173/node_modules/.vite/deps/remark-gfm.j
 re-ran bun run dev, all good
 
 ### Jan 26, 2026 08:13:41
-what's the duration of this conversation? /Users/srihari/work/nilenso/swe-bench-pro-task-setup/exports/f631cd44_changelog_gpt-codex_20260120_151911.json 
+what's the duration of this conversation? /Users/srihari/work/nilenso/swe-bench-pro-task-setup/exports/f631cd44_changelog_gpt-codex_20260120_151911.json
 
 ### Jan 26, 2026 08:20:46
 what would the reprocess handler factory do?
@@ -1980,7 +1980,7 @@ pass a label
 why does clicking generate-summary re-run componentisation?
 
 ### Jan 26, 2026 08:27:27
-uh, sorry, i meant generate analysis. 
+uh, sorry, i meant generate analysis.
 
 ### Jan 26, 2026 08:29:33
 fix the bug, but branch off into another worktree.
@@ -2682,7 +2682,7 @@ We’ve updated the Model Spec, our living document outlining intended model beh
 
 New section: Under-18 (U18) Principles
 
-ChatGPT’s new Under-18 (U18) Principles builds on the existing safety rules that apply to all users, adding age-appropriate guidance where appropriate for the developmental needs of teens, aged 13-17. This update clarifies how those rules are intended to apply in teen conversations, recognizing that teens benefit from clearer boundaries, reduced exposure to potentially harmful content and stronger real-world support when risks arise. The assistant should meet teens where they are, engaging with them in a respectful and transparent manner, while refusing to participate in self-harm, sexualized or violent immersive roleplay, dangerous activities, substance misuse or any efforts to conceal harm. When credible risks arise, the model should prioritize prevention and early interventions, offer safer alternatives and encourage involvement of parents, guardians and other trusted adults or professionals – making clear that AI can provide guidance and information, but cannot replace real-world care. 
+ChatGPT’s new Under-18 (U18) Principles builds on the existing safety rules that apply to all users, adding age-appropriate guidance where appropriate for the developmental needs of teens, aged 13-17. This update clarifies how those rules are intended to apply in teen conversations, recognizing that teens benefit from clearer boundaries, reduced exposure to potentially harmful content and stronger real-world support when risks arise. The assistant should meet teens where they are, engaging with them in a respectful and transparent manner, while refusing to participate in self-harm, sexualized or violent immersive roleplay, dangerous activities, substance misuse or any efforts to conceal harm. When credible risks arise, the model should prioritize prevention and early interventions, offer safer alternatives and encourage involvement of parents, guardians and other trusted adults or professionals – making clear that AI can provide guidance and information, but cannot replace real-world care.
 
 
 Other updates
@@ -3512,7 +3512,7 @@ Check the export functionality. I thought that if there is a grouped conversatio
 Actually, I can see that it is true. There is a groups key in the file which has a list of file IDs. Does the import functionality read that and create a grouped conversation?
 
 ### Feb 04, 2026 15:23:14
-commit this, only commit your changes. 
+commit this, only commit your changes.
 
 ### Feb 04, 2026 15:24:36
 I want to host this on github pages look into what I need to do to set that up
@@ -3683,7 +3683,7 @@ mapping is:
 code style: code_style, code_style.conventions, code_style.quality
 environment details: environment, environment.platform, environment.sandboxing, environment.security
 personality and steering: identity, personality, personality.behavior, personality.communication, personality.guidelines, personality.model_steering
-tool descriptions & instructions: project_context.config_files, all the tools.* 
+tool descriptions & instructions: project_context.config_files, all the tools.*
 workflow guidance: all the workflow.*
 
 
@@ -3836,7 +3836,7 @@ error: "vite" exited with code 1
 error: script "dev" exited with code 1
 
 ### Feb 05, 2026 14:43:05
-you do this, get it to compile and then tell me 
+you do this, get it to compile and then tell me
 
 ### Feb 05, 2026 14:46:16
 Where is the title bar view that you just implemented i don't see it here
@@ -3994,7 +3994,7 @@ I want the user to be able to visit context viewer base path and I want to also 
 ### Feb 05, 2026 16:11:19
 when I load http://localhost:5173/g/960d42ad-314c-44cf-8594-4b009ef528a1/comparison?sortBy=category&sortDir=asc&import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fsystem-prompts-simpler.json
 
-I'm only sent to 
+I'm only sent to
 
 http://localhost:5173/c/a22285d4-ed1e-4f5b-ab84-78f4b2836360?import=https%3A%2F%2Fraw.githubusercontent.com%2Fnilenso%2Flong-prompts-analysis%2Frefs%2Fheads%2Fmain%2Fcontext-viewer-exports%2Fsystem-prompts-simpler.json
 
@@ -4035,8 +4035,8 @@ Deployment & Configuration
 ### Feb 09, 2026 10:04:27
 compare these two files.
 
-/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-phases.json 
-/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-tasks.json 
+/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-phases.json
+/Users/srihari/work/nilenso/context-viewer/public/presets/workflow-tasks.json
 
 workflow-tasks isn't working correctly, workflow-phases is working. tell me what could be the difference.
 
@@ -4046,16 +4046,16 @@ are the waffle charts in the component comparison views and the components tab d
 ### Feb 09, 2026 10:38:15
 compare these files
 
-/Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026\ \(2\).json /Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026.json 
+/Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026\ \(2\).json /Users/srihari/Downloads/Context\ Viewer\ Export\ Feb\ 09\ 2026.json
 
 ### Feb 09, 2026 10:42:18
 i exported from context viewer, and then imported onto another, and then exported to compare. this is expected.
 
 when rendering on context viewer through import, i see different _data_, which is unexpected. and different colors too.
 
-here's how it looks with the original opencode exports: 
+here's how it looks with the original opencode exports:
 
-here's how it looks when importing the export: 
+here's how it looks when importing the export:
 
 look at the % differences. and look at the data.
 
@@ -4090,15 +4090,15 @@ look at the right bottom chart. there's a trailing blue square. what's up with t
 commit this change
 
 ### Feb 12, 2026 17:27:36
-allow me to add a title to the group, which also shows up in the component comparison tab as a title 
+allow me to add a title to the group, which also shows up in the component comparison tab as a title
 
 ### Feb 12, 2026 17:35:49
 add the title "title": "Codex System Prompt Evolution"
 to the group in this file:
-/Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/codex-prompt-evolution-export-only-codex.json 
+/Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/codex-prompt-evolution-export-only-codex.json
 
 ### Feb 12, 2026 17:36:54
-and title for the group in this is "Claude Code System Prompt Evolution": /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/claude-prompt-evolution-export-simpler.json 
+and title for the group in this is "Claude Code System Prompt Evolution": /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/claude-prompt-evolution-export-simpler.json
 
 ### Feb 12, 2026 17:38:33
 not seeing the title on importing
@@ -4110,7 +4110,7 @@ commit
 look at the github pages config. i want to use a custom domain. how do i do that?
 
 ### Feb 12, 2026 18:15:49
-title isn't rendering for /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/swapping-prompts-swe-tasks.json /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/system-prompts-simpler.json 
+title isn't rendering for /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/swapping-prompts-swe-tasks.json /Users/srihari/work/nilenso/long-prompts-analysis/context-viewer-exports/system-prompts-simpler.json
 
 ### Feb 12, 2026 18:17:22
 don't make this change, undo
@@ -4148,7 +4148,7 @@ commit this
 ### Feb 23, 2026 14:48:48
 Look at the various import formats and the schema that I have specified using Zod. then support the following trajectory format. similar to claude or codex transcripts.
 
-/Users/srihari/work/nilenso/acm-conf-prep/trajectories/JeffLIrion__python-androidtv-351.json 
+/Users/srihari/work/nilenso/acm-conf-prep/trajectories/JeffLIrion__python-androidtv-351.json
 
 ### Feb 23, 2026 14:56:07
 commit this
@@ -4441,10 +4441,10 @@ in second part where we assign components to segments, do we send the prompt des
 Can you modify the prompt to also send along the component identification prompt?
 
 ### Mar 05, 2026 13:26:37
-copy this preset over to the corect place and name it appropriately /Users/srihari/Downloads/Action\ Component\ Identification\ Preset.json 
+copy this preset over to the corect place and name it appropriately /Users/srihari/Downloads/Action\ Component\ Identification\ Preset.json
 
 ### Mar 05, 2026 15:21:10
-read this, understand how they fetched swe bench pro trajectories, and fetch them. same subset, not all. /Users/srihari/Downloads/Session\ Preview.jsonl 
+read this, understand how they fetched swe bench pro trajectories, and fetch them. same subset, not all. /Users/srihari/Downloads/Session\ Preview.jsonl
 
 ### Mar 05, 2026 15:24:59
 <task-notification>
@@ -4492,7 +4492,7 @@ i built support for swe bench pro trajectories. look in claude transcript histor
 i think they had a trj extension?
 
 ### Mar 09, 2026 12:57:37
-this is it. /Users/srihari/Downloads/swe-bench-pro-traj/claude-45sonnet-10132025/traj/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59.traj 
+this is it. /Users/srihari/Downloads/swe-bench-pro-traj/claude-45sonnet-10132025/traj/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59/instance_ansible__ansible-5e369604e1930b1a2e071fecd7ec5276ebd12cb1-v0f01c69f1e2528b935359cfe578530722bca2c59.traj
 
 can you resume the session that fetched this dataset?
 
@@ -4546,3 +4546,87 @@ discard the preset
 
 ### Mar 09, 2026 14:04:47
 gst
+
+
+New feature. Allow multiple componentisations per conversation.
+Currently, each segment can have only one component mapped to it.
+I want the ability to associate multiple components per segment.
+
+Data model:
+- Each componentisation should have a "dimension" name. The first / default dimension name is "default".
+- So the mapping per segment isn't just a string anymore, it's a map of dimension name to component. like {default: foo, another: boo, yet_another: goo}
+- By default we only have one componentisation mechanism.
+- Adding a new dimension implies another name, another prompt. Editing prompts should work as it does now.
+
+LLM Calls:
+- We should be duplicating the calls for component mapping to the LLM, where each LLM call is still only about mapping one dimension at a time.
+- If we edit a prompt and re-run, it should rerun the pipeline for that dimension only.
+
+UI:
+- In the sidebar, when editing the componentisation prompt, allow changing the dimension name, or adding a new dimension. Make it an accordion, so I can switch between seeing dimensions.
+- I can view one or more dimensions at a time.
+- In the components view, there should be a drop-down where I can choose the dimension to view. I can also choose multiple dimensions to view, so, check box like the filter.
+- For the waffle charts, the component and token % should be computed statically after componentisation is done.
+- For the colors, each dimension has its own color scheme. But when we combine colors
+
+Combined components views:
+-
+
+### Mar 09, 2026 14:24:12
+New feature. Allow multiple componentisations per conversation.
+Currently, each segment can have only one component mapped to it.
+I want the ability to associate multiple components per segment.
+
+Data model:
+- Each componentisation should have a "dimension" name. The first / default dimension name is "default".
+- So the mapping per segment isn't just a string anymore, it's a map of dimension name to component. like {default: foo, another: boo, yet_another: goo}
+- By default we only have one componentisation mechanism.
+- Adding a new dimension implies another name, another prompt. Editing prompts should work as it does now.
+
+LLM Calls:
+- We should be duplicating the calls for component mapping to the LLM, where each LLM call is still only about mapping one dimension at a time.
+- If we edit a prompt and re-run, it should rerun the pipeline for that dimension only.
+
+UI:
+- In the sidebar, when editing the componentisation prompt, allow changing the dimension name, or adding a new dimension. Make it an accordion, so I can switch between seeing dimensions.
+- I can view one or more dimensions at a time.
+- In the components view, there should be a drop-down where I can choose the dimension to view. I can also choose multiple dimensions to view, so, check box like the filter. This should also be there in the group comparison view, and in the single conversation components view.
+- For the waffle charts, the component and token % should be computed statically after componentisation is done.
+- For the colors, each dimension has its own color scheme. But when we visualise multiple dimensions together, it should also merge the colors, using rgb, etc. Have a simple pure function that returns the colors given the multiple components (and their colors). So A+B=> Orange, B+C=>Pink, etc.
+- When comparing The categories can be seen in the legend as multiple columns, with the dimension names as the headings.
+
+### Mar 09, 2026 14:54:41
+commit what we have so far as a first cut. there's many things to fix.
+
+### Mar 09, 2026 14:55:54
+i meant adding an accordion for managing dimensions in this popup modal, in the find components section, no the main components tab.
+
+### Mar 09, 2026 15:13:33
+i want the conversation view tagged for multiple components too.
+
+### Mar 09, 2026 15:16:20
+group the list of checkboxes of components in the filter drop down by dimension
+
+### Mar 09, 2026 15:17:47
+filtering by default dimension works but other diemnsion filters don't work? at least in the conversation view.
+
+### Mar 09, 2026 15:21:02
+in the filter, if one component is unselected, it should not appear, even if the segment has other components which are not filtered
+
+### Mar 09, 2026 15:23:00
+i want to see triads like this show up in the waffle chart legends. not separate columns. if i choose two dimensions then I see a combination of two dimensions. if I choose 3, then I see triads., etc.
+
+### Mar 09, 2026 15:30:44
+commit what you have so far
+
+### Mar 10, 2026 10:13:28
+"Generate analysis" doesn't seem to work. It says it's done, but nothing shows up. No network calls made.
+
+[analysis] Starting analysis...
+workflow-logger.ts:128 [analysis] Completed analysis in 18ms
+
+### Mar 10, 2026 10:19:29
+Issue persists. But when I click on the "generate analysis" link that shows up in the analysis section on the right, it works. And it only showed up after I clicked on generate summary.
+
+### Mar 10, 2026 10:24:04
+commit this
