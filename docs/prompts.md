@@ -4664,3 +4664,27 @@ Regarding the export and import: ❯ Can you test it by running an export and t
   structure these as a test so we can re-run them for regression etc.
 
 I can also give you a multi dimension export in a bit.
+
+### Mar 10, 2026 11:28:23
+commit this
+
+### Mar 10, 2026 11:31:33
+the issue of having uncheck and recheck for multiple dimensions to show up in the components tab persists
+
+### Mar 10, 2026 11:39:45
+In the segments of the conversation or message parts of the conversation that we send to the LLM during componentization, do we also have the prime-2 time-stamps of each message?
+
+### Mar 10, 2026 11:43:19
+this list seems broken. there are only categories small and large but here it shows 48 and lists them redundantly
+
+### Mar 10, 2026 11:44:55
+The edit prompt and edit component buttons now ned to be per dimension.
+
+### Mar 10, 2026 11:48:34
+Yes, I meant the edit prompt being for default is unclear now that there can be more than one dimension. instead of having the links at the top level, move them into each dimension, and by default into the "default" dimensio
+
+### Mar 10, 2026 11:49:46
+i still see these?
+
+### Mar 10, 2026 11:53:15
+commit

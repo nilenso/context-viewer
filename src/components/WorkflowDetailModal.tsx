@@ -106,8 +106,8 @@ interface WorkflowDetailModalProps {
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   aiSummary?: string;
   warnings?: string[];
-  onEditPrompt?: (id: string) => void;
-  onEditComponents?: (id: string) => void;
+  onEditPrompt?: (id: string, dimensionName?: string) => void;
+  onEditComponents?: (id: string, dimensionName?: string) => void;
   onEditSegmentationPrompt?: (id: string) => void;
   onEditSummaryPrompt?: (id: string) => void;
   onEditAnalysisPrompt?: (id: string) => void;
@@ -432,32 +432,7 @@ export function WorkflowDetailModal({
                                 Edit prompt
                               </button>
                             )}
-                            {isFindComponentsStep && (
-                              <div className="flex gap-2 ml-2">
-                                {onEditPrompt && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditPrompt(conversationId);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                  >
-                                    Edit prompt
-                                  </button>
-                                )}
-                                {onEditComponents && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditComponents(conversationId);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                  >
-                                    Edit components
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                            {/* Edit prompt/components buttons are per-dimension in the accordion below */}
                             {isColoringStep && onEditColoringPrompt && (
                               <button
                                 onClick={(e) => {
@@ -638,7 +613,7 @@ export function WorkflowDetailModal({
                                       )}
 
                                       <span className="text-muted-foreground flex-shrink-0">
-                                        {dimData.components.length} components
+                                        {new Set(dimData.components).size} components
                                       </span>
 
                                       {onEditDimensionPrompt && (
@@ -651,6 +626,18 @@ export function WorkflowDetailModal({
                                           title="Edit prompt"
                                         >
                                           <Pencil className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                      {onEditComponents && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditComponents(conversationId, dimName);
+                                          }}
+                                          className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
+                                          title="Edit components"
+                                        >
+                                          <ListOrdered className="h-3 w-3" />
                                         </button>
                                       )}
                                       {onRenameDimension && (
@@ -681,13 +668,13 @@ export function WorkflowDetailModal({
                                       )}
                                     </div>
 
-                                    {/* Expanded: show component list */}
+                                    {/* Expanded: show component list and action links */}
                                     {isDimExpanded && (
                                       <div className="px-7 py-1.5 bg-muted/20 space-y-0.5">
                                         {dimData.components.length === 0 ? (
                                           <p className="text-muted-foreground italic">No components yet. Edit the prompt to run componentisation.</p>
                                         ) : (
-                                          dimData.components.map((comp) => {
+                                          [...new Set(dimData.components)].map((comp) => {
                                             const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
                                             return (
                                               <div key={comp} className="flex items-center gap-1.5">
@@ -700,6 +687,24 @@ export function WorkflowDetailModal({
                                             );
                                           })
                                         )}
+                                        <div className="flex gap-3 pt-1.5 border-t mt-1.5">
+                                          {onEditDimensionPrompt && (
+                                            <button
+                                              onClick={() => onEditDimensionPrompt(conversationId, dimName)}
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                              Edit prompt
+                                            </button>
+                                          )}
+                                          {onEditComponents && (
+                                            <button
+                                              onClick={() => onEditComponents(conversationId, dimName)}
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                              Edit components
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
                                     )}
                                   </div>

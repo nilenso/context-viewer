@@ -1629,27 +1629,75 @@ export default function App() {
     await handleApplyDimensionPrompt();
   };
 
-  // Handle opening the components editor
-  const handleOpenComponentsEditor = (id: string) => {
+  // Handle opening the components editor (dimension-aware)
+  const handleOpenComponentsEditor = (id: string, dimensionName?: string) => {
     setSelectedId(id);
     const conv = conversations.find((c) => c.id === id);
-    const currentComponents = conv?.components || [];
-    setEditingComponents(currentComponents.join("\n"));
+    const dimName = dimensionName || "default";
+    setEditingDimensionName(dimName);
+
+    // Get components: dimension-specific > legacy
+    const dimComponents = conv?.dimensions?.[dimName]?.components;
+    const currentComponents = dimComponents || conv?.components || [];
+    // Deduplicate
+    setEditingComponents([...new Set(currentComponents)].join("\n"));
     setIsComponentsDialogOpen(true);
   };
 
-  // Handle applying the edited components
+  // Handle applying the edited components (dimension-aware)
   const handleApplyComponents = async () => {
     setIsComponentsDialogOpen(false);
-    if (selectedConversation && selectedConversation.conversation) {
-      // Parse components from the text (one per line, trimmed, non-empty)
-      const components = editingComponents
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      if (components.length > 0) {
-        await handleReprocessComponents({ customComponents: components });
+    if (!selectedConversation?.conversation) return;
+
+    // Parse components from the text (one per line, trimmed, non-empty)
+    const components = editingComponents
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (components.length === 0) return;
+
+    const dimName = editingDimensionName || "default";
+    const id = selectedConversation.id;
+
+    // Update the dimension's custom components in state
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        if (dims[dimName]) {
+          dims[dimName] = { ...dims[dimName]!, customComponents: components };
+        }
+        return { ...conv, dimensions: dims };
+      }),
+    );
+
+    // Reprocess only this dimension with custom components
+    setReprocessingId(id);
+    try {
+      const runner = new WorkflowRunner((rid, update) => {
+        setConversations((prev) =>
+          prev.map((conv) => (conv.id === rid ? { ...conv, ...update } : conv)),
+        );
+      });
+
+      const conv = conversations.find((c) => c.id === id)!;
+      const ctx = buildBaseContext(conv);
+      const dims = ensureDimensions(ctx);
+      if (dims[dimName]) {
+        dims[dimName]!.customComponents = components;
       }
+      ctx.targetDimension = dimName;
+
+      await processConversationWorkflow(
+        WorkflowEvent.ComponentPromptChanged,
+        ctx,
+        runner,
+        { onAnalysisChunk },
+      );
+    } catch (error) {
+      console.error("Failed to reprocess dimension components:", error);
+    } finally {
+      setReprocessingId(null);
     }
   };
 
@@ -3407,13 +3455,15 @@ export default function App() {
       <PromptEditorDialog
         open={isComponentsDialogOpen}
         onOpenChange={setIsComponentsDialogOpen}
-        title="Edit Components"
+        title={`Edit Components${editingDimensionName && editingDimensionName !== "default" ? ` (${editingDimensionName})` : ""}`}
         description="Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components."
         value={editingComponents}
         onChange={setEditingComponents}
         onApply={handleApplyComponents}
         placeholder="Enter components (one per line)..."
-        warningText="This will re-run component mapping, visualization, and analysis (skipping component identification)"
+        warningText={editingDimensionName && editingDimensionName !== "default"
+          ? `This will re-run component mapping for the "${editingDimensionName}" dimension`
+          : "This will re-run component mapping, visualization, and analysis (skipping component identification)"}
       />
 
       <PromptEditorDialog

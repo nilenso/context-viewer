@@ -89,8 +89,8 @@ interface ConversationListProps {
   onGenerateAnalysis?: (id: string) => void;
   onGenerateSummary?: (id: string) => void;
   onFilesSelected: (files: File[]) => void;
-  onEditPrompt?: (id: string) => void;
-  onEditComponents?: (id: string) => void;
+  onEditPrompt?: (id: string, dimensionName?: string) => void;
+  onEditComponents?: (id: string, dimensionName?: string) => void;
   onEditSegmentationPrompt?: (id: string) => void;
   onEditSummaryPrompt?: (id: string) => void;
   onEditAnalysisPrompt?: (id: string) => void;
@@ -812,35 +812,9 @@ export function ConversationList({
                                       </button>
                                     </div>
                                   )}
-                                  {/* Edit prompt, Edit components, and Dimension accordion - show below "Find components" step */}
+                                  {/* Dimension accordion - show below "Find components" step */}
                                   {isFindComponentsStep && (
                                     <>
-                                      {(onEditPrompt || onEditComponents) && (
-                                        <div className="flex gap-2 ml-5 mt-0.5">
-                                          {onEditPrompt && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                onEditPrompt(conversation.id);
-                                              }}
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                            >
-                                              Edit prompt
-                                            </button>
-                                          )}
-                                          {onEditComponents && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                onEditComponents(conversation.id);
-                                              }}
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                            >
-                                              Edit components
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
                                       {/* Dimension Accordion */}
                                       {(() => {
                                         const dims = conversation.dimensions;
@@ -960,7 +934,7 @@ export function ConversationList({
                                                     )}
 
                                                     <span className="text-muted-foreground flex-shrink-0">
-                                                      {dimData.components.length}
+                                                      {new Set(dimData.components).size}
                                                     </span>
 
                                                     {onEditDimensionPrompt && (
@@ -1003,13 +977,13 @@ export function ConversationList({
                                                     )}
                                                   </div>
 
-                                                  {/* Expanded: show component list */}
+                                                  {/* Expanded: show component list and action links */}
                                                   {isExpanded && (
                                                     <div className="px-6 py-1.5 bg-muted/20 space-y-0.5">
                                                       {dimData.components.length === 0 ? (
                                                         <p className="text-muted-foreground italic">No components yet</p>
                                                       ) : (
-                                                        dimData.components.map((comp) => {
+                                                        [...new Set(dimData.components)].map((comp) => {
                                                           const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
                                                           return (
                                                             <div key={comp} className="flex items-center gap-1.5">
@@ -1021,6 +995,32 @@ export function ConversationList({
                                                             </div>
                                                           );
                                                         })
+                                                      )}
+                                                      {(onEditDimensionPrompt || onEditComponents) && (
+                                                        <div className="flex gap-3 pt-1.5 border-t mt-1.5">
+                                                          {onEditDimensionPrompt && (
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onEditDimensionPrompt(conversation.id, dimName);
+                                                              }}
+                                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                                            >
+                                                              Edit prompt
+                                                            </button>
+                                                          )}
+                                                          {onEditComponents && (
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onEditComponents(conversation.id, dimName);
+                                                              }}
+                                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                                            >
+                                                              Edit components
+                                                            </button>
+                                                          )}
+                                                        </div>
                                                       )}
                                                     </div>
                                                   )}

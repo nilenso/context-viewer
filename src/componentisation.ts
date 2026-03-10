@@ -126,12 +126,15 @@ export async function identifyComponents(
       return [];
     }
 
-    const components = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch[0]);
 
-    if (!Array.isArray(components)) {
+    if (!Array.isArray(parsed)) {
       log(conversationId, "Parsed result is not an array");
       return [];
     }
+
+    // Deduplicate - AI may return duplicates
+    const components = [...new Set(parsed.filter((c): c is string => typeof c === "string"))];
 
     log(
       conversationId,

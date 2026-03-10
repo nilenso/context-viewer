@@ -51,6 +51,14 @@ export function ComponentsView({
   const activeDimensions = activeDimensionsProp || new Set(["default"]);
   // Stable key for memoization (Set identity isn't reliable for useMemo deps)
   const activeDimensionsKey = [...activeDimensions].sort().join(",");
+  // Deep-ish key to detect when dimension data actually changes (e.g. new components/colors after processing)
+  const dimensionsDataKey = useMemo(() => {
+    if (!dimensions) return "";
+    return Object.entries(dimensions)
+      .map(([name, dim]) => `${name}:${dim.components.length}:${Object.keys(dim.componentMapping).length}`)
+      .sort()
+      .join("|");
+  }, [dimensions]);
   const dimensionNames = useMemo(
     () => dimensions ? Object.keys(dimensions) : [],
     [dimensions],
@@ -68,12 +76,12 @@ export function ComponentsView({
     if (!dimensions) return componentMapping || {};
     // Always use the primary (first active) dimension's mapping
     return dimensions[primaryDimName]?.componentMapping || componentMapping || {};
-  }, [dimensions, primaryDimName, componentMapping]);
+  }, [dimensions, dimensionsDataKey, primaryDimName, componentMapping]);
 
   const effectiveColors = useMemo(() => {
     if (!dimensions) return componentColors || {};
     return dimensions[primaryDimName]?.componentColors || componentColors || {};
-  }, [dimensions, primaryDimName, componentColors]);
+  }, [dimensions, dimensionsDataKey, primaryDimName, componentColors]);
 
   // Helper to check if a part passes the message type filter
   const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
@@ -122,7 +130,7 @@ export function ComponentsView({
       }
     });
     return { tupleTokens, total };
-  }, [dimensions, activeDimensionsKey, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
+  }, [dimensions, dimensionsDataKey, activeDimensionsKey, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
 
   // Helper to get blended color for a tuple key like "dim1:comp1|dim2:comp2"
   const getTupleColorStyles = useMemo(() => {
@@ -144,7 +152,7 @@ export function ComponentsView({
       const blended = colors.length === 1 ? colors[0]! : blendColors(colors);
       return { classes: null as string | null, style: { backgroundColor: blended } as React.CSSProperties | null };
     };
-  }, [dimensions, tupleData]);
+  }, [dimensions, dimensionsDataKey, tupleData]);
 
   // Compute messageComponents for workflow view (filtered, up to current slider position)
   // When multiple dimensions are active, produces tuple keys matching the waffle chart
@@ -185,7 +193,7 @@ export function ComponentsView({
       }
     });
     return components;
-  }, [conversation.messages, currentMessageIndex, effectiveMapping, dimensions, activeDimensionsKey, filteredPartIds, messageTypeFilters]);
+  }, [conversation.messages, currentMessageIndex, effectiveMapping, dimensions, dimensionsDataKey, activeDimensionsKey, filteredPartIds, messageTypeFilters]);
 
   if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) {
     return (
