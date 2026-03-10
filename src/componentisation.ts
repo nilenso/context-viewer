@@ -5,6 +5,25 @@ import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig, type AIConfig } from "./ai-config";
 import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+import {
+  buildComponentTimeline as buildComponentTimelineCore,
+  type ComponentTimelineSnapshot,
+} from "./aggregation";
+
+// Re-export shared aggregation utilities for backward compatibility
+export {
+  type ComponentTimelineSnapshot,
+  type ComponentAggregation,
+  type ComponentPercentage,
+  TUPLE_SEPARATOR,
+  getPartTokenCount,
+  getMessageTokenCount,
+  aggregateComponentTokens,
+  buildComponentTimeline as buildComponentTimelinePure,
+  computeTupleTokens,
+  computePercentages,
+  generateComponentCSV,
+} from "./aggregation";
 
 // Helper to log with optional conversation context
 function log(
@@ -326,67 +345,8 @@ export interface DimensionData {
 }
 
 /**
- * Timeline snapshot representing component composition at a specific message
- */
-export interface ComponentTimelineSnapshot {
-  messageIndex: number;
-  componentTokens: Record<string, number>; // component name → total tokens
-  totalTokens: number; // cumulative tokens up to this message
-}
-
-/** Separator used in tuple keys (e.g. "default:comp1 · relevance:comp2") */
-export const TUPLE_SEPARATOR = " · ";
-
-/**
- * Compute tuple-based token aggregation across multiple dimensions.
- * Each tuple key is a combination like "default:explore.search-files · relevance:relevant".
- * Used by both the waffle chart (ComponentsView) and analysis generation.
- *
- * @param conversation - The conversation to aggregate over
- * @param dimensions - All dimensions to combine
- * @param activeDimNames - Which dimensions to include (sorted). If omitted, uses all.
- * @param options - Optional filtering (message index limit, part ID filter, message type filter)
- */
-export function computeTupleTokens(
-  conversation: Conversation,
-  dimensions: Record<string, DimensionData>,
-  activeDimNames?: string[],
-  options?: {
-    maxMessageIndex?: number;
-    filteredPartIds?: Set<string> | null;
-    partFilter?: (part: { type: string }, msgRole: string) => boolean;
-  },
-): { tupleTokens: Record<string, number>; total: number } {
-  const dimNames = activeDimNames || Object.keys(dimensions).sort();
-  const tupleTokens: Record<string, number> = {};
-  let total = 0;
-
-  for (let msgIdx = 0; msgIdx < conversation.messages.length; msgIdx++) {
-    if (options?.maxMessageIndex !== undefined && msgIdx > options.maxMessageIndex) break;
-    const message = conversation.messages[msgIdx]!;
-    for (const part of message.parts) {
-      const tokenCount = ("token_count" in part && part.token_count) || 0;
-      if (options?.partFilter && !options.partFilter(part, message.role)) continue;
-      if (options?.filteredPartIds && !options.filteredPartIds.has(part.id)) continue;
-
-      const segments: string[] = [];
-      for (const dimName of dimNames) {
-        const comp = dimensions[dimName]?.componentMapping[part.id];
-        if (comp) segments.push(`${dimName}:${comp}`);
-      }
-      if (segments.length === 0) continue;
-      const tupleKey = segments.join(TUPLE_SEPARATOR);
-      tupleTokens[tupleKey] = (tupleTokens[tupleKey] || 0) + tokenCount;
-      total += tokenCount;
-    }
-  }
-
-  return { tupleTokens, total };
-}
-
-/**
- * Build a timeline of component composition for each message in the conversation
- * This allows scrubbing through the conversation to see how components evolve
+ * Build a component timeline with workflow logging.
+ * Thin wrapper around the pure function in aggregation.ts.
  */
 export function buildComponentTimeline(
   conversation: Conversation,
@@ -395,50 +355,15 @@ export function buildComponentTimeline(
 ): ComponentTimelineSnapshot[] {
   log(conversationId, "Building component timeline");
 
-  // Build a map of part ID to its message index and token count
-  const partInfo = new Map<
-    string,
-    { messageIndex: number; tokenCount: number }
-  >();
-  conversation.messages.forEach((message, messageIndex) => {
-    message.parts.forEach((part) => {
-      const tokenCount = ("token_count" in part && part.token_count) || 0;
-      partInfo.set(part.id, { messageIndex, tokenCount });
-    });
-  });
-
   // Log mapping coverage for debugging
+  const totalParts = conversation.messages.reduce((s, m) => s + m.parts.length, 0);
   const mappedCount = Object.keys(componentMapping).length;
-  const totalParts = partInfo.size;
   log(
     conversationId,
     `Mapping coverage: ${mappedCount}/${totalParts} parts (${Math.round((mappedCount / totalParts) * 100)}%)`,
   );
 
-  // Build timeline snapshots
-  const timeline: ComponentTimelineSnapshot[] = [];
-
-  for (let msgIndex = 0; msgIndex < conversation.messages.length; msgIndex++) {
-    const componentTokens: Record<string, number> = {};
-    let totalTokens = 0;
-
-    // Accumulate tokens for ALL parts up to and including this message
-    // Use mapping if available, otherwise assign to "other"
-    partInfo.forEach((info, partId) => {
-      if (info.messageIndex <= msgIndex) {
-        const component = componentMapping[partId] || "other";
-        componentTokens[component] =
-          (componentTokens[component] || 0) + info.tokenCount;
-        totalTokens += info.tokenCount;
-      }
-    });
-
-    timeline.push({
-      messageIndex: msgIndex,
-      componentTokens,
-      totalTokens,
-    });
-  }
+  const timeline = buildComponentTimelineCore(conversation, componentMapping);
 
   log(conversationId, `Built timeline with ${timeline.length} snapshots`);
   return timeline;

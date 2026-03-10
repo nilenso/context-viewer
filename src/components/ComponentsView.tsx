@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles, blendColors, getComponentWaffleHex } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
-import { computeTupleTokens, TUPLE_SEPARATOR, type ComponentTimelineSnapshot, type DimensionData } from "@/componentisation";
+import { type DimensionData } from "@/componentisation";
+import { computeTupleTokens, TUPLE_SEPARATOR, aggregateComponentTokens, type ComponentTimelineSnapshot } from "@/aggregation";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -194,32 +195,21 @@ export function ComponentsView({
   }
 
   // Get component data for the current message, filtered by static component and message type
-  let componentTokensForOverview: Record<string, number> = {};
-  let filteredTokensTotal = 0;
-  let fullTokensTotal = 0;
+  // Full tokens (no message-type or static-component filter, only mapped parts)
+  const { totalTokens: fullTokensTotal } = aggregateComponentTokens(
+    conversation,
+    effectiveMapping,
+    { maxMessageIndex: currentMessageIndex, unmappedLabel: null },
+  );
 
-  // Always calculate from conversation to apply filtering
-  conversation.messages.forEach((message, msgIndex) => {
-    if (msgIndex <= currentMessageIndex) {
-      message.parts.forEach((part) => {
-        const component = effectiveMapping[part.id];
-        if (component) {
-          const tokenCount = ("token_count" in part && part.token_count) || 0;
-          fullTokensTotal += tokenCount;
-
-          // Apply message type filter first
-          if (!partPassesMessageTypeFilter(part, message.role)) return;
-
-          // Apply static component filter if set
-          if (!filteredPartIds || filteredPartIds.has(part.id)) {
-            componentTokensForOverview[component] =
-              (componentTokensForOverview[component] || 0) + tokenCount;
-            filteredTokensTotal += tokenCount;
-          }
-        }
-      });
-    }
-  });
+  // Filtered tokens (with message-type filter and optional static-component filter)
+  const { componentTokens: componentTokensForOverview, totalTokens: filteredTokensTotal } =
+    aggregateComponentTokens(conversation, effectiveMapping, {
+      maxMessageIndex: currentMessageIndex,
+      partFilter: (part, msgRole) => partPassesMessageTypeFilter(part, msgRole),
+      filteredPartIds,
+      unmappedLabel: null,
+    });
 
   const handleComponentClick = (component: string) => {
     const newSelection = selectedComponent === component ? null : component;

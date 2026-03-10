@@ -1,7 +1,8 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
-import { computeTupleTokens, type ComponentTimelineSnapshot, type DimensionData } from "./componentisation";
+import { computeTupleTokens, generateComponentCSV, type ComponentTimelineSnapshot } from "./aggregation";
+import type { DimensionData } from "./componentisation";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
@@ -152,37 +153,6 @@ export async function generateConversationSummary(
       error instanceof Error ? error.message : "Unknown error";
     return { summary: "", error: `AI Summary: ${errorMessage}` };
   }
-}
-
-/**
- * Generate CSV data from component timeline for analysis
- */
-function generateComponentCSV(
-  componentTimeline: ComponentTimelineSnapshot[],
-  components: string[],
-  conversation: Conversation,
-): string {
-  // CSV header
-  const header = ["Message", "Total Tokens", ...components].join(",");
-
-  // CSV rows
-  const rows = componentTimeline.map((snapshot, idx) => {
-    const row = [
-      `Msg ${idx + 1}`,
-      snapshot.totalTokens.toString(),
-      ...components.map((component) => {
-        const tokens = snapshot.componentTokens[component] || 0;
-        const percentage =
-          snapshot.totalTokens > 0
-            ? ((tokens / snapshot.totalTokens) * 100).toFixed(1)
-            : "0.0";
-        return `${tokens} (${percentage}%)`;
-      }),
-    ];
-    return row.join(",");
-  });
-
-  return [header, ...rows].join("\n");
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { Conversation } from "./schema";
-import type { ComponentTimelineSnapshot } from "./componentisation";
+import type { ComponentTimelineSnapshot } from "./aggregation";
+import { buildComponentTimeline } from "./aggregation";
 
 /**
  * Static componentisation - deterministic component identification
@@ -57,46 +58,15 @@ export function buildStaticComponentMapping(
 
 /**
  * Build timeline of component token distribution at each message
- * Reuses the same structure as automatic componentisation for compatibility
+ * Reuses the same structure as automatic componentisation for compatibility.
+ * Delegates to the shared buildComponentTimeline in aggregation.ts.
+ * Static mappings cover every part, so unmapped = null (skip).
  */
 export function buildStaticComponentTimeline(
   conversation: Conversation,
   mapping: Record<string, string>
 ): ComponentTimelineSnapshot[] {
-  // Build a map of part ID to its message index and token count
-  const partInfo = new Map<string, { messageIndex: number; tokenCount: number }>();
-
-  conversation.messages.forEach((message, messageIndex) => {
-    message.parts.forEach((part) => {
-      const tokenCount = ("token_count" in part && part.token_count) || 0;
-      partInfo.set(part.id, { messageIndex, tokenCount });
-    });
-  });
-
-  // Build timeline snapshots (cumulative tokens up to each message)
-  const timeline: ComponentTimelineSnapshot[] = [];
-
-  for (let msgIndex = 0; msgIndex < conversation.messages.length; msgIndex++) {
-    const componentTokens: Record<string, number> = {};
-    let totalTokens = 0;
-
-    // Accumulate tokens for all parts up to and including this message
-    Object.entries(mapping).forEach(([partId, component]) => {
-      const info = partInfo.get(partId);
-      if (info && info.messageIndex <= msgIndex) {
-        componentTokens[component] = (componentTokens[component] || 0) + info.tokenCount;
-        totalTokens += info.tokenCount;
-      }
-    });
-
-    timeline.push({
-      messageIndex: msgIndex,
-      componentTokens,
-      totalTokens,
-    });
-  }
-
-  return timeline;
+  return buildComponentTimeline(conversation, mapping, { unmappedLabel: null });
 }
 
 /**

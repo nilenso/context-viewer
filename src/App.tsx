@@ -15,9 +15,9 @@ import {
   assignComponentColors,
   getComponentisationConfig,
   buildComponentTimeline,
-  type ComponentTimelineSnapshot,
   type DimensionData,
 } from "./componentisation";
+import { aggregateComponentTokens, type ComponentTimelineSnapshot } from "./aggregation";
 import { staticComponentise } from "./static-componentisation";
 import {
   generateConversationSummary,
@@ -1385,8 +1385,11 @@ export default function App() {
         }
 
         // Calculate component tokens for this conversation
-        const componentTokens: Record<string, number> = {};
-        let totalTokens = 0;
+        const { componentTokens, totalTokens } = aggregateComponentTokens(
+          conv.conversation,
+          conv.componentMapping,
+        );
+
         let turnCount = 0;
         let firstTimestamp: Date | undefined;
         let lastTimestamp: Date | undefined;
@@ -1415,19 +1418,11 @@ export default function App() {
           let messageComponent = "other";
           for (const part of message.parts) {
             const component = conv.componentMapping[part.id];
-            const tokenCount = ("token_count" in part && part.token_count) || 0;
-            totalTokens += tokenCount;
-
             if (component) {
-              componentTokens[component] =
-                (componentTokens[component] || 0) + tokenCount;
-              // Use the first component found as the message's component
               if (messageComponent === "other") {
                 messageComponent = component;
               }
-            } else {
-              componentTokens["other"] =
-                (componentTokens["other"] || 0) + tokenCount;
+              break;
             }
           }
           messageComponents.push(messageComponent);

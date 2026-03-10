@@ -9,6 +9,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { MessagePartView } from "./MessagePartView";
 import type { Message, SourceInfo } from "@/schema";
 import type { DimensionData } from "@/componentisation";
+import { getMessageTokenCount } from "@/aggregation";
 import { cn } from "@/lib/utils";
 
 interface MessageViewProps {
@@ -109,16 +110,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
     }
   };
 
-  const getTotalTokens = () => {
-    return message.parts.reduce((sum, part) => {
-      if ("token_count" in part && part.token_count !== undefined) {
-        return sum + part.token_count;
-      }
-      return sum;
-    }, 0);
-  };
-
-  const totalTokens = getTotalTokens();
+  const totalTokens = getMessageTokenCount(message);
 
   return (
     <Collapsible

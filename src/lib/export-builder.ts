@@ -1,6 +1,7 @@
 import type { Conversation } from "@/schema";
 import type { ConversationMetadata } from "@/parser";
 import type { DimensionData } from "@/componentisation";
+import { aggregateComponentTokens } from "@/aggregation";
 import {
   SessionExportSchema,
   type SessionExport,
@@ -138,17 +139,9 @@ export function buildFileExport(conv: WorkflowState): FileExport {
 function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
   return {
     componentComparison: conversations.map((conv) => {
-      const componentTokens: Record<string, number> = {};
-      let totalTokens = 0;
-
-      conv.conversation?.messages.forEach((msg) => {
-        msg.parts.forEach((part) => {
-          const tokens = ("token_count" in part && part.token_count) || 0;
-          const component = conv.componentMapping?.[part.id] || "other";
-          componentTokens[component] = (componentTokens[component] || 0) + tokens;
-          totalTokens += tokens;
-        });
-      });
+      const { componentTokens, totalTokens } = conv.conversation
+        ? aggregateComponentTokens(conv.conversation, conv.componentMapping || {})
+        : { componentTokens: {} as Record<string, number>, totalTokens: 0 };
 
       const analytics: AnalyticsExport["componentComparison"][number] = {
         fileId: conv.id,

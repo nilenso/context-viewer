@@ -6,7 +6,8 @@ import {
   getStaticComponentLabel,
 } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
-import type { ComponentTimelineSnapshot } from "@/componentisation";
+import type { ComponentTimelineSnapshot } from "@/aggregation";
+import { aggregateComponentTokens } from "@/aggregation";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -53,25 +54,15 @@ export function StaticComponentsView({
   }
 
   // Get component data for the current message, applying filters
-  let componentTokens: Record<string, number> = {};
-  let totalTokens = 0;
-
-  // Always calculate with filters applied (can't use timeline with filters)
-  conversation.messages.forEach((message, msgIndex) => {
-    if (msgIndex <= currentMessageIndex) {
-      message.parts.forEach((part) => {
-        // Apply message type filter
-        if (!partPassesFilter(part, message.role)) return;
-
-        const component = staticMapping[part.id];
-        if (component) {
-          const tokenCount = ("token_count" in part && part.token_count) || 0;
-          componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
-          totalTokens += tokenCount;
-        }
-      });
-    }
-  });
+  const { componentTokens, totalTokens } = aggregateComponentTokens(
+    conversation,
+    staticMapping,
+    {
+      maxMessageIndex: currentMessageIndex,
+      partFilter: (part, msgRole) => partPassesFilter(part, msgRole),
+      unmappedLabel: null,
+    },
+  );
 
   const handleComponentClick = (component: string) => {
     const newSelection = selectedComponent === component ? null : component;

@@ -26,7 +26,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message, SourceInfo } from "@/schema";
-import type { ComponentTimelineSnapshot, DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/componentisation";
+import { getMessageTokenCount, getPartTokenCount, type ComponentTimelineSnapshot } from "@/aggregation";
 import {
   type MessageFilter,
   type SortOption as UrlSortOption,
@@ -429,14 +430,7 @@ export function ConversationView({
   ];
 
   // Helper function to get total tokens for a message
-  const getMessageTokens = (message: Message) => {
-    return message.parts.reduce((sum, part) => {
-      if ("token_count" in part && part.token_count !== undefined) {
-        return sum + part.token_count;
-      }
-      return sum;
-    }, 0);
-  };
+  const getMessageTokens = getMessageTokenCount;
 
   // Calculate conversation start time (first message with a timestamp)
   const conversationStartTime = useMemo(() => {
@@ -541,7 +535,7 @@ export function ConversationView({
               if (pcs.length === 0 || pcs.some(c => !selectedComponents.has(c))) continue;
             }
 
-            const tokenCount = ("token_count" in part && part.token_count) || 0;
+            const tokenCount = getPartTokenCount(part);
             totalTokens += tokenCount;
 
             if (component) {
@@ -667,12 +661,7 @@ export function ConversationView({
       return {
         message: { ...msg, parts: filteredParts },
         originalIndex: idx,
-        tokens: filteredParts.reduce((sum, part) => {
-          if ("token_count" in part && part.token_count !== undefined) {
-            return sum + part.token_count;
-          }
-          return sum;
-        }, 0),
+        tokens: filteredParts.reduce((sum, part) => sum + getPartTokenCount(part), 0),
         hasVisibleParts: filteredParts.length > 0,
       };
     });
@@ -790,7 +779,7 @@ export function ConversationView({
 
         // Parts
         for (const part of message.parts) {
-          const partTokens = ("token_count" in part && part.token_count) || 0;
+          const partTokens = getPartTokenCount(part);
           const component = componentMapping?.[part.id];
           const componentStr = component ? ` [${component}]` : "";
 

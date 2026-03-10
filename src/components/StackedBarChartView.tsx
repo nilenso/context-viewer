@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { getComponentColorHex } from "@/lib/component-colors";
 import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
-import type { ComponentTimelineSnapshot } from "@/componentisation";
+import type { ComponentTimelineSnapshot } from "@/aggregation";
+import { buildComponentTimeline as buildTimelinePure } from "@/aggregation";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
@@ -59,40 +60,24 @@ export function StackedBarChartView({
 
   const allComponents = components || [];
 
-  // Build data for stacked bar chart
-  // Each bar represents one message, stacked by component token contribution
-  // Always calculate manually when filters are active
-  const chartData = conversation.messages.map((message, msgIndex) => {
+  // Build timeline using shared function (O(n) instead of O(n²))
+  const timeline = buildTimelinePure(conversation, componentMapping, {
+    partFilter: (part, msgRole) => partPassesFilter(part, msgRole),
+    unmappedLabel: null,
+  });
+
+  // Convert timeline snapshots to chart data points
+  const chartData = timeline.map((snapshot) => {
     const dataPoint: any = {
-      messageIndex: msgIndex + 1, // 1-indexed for display
-      messageName: `Msg ${msgIndex + 1}`,
+      messageIndex: snapshot.messageIndex + 1, // 1-indexed for display
+      messageName: `Msg ${snapshot.messageIndex + 1}`,
     };
 
-    let totalTokens = 0;
-    const componentTokens: Record<string, number> = {};
-
-    // Always calculate on the fly to apply filters
-    conversation.messages.forEach((msg, idx) => {
-      if (idx <= msgIndex) {
-        msg.parts.forEach((part) => {
-          // Apply message type filter
-          if (!partPassesFilter(part, msg.role)) return;
-
-          const component = componentMapping[part.id];
-          if (component) {
-            const tokenCount = ("token_count" in part && part.token_count) || 0;
-            componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
-            totalTokens += tokenCount;
-          }
-        });
-      }
-    });
-
     allComponents.forEach((component) => {
-      dataPoint[component] = componentTokens[component] || 0;
+      dataPoint[component] = snapshot.componentTokens[component] || 0;
     });
 
-    dataPoint.totalTokens = totalTokens;
+    dataPoint.totalTokens = snapshot.totalTokens;
 
     return dataPoint;
   });
