@@ -4630,3 +4630,37 @@ Issue persists. But when I click on the "generate analysis" link that shows up i
 
 ### Mar 10, 2026 10:24:04
 commit this
+
+### Mar 10, 2026 10:36:50
+I want all components to go to analysis, not just default
+
+### Mar 10, 2026 10:50:27
+I see lots of errors like this. chunk-PJEEZAML.js?v=3ec4515c:521 Warning: Encountered two children with the same key, `explore.search-files`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+
+and the automatic components waffle isn't visible anymore.
+
+### Mar 10, 2026 10:52:30
+I think the issue might be that the default dimension disappeared from the view when I created a new dimension. and then I recreated another dimension with the same contents as default and hence the categories or component names would overlap.
+
+fix both issues.
+the default disappearing, and the duplicate component name?
+
+Perhaps use a different react key that's unique? don't change component name that's generated.
+
+### Mar 10, 2026 10:56:53
+Figure out the import and export with multiple dimensions too. They should continue to work with the current import and export formats. But should also support exporting and importing multiple dimensions.
+
+### Mar 10, 2026 11:03:43
+when componentisation runs for the 2nd dimension, it appears default checked in the components tab. but, the waffle update doesn't happen until i uncheck and recheck it.
+
+### Mar 10, 2026 11:07:39
+the workflow section below the components still shows the legend only for one dimension.
+
+### Mar 10, 2026 11:11:05
+Regarding the export and import: ❯ Can you test it by running an export and then importing it?
+  this directory has some exports from the past: ../long-prompts-analysis/context-viewer-exports
+
+  structure these as a test so we can re-run them for regression etc.
+
+I can also give you a multi dimension export in a bit.

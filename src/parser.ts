@@ -32,6 +32,8 @@ export interface ConversationMetadata {
   customAnalysisPrompt?: string;
   /** Custom coloring prompt */
   customColoringPrompt?: string;
+  /** Multi-dimension export data (from Context Viewer exports) */
+  dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string }>;
 }
 
 /**

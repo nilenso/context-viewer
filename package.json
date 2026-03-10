@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "bun run vite",
     "build": "bun run vite build",
-    "preview": "bun run vite preview"
+    "preview": "bun run vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.5",

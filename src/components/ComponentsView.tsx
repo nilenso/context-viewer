@@ -49,6 +49,8 @@ export function ComponentsView({
   );
 
   const activeDimensions = activeDimensionsProp || new Set(["default"]);
+  // Stable key for memoization (Set identity isn't reliable for useMemo deps)
+  const activeDimensionsKey = [...activeDimensions].sort().join(",");
   const dimensionNames = useMemo(
     () => dimensions ? Object.keys(dimensions) : [],
     [dimensions],
@@ -59,7 +61,7 @@ export function ComponentsView({
   const primaryDimName = useMemo(() => {
     const active = [...activeDimensions];
     return active[0] || (dimensionNames[0] ?? "default");
-  }, [activeDimensions, dimensionNames]);
+  }, [activeDimensionsKey, dimensionNames]);
 
   // Determine effective mapping and colors based on active dimensions
   const effectiveMapping = useMemo(() => {
@@ -120,7 +122,7 @@ export function ComponentsView({
       }
     });
     return { tupleTokens, total };
-  }, [dimensions, activeDimensions, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
+  }, [dimensions, activeDimensionsKey, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
 
   // Helper to get blended color for a tuple key like "dim1:comp1|dim2:comp2"
   const getTupleColorStyles = useMemo(() => {
@@ -145,35 +147,45 @@ export function ComponentsView({
   }, [dimensions, tupleData]);
 
   // Compute messageComponents for workflow view (filtered, up to current slider position)
-  // Must be before early return to follow React hooks rules
+  // When multiple dimensions are active, produces tuple keys matching the waffle chart
   const messageComponents = useMemo(() => {
     if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) return [];
+    const isMultiDim = dimensions && activeDimensions.size > 1;
+    const activeDimNames = isMultiDim ? [...activeDimensions].sort() : null;
     const components: string[] = [];
     conversation.messages.forEach((message, msgIndex) => {
       if (msgIndex <= currentMessageIndex) {
-        // Find the primary component for this message from first matching part
         let messageComponent: string | null = null;
         for (const part of message.parts) {
-          // Apply message type filter
           if (!partPassesMessageTypeFilter(part, message.role)) continue;
-
-          // Apply static component filter if set
           if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
 
-          const component = effectiveMapping[part.id];
-          if (component) {
-            messageComponent = component;
-            break;
+          if (isMultiDim && activeDimNames) {
+            // Build tuple key from all active dimensions
+            const tupleParts: string[] = [];
+            for (const dimName of activeDimNames) {
+              const comp = dimensions![dimName]?.componentMapping[part.id];
+              if (comp) tupleParts.push(`${dimName}:${comp}`);
+            }
+            if (tupleParts.length > 0) {
+              messageComponent = tupleParts.join("|");
+              break;
+            }
+          } else {
+            const component = effectiveMapping[part.id];
+            if (component) {
+              messageComponent = component;
+              break;
+            }
           }
         }
-        // Only include message if it has parts that pass filters
         if (messageComponent !== null) {
           components.push(messageComponent);
         }
       }
     });
     return components;
-  }, [conversation.messages, currentMessageIndex, effectiveMapping, filteredPartIds, messageTypeFilters]);
+  }, [conversation.messages, currentMessageIndex, effectiveMapping, dimensions, activeDimensionsKey, filteredPartIds, messageTypeFilters]);
 
   if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) {
     return (
@@ -336,7 +348,12 @@ export function ComponentsView({
           </h4>
           <div className="flex flex-wrap gap-0.5">
             {messageComponents.map((component, index) => {
-              const colorStyles = component ? getWaffleStylesForDimensions(component) : null;
+              const colorStyles = component
+                ? (getTupleColorStyles ? getTupleColorStyles(component) : getWaffleStylesForDimensions(component))
+                : null;
+              const label = component?.includes("|")
+                ? component.split("|").map(p => { const i = p.indexOf(":"); return `${p.slice(0, i)}:${p.slice(i+1)}`; }).join(" · ")
+                : component;
               return (
                 <div
                   key={index}
@@ -345,19 +362,56 @@ export function ComponentsView({
                     component ? colorStyles?.classes : "bg-gray-200",
                   )}
                   style={colorStyles?.style || undefined}
-                  title={`${index + 1}: ${component || "unknown"}`}
+                  title={`${index + 1}: ${label || "unknown"}`}
                 />
               );
             })}
           </div>
           <div className="mt-3">
-            <CompactLegend
-              components={messageComponents}
-              componentColors={effectiveColors}
-            />
+            {getTupleColorStyles ? (
+              <WorkflowTupleLegend
+                components={messageComponents}
+                getColorStyles={getTupleColorStyles}
+              />
+            ) : (
+              <CompactLegend
+                components={messageComponents}
+                componentColors={effectiveColors}
+              />
+            )}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Compact legend for tuple-based workflow view
+function WorkflowTupleLegend({
+  components,
+  getColorStyles,
+}: {
+  components: string[];
+  getColorStyles: (key: string) => { classes: string | null; style: React.CSSProperties | null };
+}) {
+  const unique = [...new Set(components)].filter(Boolean);
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {unique.map((tupleKey) => {
+        const colorStyles = getColorStyles(tupleKey);
+        const label = tupleKey.includes("|")
+          ? tupleKey.split("|").map(p => { const i = p.indexOf(":"); return `${p.slice(0, i)}:${p.slice(i+1)}`; }).join(" · ")
+          : tupleKey;
+        return (
+          <div key={tupleKey} className="flex items-center gap-1.5">
+            <span
+              className={cn("w-3 h-3 flex-shrink-0", colorStyles.classes)}
+              style={colorStyles.style || undefined}
+            />
+            <span className="text-muted-foreground [font-variant:small-caps]">{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

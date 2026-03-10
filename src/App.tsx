@@ -436,10 +436,18 @@ const createAnalysisActivity = (
   onChunk?: (id: string, chunk: string) => void,
 ): Activity<{ analysis: string; error?: string }> => {
   return async (ctx) => {
-    if (!ctx.aiSummary || !ctx.components?.length) {
+    // Collect components from all dimensions, not just default
+    const allComponents = new Set(ctx.components || []);
+    if (ctx.dimensions) {
+      for (const dim of Object.values(ctx.dimensions)) {
+        for (const c of dim.components) allComponents.add(c);
+      }
+    }
+
+    if (!ctx.aiSummary || allComponents.size === 0) {
       const missing = [];
       if (!ctx.aiSummary) missing.push("aiSummary");
-      if (!ctx.components?.length) missing.push("components");
+      if (allComponents.size === 0) missing.push("components");
       console.warn(`[analysis] Skipping: missing ${missing.join(", ")}`);
       return { analysis: "" };
     }
@@ -447,11 +455,12 @@ const createAnalysisActivity = (
     const result = await generateContextAnalysis(
       ctx.conversation!,
       ctx.componentTimeline || [],
-      ctx.components,
+      [...allComponents],
       ctx.aiSummary,
       (chunk) => onChunk?.(ctx.id, chunk),
       ctx.customAnalysisPrompt,
       ctx.id, // Pass conversationId for logging
+      ctx.dimensions,
     );
 
     return {
@@ -801,6 +810,33 @@ async function processConversationWorkflow(
         ctx.staticComponents = staticResult.components;
         ctx.staticMapping = staticResult.mapping;
         ctx.staticTimeline = staticResult.timeline;
+
+        // Restore multi-dimension data if present
+        if (result.metadata.dimensions) {
+          ctx.dimensions = {};
+          for (const [dimName, dimExport] of Object.entries(result.metadata.dimensions)) {
+            // Extract per-dimension component mapping from parts
+            const dimMapping: Record<string, string> = {};
+            for (const message of ctx.conversation.messages) {
+              for (const part of message.parts) {
+                if ("dimensions" in part && part.dimensions) {
+                  const dimComp = (part.dimensions as Record<string, string>)[dimName];
+                  if (dimComp) dimMapping[part.id] = dimComp;
+                }
+              }
+            }
+            ctx.dimensions[dimName] = {
+              name: dimName,
+              prompt: dimExport.prompt,
+              components: dimExport.components,
+              componentMapping: dimMapping,
+              componentTimeline: buildComponentTimeline(ctx.conversation, dimMapping),
+              componentColors: dimExport.colors,
+              customColoringPrompt: dimExport.coloringPrompt,
+            };
+          }
+          syncLegacyFieldsFromDimensions(ctx);
+        }
 
         // Skip AI workflow, mark as success
         runner.markComplete(ctx);
@@ -1747,11 +1783,22 @@ export default function App() {
     if (!selectedConversation?.conversation) return;
     const id = selectedConversation.id;
 
-    // Add empty dimension to state
+    // Add empty dimension to state, migrating legacy fields to "default" if needed
     setConversations((prev) =>
       prev.map((conv) => {
         if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
+        let dims = { ...(conv.dimensions || {}) };
+        // If no dimensions exist yet, migrate legacy fields to "default"
+        if (Object.keys(dims).length === 0 && conv.components) {
+          dims["default"] = {
+            name: "default",
+            prompt: conv.customPrompt,
+            components: conv.components || [],
+            componentMapping: conv.componentMapping || {},
+            componentTimeline: conv.componentTimeline || [],
+            componentColors: conv.componentColors || {},
+          };
+        }
         dims[name] = {
           name,
           components: [],
@@ -2069,6 +2116,18 @@ export default function App() {
     }
     if (source.customAnalysisPrompt) {
       preset.analysisPrompt = source.customAnalysisPrompt;
+    }
+    // Include per-dimension prompts if multiple dimensions exist
+    if (source.dimensions && Object.keys(source.dimensions).length > 1) {
+      const dimPrompts: Record<string, { prompt?: string; coloringPrompt?: string; components: string[] }> = {};
+      for (const [dimName, dim] of Object.entries(source.dimensions)) {
+        dimPrompts[dimName] = {
+          prompt: dim.prompt,
+          coloringPrompt: dim.customColoringPrompt,
+          components: dim.components,
+        };
+      }
+      preset.dimensions = dimPrompts;
     }
 
     const json = JSON.stringify(preset, null, 2);

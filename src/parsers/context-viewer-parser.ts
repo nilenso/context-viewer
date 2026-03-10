@@ -46,6 +46,8 @@ export class ContextViewerParser implements Parser {
       customSummaryPrompt: file.customPrompts?.summary,
       customAnalysisPrompt: file.customPrompts?.analysis,
       customColoringPrompt: file.customPrompts?.coloring,
+      // Multi-dimension data
+      dimensions: file.dimensions,
     };
   }
 }

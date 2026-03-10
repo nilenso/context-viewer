@@ -1,7 +1,7 @@
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
-import type { ComponentTimelineSnapshot } from "./componentisation";
+import type { ComponentTimelineSnapshot, DimensionData } from "./componentisation";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
@@ -197,6 +197,7 @@ export async function generateContextAnalysis(
   onChunk?: (chunk: string) => void,
   customPrompt?: string,
   conversationId?: string,
+  dimensions?: Record<string, DimensionData>,
 ): Promise<{ analysis: string; error?: string }> {
   logAnalysis(conversationId, "Starting analysis generation");
 
@@ -210,16 +211,31 @@ export async function generateContextAnalysis(
     apiKey: config.apiKey,
   });
 
-  // Generate CSV of component data over time
+  // Generate CSV of component data over time (default/legacy dimension)
   const componentDataCSV = generateComponentCSV(
     componentTimeline,
     components,
     conversation,
   );
 
+  // Generate per-dimension CSV data if multiple dimensions exist
+  let dimensionCSVs = "";
+  if (dimensions && Object.keys(dimensions).length > 1) {
+    const dimSections: string[] = [];
+    for (const [dimName, dim] of Object.entries(dimensions)) {
+      const dimCSV = generateComponentCSV(
+        dim.componentTimeline,
+        dim.components,
+        conversation,
+      );
+      dimSections.push(`## Dimension: ${dimName}\n${dimCSV}`);
+    }
+    dimensionCSVs = "\n\n" + dimSections.join("\n\n");
+  }
+
   const prompt = getPrompt("context-analysis", {
     conversationSummary: aiSummary,
-    componentDataCSV,
+    componentDataCSV: componentDataCSV + dimensionCSVs,
     customPrompt,
   });
 

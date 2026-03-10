@@ -1,11 +1,14 @@
 import type { Conversation } from "@/schema";
 import type { ConversationMetadata } from "@/parser";
+import type { DimensionData } from "@/componentisation";
 import {
   SessionExportSchema,
   type SessionExport,
   type FileExport,
   type AnalyticsExport,
   type ExportConversation,
+  type ExportDimension,
+  type ExportPart,
 } from "./export-schema";
 
 /**
@@ -25,6 +28,7 @@ interface WorkflowState {
   metadata?: ConversationMetadata;
   isGrouped?: boolean;
   sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
+  dimensions?: Record<string, DimensionData>;
   // Custom prompts
   customPrompt?: string;
   customSegmentationPrompt?: string;
@@ -39,16 +43,32 @@ interface WorkflowState {
 function buildConversationWithComponents(
   conversation: Conversation,
   componentMapping?: Record<string, string>,
+  dimensions?: Record<string, DimensionData>,
 ): ExportConversation {
+  const hasDimensions = dimensions && Object.keys(dimensions).length > 1;
   return {
     messages: conversation.messages.map((message) => ({
       id: message.id,
       role: message.role,
       timestamp: message.timestamp,
-      parts: message.parts.map((part) => ({
-        ...part,
-        component: componentMapping?.[part.id],
-      })),
+      parts: message.parts.map((part) => {
+        const exported: ExportPart = {
+          ...part,
+          component: componentMapping?.[part.id],
+        };
+        // Embed per-dimension component mappings when multiple dimensions exist
+        if (hasDimensions) {
+          const dimMap: Record<string, string> = {};
+          for (const [dimName, dim] of Object.entries(dimensions!)) {
+            const comp = dim.componentMapping[part.id];
+            if (comp) dimMap[dimName] = comp;
+          }
+          if (Object.keys(dimMap).length > 0) {
+            exported.dimensions = dimMap;
+          }
+        }
+        return exported;
+      }),
     })),
   };
 }
@@ -64,6 +84,7 @@ export function buildFileExport(conv: WorkflowState): FileExport {
   const conversationWithComponents = buildConversationWithComponents(
     conv.conversation,
     conv.componentMapping,
+    conv.dimensions,
   );
 
   // Build custom prompts object only if any prompts are customized
@@ -78,6 +99,20 @@ export function buildFileExport(conv: WorkflowState): FileExport {
       }
     : undefined;
 
+  // Build per-dimension export data when multiple dimensions exist
+  let dimensionsExport: Record<string, ExportDimension> | undefined;
+  if (conv.dimensions && Object.keys(conv.dimensions).length > 1) {
+    dimensionsExport = {};
+    for (const [dimName, dim] of Object.entries(conv.dimensions)) {
+      dimensionsExport[dimName] = {
+        components: dim.components,
+        colors: dim.componentColors,
+        prompt: dim.prompt,
+        coloringPrompt: dim.customColoringPrompt,
+      };
+    }
+  }
+
   const result: FileExport = {
     id: conv.id,
     filename: conv.filename,
@@ -90,6 +125,9 @@ export function buildFileExport(conv: WorkflowState): FileExport {
   };
   if (conv.title) {
     result.title = conv.title;
+  }
+  if (dimensionsExport) {
+    result.dimensions = dimensionsExport;
   }
   return result;
 }

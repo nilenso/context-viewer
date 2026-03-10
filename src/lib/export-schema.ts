@@ -9,7 +9,8 @@ export const ExportPartSchema = z
     id: z.string(),
     type: z.string(),
     token_count: z.number().optional(),
-    component: z.string().optional(), // The component this part maps to
+    component: z.string().optional(), // The component this part maps to (legacy/default dimension)
+    dimensions: z.record(z.string(), z.string()).optional(), // Multi-dimension: dimName -> component
   })
   .passthrough(); // Allow additional fields (text, toolName, input, output, etc.)
 
@@ -50,16 +51,25 @@ export const CustomPromptsSchema = z.object({
   coloring: z.string().optional(),
 });
 
+// Per-dimension export data
+export const ExportDimensionSchema = z.object({
+  components: z.array(z.string()),
+  colors: z.record(z.string(), z.string()),
+  prompt: z.string().optional(),
+  coloringPrompt: z.string().optional(),
+});
+
 export const FileExportSchema = z.object({
   id: z.string(),
   filename: z.string(),
   title: z.string().optional(), // Custom display title
   conversation: ExportConversationSchema,
-  colors: z.record(z.string(), z.string()), // component -> color
+  colors: z.record(z.string(), z.string()), // component -> color (legacy/default dimension)
   summary: z.string().nullable(),
   analysis: z.string().nullable(),
   metadata: ExportMetadataSchema.optional(),
   customPrompts: CustomPromptsSchema.optional(),
+  dimensions: z.record(z.string(), ExportDimensionSchema).optional(), // Multi-dimension data
 });
 
 // ============================================================================
@@ -112,6 +122,7 @@ export type ExportMessage = z.infer<typeof ExportMessageSchema>;
 export type ExportConversation = z.infer<typeof ExportConversationSchema>;
 export type ExportMetadata = z.infer<typeof ExportMetadataSchema>;
 export type CustomPrompts = z.infer<typeof CustomPromptsSchema>;
+export type ExportDimension = z.infer<typeof ExportDimensionSchema>;
 export type FileExport = z.infer<typeof FileExportSchema>;
 export type GroupExport = z.infer<typeof GroupExportSchema>;
 export type FileAnalytics = z.infer<typeof FileAnalyticsSchema>;

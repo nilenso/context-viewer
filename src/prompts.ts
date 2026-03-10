@@ -229,8 +229,8 @@ export function getDefaultComponentIdentificationPrompt(): string {
  */
 export function getDefaultSegmentationPrompt(): string {
   return `Given the following text, tell me where all you would apply a break.
-The purpose is semantic chunking in way that's suitable for categorization.
-Only give me the top level sections to split the text into coherent topical chunks.
+The purpose is semantic chunking in way that's suitable for categorization. Use markdown headings.
+
 Return ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.
 
 Example response format: ["(?=regex-of-section-1)", "(?=regex-of-section2)"]`;
