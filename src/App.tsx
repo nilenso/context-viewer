@@ -475,7 +475,35 @@ const createAnalysisActivity = (
 // ============================================================================
 
 /**
- * WorkflowRunner: Manages state updates and timing for workflow execution
+ * Data fields on WorkflowState that can be selectively written back.
+ * Lifecycle fields (status, step, error, warnings, stepTimings) are always
+ * managed by the runner. Data fields are only written back when explicitly
+ * listed via the `only` option, preventing accidental overwrites.
+ */
+type WorkflowDataField = Exclude<
+  keyof WorkflowState,
+  "id" | "filename" | "status" | "step" | "error" | "warnings" | "stepTimings" |
+  "file" | "config" | "regenerateAnalysis" | "pausedAtStep" | "targetDimension"
+>;
+
+/** Pick specific data fields from ctx to build a partial update */
+function pickFields(
+  ctx: WorkflowState,
+  fields: readonly WorkflowDataField[],
+): Partial<WorkflowState> {
+  const update: Partial<WorkflowState> = {};
+  for (const f of fields) {
+    (update as any)[f] = (ctx as any)[f];
+  }
+  return update;
+}
+
+/**
+ * WorkflowRunner: Manages state updates and timing for workflow execution.
+ *
+ * All state-writing methods require an explicit `only` list of data fields
+ * to write back. This prevents operations from accidentally overwriting
+ * unrelated fields (e.g. "generate analysis" clobbering dimensions).
  */
 class WorkflowRunner {
   constructor(
@@ -503,7 +531,8 @@ class WorkflowRunner {
   }
 
   /**
-   * Update state to mark a step as starting
+   * Update state to mark a step as starting.
+   * Only writes lifecycle fields (status, step) — no data fields.
    */
   startStep(ctx: WorkflowState, step: ProcessingStep) {
     // Mark step start in the logging system
@@ -512,53 +541,19 @@ class WorkflowRunner {
     this.setState(ctx.id, {
       status: "processing",
       step,
-      conversation: ctx.conversation,
-      summary: ctx.summary,
-      metadata: ctx.metadata,
-      customPrompt: ctx.customPrompt,
-      customSegmentationPrompt: ctx.customSegmentationPrompt,
-      customSummaryPrompt: ctx.customSummaryPrompt,
-      customAnalysisPrompt: ctx.customAnalysisPrompt,
-      customColoringPrompt: ctx.customColoringPrompt,
-      componentMapping: ctx.componentMapping,
-      componentTimeline: ctx.componentTimeline,
-      componentColors: ctx.componentColors,
-      components: ctx.components,
-      dimensions: ctx.dimensions,
-      staticComponents: ctx.staticComponents,
-      staticMapping: ctx.staticMapping,
-      staticTimeline: ctx.staticTimeline,
-      analysis: ctx.analysis,
-      aiSummary: ctx.aiSummary,
-      warnings:
-        ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
-      stepTimings: ctx.stepTimings,
     });
   }
 
   /**
-   * Update state with current context (intermediate update, keeps status as 'success')
+   * Intermediate state update: writes specified data fields plus lifecycle.
    */
-  updateState(ctx: WorkflowState, nextStep?: ProcessingStep) {
+  updateState(
+    ctx: WorkflowState,
+    only: readonly WorkflowDataField[],
+    nextStep?: ProcessingStep,
+  ) {
     this.setState(ctx.id, {
-      conversation: ctx.conversation,
-      summary: ctx.summary,
-      metadata: ctx.metadata,
-      aiSummary: ctx.aiSummary,
-      customPrompt: ctx.customPrompt,
-      customSegmentationPrompt: ctx.customSegmentationPrompt,
-      customSummaryPrompt: ctx.customSummaryPrompt,
-      customAnalysisPrompt: ctx.customAnalysisPrompt,
-      customColoringPrompt: ctx.customColoringPrompt,
-      components: ctx.components,
-      componentMapping: ctx.componentMapping,
-      componentTimeline: ctx.componentTimeline,
-      componentColors: ctx.componentColors,
-      dimensions: ctx.dimensions,
-      staticComponents: ctx.staticComponents,
-      staticMapping: ctx.staticMapping,
-      staticTimeline: ctx.staticTimeline,
-      analysis: ctx.analysis,
+      ...pickFields(ctx, only),
       warnings:
         ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
       stepTimings: ctx.stepTimings,
@@ -568,29 +563,11 @@ class WorkflowRunner {
   }
 
   /**
-   * Mark workflow as complete
+   * Mark workflow as complete, writing only the specified data fields.
    */
-  markComplete(ctx: WorkflowState) {
+  markComplete(ctx: WorkflowState, only: readonly WorkflowDataField[]) {
     this.setState(ctx.id, {
-      conversation: ctx.conversation,
-      summary: ctx.summary,
-      metadata: ctx.metadata,
-      title: ctx.title,
-      aiSummary: ctx.aiSummary,
-      customPrompt: ctx.customPrompt,
-      customSegmentationPrompt: ctx.customSegmentationPrompt,
-      customSummaryPrompt: ctx.customSummaryPrompt,
-      customAnalysisPrompt: ctx.customAnalysisPrompt,
-      customColoringPrompt: ctx.customColoringPrompt,
-      components: ctx.components,
-      componentMapping: ctx.componentMapping,
-      componentTimeline: ctx.componentTimeline,
-      componentColors: ctx.componentColors,
-      dimensions: ctx.dimensions,
-      staticComponents: ctx.staticComponents,
-      staticMapping: ctx.staticMapping,
-      staticTimeline: ctx.staticTimeline,
-      analysis: ctx.analysis,
+      ...pickFields(ctx, only),
       warnings:
         ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
       stepTimings: ctx.stepTimings,
@@ -607,17 +584,18 @@ class WorkflowRunner {
   }
 
   /**
-   * Mark workflow as paused waiting for API key
+   * Mark workflow as paused waiting for API key.
+   * Only writes the fields accumulated so far (parsing + token counting).
    */
-  markPausedForApiKey(ctx: WorkflowState, nextStep: ProcessingStep) {
+  markPausedForApiKey(
+    ctx: WorkflowState,
+    only: readonly WorkflowDataField[],
+    nextStep: ProcessingStep,
+  ) {
     this.setState(ctx.id, {
-      conversation: ctx.conversation,
-      summary: ctx.summary,
-      metadata: ctx.metadata,
-      staticComponents: ctx.staticComponents,
-      staticMapping: ctx.staticMapping,
-      staticTimeline: ctx.staticTimeline,
-      warnings: ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
+      ...pickFields(ctx, only),
+      warnings:
+        ctx.warnings && ctx.warnings.length > 0 ? ctx.warnings : undefined,
       stepTimings: ctx.stepTimings,
       status: "paused-for-api-key",
       step: undefined,
@@ -706,6 +684,8 @@ async function processConversationWorkflow(
       if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
       ctx.stepTimings!.summary = summaryTiming;
 
+      const fields: WorkflowDataField[] = ["aiSummary", "customSummaryPrompt"];
+
       if (ctx.regenerateAnalysis) {
         ctx.analysis = "";
         runner.startStep(ctx, "analysis");
@@ -718,9 +698,10 @@ async function processConversationWorkflow(
         ctx.analysis = analysisResult.analysis;
         if (analysisResult.error) ctx.warnings!.push(analysisResult.error);
         ctx.stepTimings!.analysis = analysisTiming;
+        fields.push("analysis");
       }
 
-      runner.markComplete(ctx);
+      runner.markComplete(ctx, fields);
       return;
     }
 
@@ -735,7 +716,7 @@ async function processConversationWorkflow(
       if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
       ctx.stepTimings!.segmenting = segmentTiming;
 
-      runner.updateState(ctx, "finding-components");
+      runner.updateState(ctx, ["conversation"], "finding-components");
 
       // Step 4: Find components
       runner.startStep(ctx, "finding-components");
@@ -751,7 +732,7 @@ async function processConversationWorkflow(
       ctx.dimensions = componentResult.dimensions;
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
-      runner.updateState(ctx, "coloring");
+      runner.updateState(ctx, ["conversation", "components", "componentMapping", "componentTimeline", "dimensions"], "coloring");
 
       // Step 5: Assign colors
       runner.startStep(ctx, "coloring");
@@ -761,7 +742,9 @@ async function processConversationWorkflow(
       ctx.dimensions = colorResult.dimensions;
       ctx.stepTimings!.coloring = colorTiming;
 
-      runner.markComplete(ctx);
+      runner.markComplete(ctx, [
+        "conversation", "components", "componentMapping", "componentTimeline", "componentColors", "dimensions",
+      ]);
       return;
     }
 
@@ -838,12 +821,20 @@ async function processConversationWorkflow(
           syncLegacyFieldsFromDimensions(ctx);
         }
 
-        // Skip AI workflow, mark as success
-        runner.markComplete(ctx);
+        // Skip AI workflow, mark as success — write everything for imports
+        runner.markComplete(ctx, [
+          "conversation", "summary", "metadata", "title",
+          "aiSummary", "analysis",
+          "components", "componentMapping", "componentTimeline", "componentColors",
+          "dimensions",
+          "staticComponents", "staticMapping", "staticTimeline",
+          "customPrompt", "customSegmentationPrompt", "customSummaryPrompt",
+          "customAnalysisPrompt", "customColoringPrompt",
+        ]);
         return;
       }
 
-      runner.updateState(ctx, "counting-tokens");
+      runner.updateState(ctx, ["conversation", "summary", "metadata"], "counting-tokens");
     }
 
     // Step 2: Count tokens (only for new files - skip for grouped, they already have token counts)
@@ -868,11 +859,17 @@ async function processConversationWorkflow(
 
       // Check if API key is available before AI steps
       if (!hasApiKey()) {
-        runner.markPausedForApiKey(ctx, "segmenting");
+        runner.markPausedForApiKey(ctx, [
+          "conversation", "summary", "metadata",
+          "staticComponents", "staticMapping", "staticTimeline",
+        ], "segmenting");
         return;
       }
 
-      runner.updateState(ctx, "segmenting");
+      runner.updateState(ctx, [
+        "conversation", "summary", "metadata",
+        "staticComponents", "staticMapping", "staticTimeline",
+      ], "segmenting");
     }
 
     // Step 3: Segment (only for new files - skip for grouped)
@@ -885,14 +882,22 @@ async function processConversationWorkflow(
       if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
       ctx.stepTimings!.segmenting = segmentTiming;
 
-      runner.updateState(ctx, "finding-components");
+      runner.updateState(ctx, [
+        "conversation", "summary", "metadata",
+        "staticComponents", "staticMapping", "staticTimeline",
+      ], "finding-components");
     }
 
     // For grouped conversations, skip segmenting, finding-components, and coloring
     // The merged component data is already in ctx from handleGroupConversations
     // Mark complete without running summary/analysis (user can trigger manually)
     if (event === WorkflowEvent.GroupedConversation) {
-      runner.markComplete(ctx);
+      runner.markComplete(ctx, [
+        "conversation", "summary", "title",
+        "isGrouped", "sourceConversations", "messageSourceMap",
+        "components", "componentMapping", "componentTimeline", "componentColors",
+        "staticComponents", "staticMapping", "staticTimeline",
+      ]);
       return;
     }
 
@@ -908,7 +913,7 @@ async function processConversationWorkflow(
       ctx.aiSummary = summaryResult.summary;
       if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
       ctx.stepTimings!.summary = summaryTiming;
-      runner.markComplete(ctx);
+      runner.markComplete(ctx, ["aiSummary", "customSummaryPrompt"]);
       return;
     }
 
@@ -920,7 +925,7 @@ async function processConversationWorkflow(
       ctx.componentColors = colorResult.colors;
       ctx.dimensions = colorResult.dimensions;
       ctx.stepTimings!.coloring = colorTiming;
-      runner.markComplete(ctx);
+      runner.markComplete(ctx, ["componentColors", "dimensions", "customColoringPrompt"]);
       return;
     }
 
@@ -934,14 +939,11 @@ async function processConversationWorkflow(
       if (segmentResult.error) ctx.warnings!.push(segmentResult.error);
       ctx.stepTimings!.segmenting = segmentTiming;
 
-      runner.updateState(ctx, "finding-components");
+      runner.updateState(ctx, ["conversation", "customSegmentationPrompt", "segmentationThreshold"], "finding-components");
     }
 
-    // Step 4: Find components (skip for grouped conversations and analysis-only)
-    if (
-      event !== WorkflowEvent.GroupedConversation &&
-      event !== WorkflowEvent.GenerateAnalysis
-    ) {
+    // Step 4: Find components (skip for analysis-only; grouped already returned above)
+    if (event !== WorkflowEvent.GenerateAnalysis) {
       runner.startStep(ctx, "finding-components");
       const { result: componentResult, timing: componentTiming } =
         await runner.runActivity(
@@ -955,7 +957,9 @@ async function processConversationWorkflow(
       ctx.dimensions = componentResult.dimensions;
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
-      runner.updateState(ctx, "coloring");
+      runner.updateState(ctx, [
+        "conversation", "components", "componentMapping", "componentTimeline", "dimensions",
+      ], "coloring");
 
       // Step 5: Assign colors (skip for grouped conversations - colors already merged)
       runner.startStep(ctx, "coloring");
@@ -967,11 +971,19 @@ async function processConversationWorkflow(
 
       // For new files, mark complete without analysis (user can trigger it manually)
       if (event === WorkflowEvent.NewFile) {
-        runner.markComplete(ctx);
+        runner.markComplete(ctx, [
+          "conversation", "summary", "metadata",
+          "components", "componentMapping", "componentTimeline", "componentColors",
+          "dimensions",
+          "staticComponents", "staticMapping", "staticTimeline",
+          "customPrompt", "customSegmentationPrompt",
+        ]);
         return;
       }
 
-      runner.updateState(ctx, "analysis");
+      runner.updateState(ctx, [
+        "conversation", "components", "componentMapping", "componentTimeline", "componentColors", "dimensions",
+      ], "analysis");
     }
 
     // Step 6: Generate analysis (only for explicit analysis generation or reprocessing)
@@ -1001,7 +1013,7 @@ async function processConversationWorkflow(
         event === WorkflowEvent.SegmentationPromptChanged
       ) {
         ctx.analysis = "";
-        runner.updateState(ctx, "analysis");
+        runner.updateState(ctx, ["analysis"], "analysis");
       }
 
       runner.startStep(ctx, "analysis");
@@ -1016,7 +1028,28 @@ async function processConversationWorkflow(
       ctx.stepTimings!.analysis = analysisTiming;
     }
 
-    runner.markComplete(ctx);
+    // Determine which fields to write based on the event
+    const completeFields: WorkflowDataField[] = (() => {
+      switch (event) {
+        case WorkflowEvent.GenerateAnalysis:
+          return ["analysis", "customAnalysisPrompt"] as WorkflowDataField[];
+        case WorkflowEvent.ComponentPromptChanged:
+          return [
+            "conversation", "components", "componentMapping", "componentTimeline",
+            "componentColors", "dimensions", "analysis", "customPrompt",
+          ] as WorkflowDataField[];
+        case WorkflowEvent.SegmentationPromptChanged:
+          return [
+            "conversation", "components", "componentMapping", "componentTimeline",
+            "componentColors", "dimensions", "analysis",
+            "customSegmentationPrompt", "segmentationThreshold",
+          ] as WorkflowDataField[];
+        default:
+          return [] as WorkflowDataField[];
+      }
+    })();
+
+    runner.markComplete(ctx, completeFields);
   } catch (error: any) {
     runner.markFailed(ctx.id, error.message);
   }
