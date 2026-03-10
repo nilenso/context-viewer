@@ -436,17 +436,17 @@ const createAnalysisActivity = (
   onChunk?: (id: string, chunk: string) => void,
 ): Activity<{ analysis: string; error?: string }> => {
   return async (ctx) => {
-    if (
-      !ctx.aiSummary ||
-      !ctx.components?.length ||
-      !ctx.componentTimeline?.length
-    ) {
+    if (!ctx.aiSummary || !ctx.components?.length) {
+      const missing = [];
+      if (!ctx.aiSummary) missing.push("aiSummary");
+      if (!ctx.components?.length) missing.push("components");
+      console.warn(`[analysis] Skipping: missing ${missing.join(", ")}`);
       return { analysis: "" };
     }
 
     const result = await generateContextAnalysis(
       ctx.conversation!,
-      ctx.componentTimeline!,
+      ctx.componentTimeline || [],
       ctx.components,
       ctx.aiSummary,
       (chunk) => onChunk?.(ctx.id, chunk),
@@ -945,6 +945,20 @@ async function processConversationWorkflow(
       event === WorkflowEvent.ComponentPromptChanged ||
       event === WorkflowEvent.SegmentationPromptChanged
     ) {
+      // Auto-generate summary if missing (required for analysis)
+      if (!ctx.aiSummary) {
+        runner.startStep(ctx, "summary");
+        const { result: summaryResult, timing: summaryTiming } =
+          await runner.runActivity(
+            ctx,
+            createSummaryActivity(callbacks.onSummaryChunk),
+            "summary",
+          );
+        ctx.aiSummary = summaryResult.summary;
+        if (summaryResult.error) ctx.warnings!.push(summaryResult.error);
+        ctx.stepTimings!.summary = summaryTiming;
+      }
+
       // Clear old analysis if reprocessing
       if (
         event === WorkflowEvent.ComponentPromptChanged ||
@@ -2281,6 +2295,15 @@ export default function App() {
         ctx,
         runner,
         {
+          onSummaryChunk: (id, chunk) => {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === id
+                  ? { ...c, aiSummary: (c.aiSummary || "") + chunk }
+                  : c,
+              ),
+            );
+          },
           onAnalysisChunk: (id, chunk) => {
             setConversations((prev) =>
               prev.map((c) =>
