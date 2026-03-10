@@ -182,6 +182,22 @@ export function ConversationView({
   const sortBy = controlledSortBy ?? localSortBy;
   const selectedComponents = controlledSelectedComponents ?? localSelectedComponents;
 
+  // Keep the automatic component detail view aligned with the currently active dimension.
+  // Falls back to the legacy single-dimension mapping when multi-dimension data is unavailable.
+  const effectiveAutoComponentMapping = useMemo(() => {
+    if (!dimensions || Object.keys(dimensions).length === 0) {
+      return componentMapping || {};
+    }
+
+    const dimNames = Object.keys(dimensions);
+    const activeDimNames = activeDimensions && activeDimensions.size > 0
+      ? [...activeDimensions]
+      : [];
+    const primaryDimName = activeDimNames[0] || dimNames[0];
+
+    return (primaryDimName && dimensions[primaryDimName]?.componentMapping) || componentMapping || {};
+  }, [dimensions, activeDimensions, componentMapping]);
+
   // For message filters, we use the controlled version directly
   // The "all" pseudo-filter is computed for display purposes
   const messageFiltersSet = controlledMessageFilters ?? localMessageFilters;
@@ -275,6 +291,31 @@ export function ConversationView({
   const handleComponentClick = (component: string) => {
     setSelectedComponents(new Set([component]));
   };
+
+  const selectedAutoComponentMatchesPart = useCallback((partId: string, selected: string) => {
+    // Multi-dimension tuple selection from ComponentsView, e.g.
+    // "default:instructions|relevance:high"
+    if (selected.includes("|") || selected.includes(":")) {
+      const tupleParts = selected.split("|").map((entry) => {
+        const sepIdx = entry.indexOf(":");
+        if (sepIdx <= 0) return null;
+        return {
+          dimName: entry.slice(0, sepIdx),
+          component: entry.slice(sepIdx + 1),
+        };
+      }).filter((entry): entry is { dimName: string; component: string } => entry !== null);
+
+      if (tupleParts.length === 0) return false;
+
+      return tupleParts.every(({ dimName, component }) => {
+        const dim = dimensions?.[dimName];
+        return dim?.componentMapping[partId] === component;
+      });
+    }
+
+    // Single-dimension selection: use the currently active dimension mapping.
+    return effectiveAutoComponentMapping[partId] === selected;
+  }, [dimensions, effectiveAutoComponentMapping]);
 
   // Get sort icon based on current sort
   const getSortIcon = () => {
@@ -1205,7 +1246,7 @@ export function ConversationView({
                   // Filter parts that belong to the selected auto component
                   // AND optionally match the static component filter
                   const relevantParts = message.parts.filter((part) => {
-                    const matchesAuto = componentMapping?.[part.id] === selectedAutoComponent;
+                    const matchesAuto = selectedAutoComponentMatchesPart(part.id, selectedAutoComponent);
                     const matchesStatic = !selectedStaticComponent || staticMapping?.[part.id] === selectedStaticComponent;
                     return matchesAuto && matchesStatic;
                   });
@@ -1238,7 +1279,11 @@ export function ConversationView({
                             <MessagePartView
                               part={part as any}
                               isExpanded={false}
+                              componentMapping={componentMapping}
+                              componentColors={componentColors}
                               sourceInfo={isGrouped ? messageSourceMap?.[part.id] : undefined}
+                              dimensions={dimensions}
+                              activeDimensions={activeDimensions}
                             />
                           </div>
                         ))}
