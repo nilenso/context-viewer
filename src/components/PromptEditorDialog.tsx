@@ -52,6 +52,12 @@ export function PromptEditorDialog({
           <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && value.trim()) {
+                e.preventDefault();
+                onApply();
+              }
+            }}
             placeholder={placeholder}
             className="min-h-[300px] font-mono text-sm resize-none border-2 focus-visible:ring-0"
           />
