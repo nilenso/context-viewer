@@ -1032,16 +1032,16 @@ async function processConversationWorkflow(
     const completeFields: WorkflowDataField[] = (() => {
       switch (event) {
         case WorkflowEvent.GenerateAnalysis:
-          return ["analysis", "customAnalysisPrompt"] as WorkflowDataField[];
+          return ["analysis", "aiSummary", "customAnalysisPrompt"] as WorkflowDataField[];
         case WorkflowEvent.ComponentPromptChanged:
           return [
             "conversation", "components", "componentMapping", "componentTimeline",
-            "componentColors", "dimensions", "analysis", "customPrompt",
+            "componentColors", "dimensions", "analysis", "aiSummary", "customPrompt",
           ] as WorkflowDataField[];
         case WorkflowEvent.SegmentationPromptChanged:
           return [
             "conversation", "components", "componentMapping", "componentTimeline",
-            "componentColors", "dimensions", "analysis",
+            "componentColors", "dimensions", "analysis", "aiSummary",
             "customSegmentationPrompt", "segmentationThreshold",
           ] as WorkflowDataField[];
         default:
