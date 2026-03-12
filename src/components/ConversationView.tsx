@@ -52,6 +52,7 @@ interface SourceWorkflowState {
   title?: string;
   conversation?: Conversation;
   componentMapping?: Record<string, string>;
+  componentColors?: Record<string, string>;
   dimensions?: Record<string, DimensionData>;
 }
 
@@ -454,17 +455,11 @@ export function ConversationView({
 
   // Compute filtered source conversation components for grouped conversation comparison
   const filteredSourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
-    // Check if any filters are active
-    const hasMessageTypeFilters = !hasAllFilters;
-    const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
-
-    // Use pre-computed data if no filters are active or no source states provided
-    if (!hasMessageTypeFilters && !hasComponentFilters) {
-      return sourceConversationComponents;
-    }
     if (!sourceWorkflowStates || sourceWorkflowStates.length === 0) {
       return sourceConversationComponents;
     }
+
+    const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
 
     // Compute filtered data for each source conversation
     return sourceWorkflowStates
@@ -474,34 +469,41 @@ export function ConversationView({
         }
 
         const componentTokens: Record<string, number> = {};
+        const dimensionData: NonNullable<ConversationComponentData["dimensionData"]> = {};
+        const partDimensionTokens: NonNullable<ConversationComponentData["partDimensionTokens"]> = [];
+        const messageDimensionComponents: NonNullable<ConversationComponentData["messageDimensionComponents"]> = [];
+        const messageComponents: string[] = [];
         let totalTokens = 0;
         let turnCount = 0;
         let firstTimestamp: Date | undefined;
         let lastTimestamp: Date | undefined;
 
-        for (const message of source.conversation.messages) {
-          // Count user messages as turns (only if they pass filter)
-          const hasUserPartsPassingFilter = message.role === "user" &&
-            message.parts.some(part => {
-              if (!partPassesMessageTypeFilter(part, message.role)) return false;
-              // Also check component filter for turn counting - AND logic across dimensions
-              if (hasComponentFilters) {
-                const pcs: string[] = [];
-                const pc = source.componentMapping![part.id];
-                if (pc) pcs.push(pc);
-                if (source.dimensions) {
-                  for (const dim of Object.values(source.dimensions)) {
-                    const dc = dim.componentMapping[part.id];
-                    if (dc && !pcs.includes(dc)) pcs.push(dc);
-                  }
-                }
-                if (pcs.length === 0 || pcs.some(c => !selectedComponents.has(c))) return false;
-              }
-              return true;
-            });
-          if (hasUserPartsPassingFilter) {
-            turnCount++;
+        const getPartComponents = (partId: string) => {
+          const allComponents: string[] = [];
+          const legacyComponent = source.componentMapping![partId];
+          if (legacyComponent) allComponents.push(legacyComponent);
+
+          const dimensionAssignments: Record<string, string> = {};
+          if (legacyComponent) {
+            dimensionAssignments.default = legacyComponent;
           }
+          if (source.dimensions) {
+            for (const [dimName, dim] of Object.entries(source.dimensions)) {
+              const dimComponent = dim.componentMapping[partId];
+              if (dimComponent) {
+                dimensionAssignments[dimName] = dimComponent;
+                if (!allComponents.includes(dimComponent)) allComponents.push(dimComponent);
+              }
+            }
+          }
+
+          return { legacyComponent, allComponents, dimensionAssignments };
+        };
+
+        for (const message of source.conversation.messages) {
+          let messagePassed = false;
+          let firstMessageComponent: string | null = null;
+          let firstMessageDimensions: Record<string, string> | null = null;
 
           // Track timestamps for duration calculation
           if (message.timestamp) {
@@ -517,31 +519,71 @@ export function ConversationView({
           }
 
           for (const part of message.parts) {
-            // Apply message type filter
             if (!partPassesMessageTypeFilter(part, message.role)) continue;
 
-            const component = source.componentMapping[part.id];
+            const { legacyComponent, allComponents, dimensionAssignments } = getPartComponents(part.id);
 
-            // Apply component filter - AND logic across dimensions
             if (hasComponentFilters) {
-              const pcs: string[] = [];
-              if (component) pcs.push(component);
-              if (source.dimensions) {
-                for (const dim of Object.values(source.dimensions)) {
-                  const dc = dim.componentMapping[part.id];
-                  if (dc && !pcs.includes(dc)) pcs.push(dc);
-                }
+              if (allComponents.length === 0 || allComponents.some((c) => !selectedComponents.has(c))) {
+                continue;
               }
-              if (pcs.length === 0 || pcs.some(c => !selectedComponents.has(c))) continue;
+            }
+
+            messagePassed = true;
+            if (firstMessageComponent === null) {
+              firstMessageComponent = legacyComponent || Object.values(dimensionAssignments)[0] || "other";
+              firstMessageDimensions = dimensionAssignments;
             }
 
             const tokenCount = getPartTokenCount(part);
             totalTokens += tokenCount;
 
-            if (component) {
-              componentTokens[component] = (componentTokens[component] || 0) + tokenCount;
+            if (legacyComponent) {
+              componentTokens[legacyComponent] = (componentTokens[legacyComponent] || 0) + tokenCount;
             } else {
               componentTokens["other"] = (componentTokens["other"] || 0) + tokenCount;
+            }
+
+            for (const [dimName, dimComponent] of Object.entries(dimensionAssignments)) {
+              if (!dimensionData[dimName]) {
+                dimensionData[dimName] = {
+                  componentTokens: {},
+                  messageComponents: [],
+                  componentColors: dimName === "default"
+                    ? source.dimensions?.[dimName]?.componentColors || source.componentColors
+                    : source.dimensions?.[dimName]?.componentColors,
+                };
+              }
+              dimensionData[dimName]!.componentTokens[dimComponent] = (dimensionData[dimName]!.componentTokens[dimComponent] || 0) + tokenCount;
+            }
+
+            partDimensionTokens.push({
+              tokenCount,
+              dimensions: dimensionAssignments,
+            });
+          }
+
+          if (messagePassed) {
+            if (message.role === "user") {
+              turnCount++;
+            }
+            if (firstMessageComponent) {
+              messageComponents.push(firstMessageComponent);
+            }
+            if (firstMessageDimensions) {
+              messageDimensionComponents.push(firstMessageDimensions);
+              for (const [dimName, dimComponent] of Object.entries(firstMessageDimensions)) {
+                if (!dimensionData[dimName]) {
+                  dimensionData[dimName] = {
+                    componentTokens: {},
+                    messageComponents: [],
+                    componentColors: dimName === "default"
+                      ? source.dimensions?.[dimName]?.componentColors || source.componentColors
+                      : source.dimensions?.[dimName]?.componentColors,
+                  };
+                }
+                dimensionData[dimName]!.messageComponents?.push(dimComponent);
+              }
             }
           }
         }
@@ -550,42 +592,6 @@ export function ConversationView({
         const durationMs = firstTimestamp && lastTimestamp
           ? lastTimestamp.getTime() - firstTimestamp.getTime()
           : undefined;
-
-        // Build messageComponents array for workflow view (filtered)
-        const messageComponents: string[] = [];
-        for (const message of source.conversation.messages) {
-          // Check if any part of this message passes the filters
-          let messageComponent: string | null = null;
-          for (const part of message.parts) {
-            // Apply message type filter
-            if (!partPassesMessageTypeFilter(part, message.role)) continue;
-
-            const component = source.componentMapping[part.id];
-
-            // Apply component filter - AND logic across dimensions
-            if (hasComponentFilters) {
-              const pcs: string[] = [];
-              if (component) pcs.push(component);
-              if (source.dimensions) {
-                for (const dim of Object.values(source.dimensions)) {
-                  const dc = dim.componentMapping[part.id];
-                  if (dc && !pcs.includes(dc)) pcs.push(dc);
-                }
-              }
-              if (pcs.length === 0 || pcs.some(c => !selectedComponents.has(c))) continue;
-            }
-
-            // Found a part that passes filters
-            if (component) {
-              messageComponent = component;
-              break;
-            }
-          }
-          // Only include message if it has parts that pass filters
-          if (messageComponent !== null) {
-            messageComponents.push(messageComponent);
-          }
-        }
 
         const result: ConversationComponentData = {
           id: source.id,
@@ -596,6 +602,9 @@ export function ConversationView({
           messageCount: source.conversation.messages.length,
           durationMs,
           messageComponents,
+          dimensionData,
+          partDimensionTokens,
+          messageDimensionComponents,
         };
         if (source.title) {
           result.title = source.title;
@@ -603,7 +612,7 @@ export function ConversationView({
         return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [sourceWorkflowStates, sourceConversationComponents, messageFiltersSet, hasAllFilters, components, selectedComponents]);
+  }, [sourceWorkflowStates, sourceConversationComponents, components, selectedComponents, hasAllFilters, messageFiltersSet]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {

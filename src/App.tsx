@@ -336,11 +336,16 @@ const assignColorsActivity: Activity<{
       const dimData = dims[dimName];
       if (!dimData || !ctx.config || !dimData.components?.length) return;
 
+      // Use existing dimension colors as presets if available (e.g. from import),
+      // falling back to ctx.presetColors
+      const presetColors = (dimData.componentColors && Object.keys(dimData.componentColors).length > 0)
+        ? dimData.componentColors
+        : ctx.presetColors;
       const colors = await assignComponentColors(
         dimData.components,
         ctx.config,
         ctx.id,
-        ctx.presetColors,
+        presetColors,
         dimData.customColoringPrompt ?? ctx.customColoringPrompt,
       );
       dims[dimName] = { ...dimData, componentColors: colors };
@@ -384,25 +389,6 @@ function calculateConversationStats(conversation: {
   }
 
   return { messageCount, turnCount, durationMs };
-}
-
-/**
- * Extract component mapping from parts that have embedded component field.
- * Used when importing Context Viewer exports where component is stored on each part.
- */
-function extractComponentMappingFromParts(
-  conversation: Conversation,
-): Record<string, string> {
-  const mapping: Record<string, string> = {};
-  for (const message of conversation.messages) {
-    for (const part of message.parts) {
-      // Parts from Context Viewer export have component embedded
-      if ("component" in part && part.component) {
-        mapping[part.id] = part.component as string;
-      }
-    }
-  }
-  return mapping;
 }
 
 /**
@@ -730,6 +716,7 @@ async function processConversationWorkflow(
       ctx.componentMapping = componentResult.mapping;
       ctx.componentTimeline = componentResult.timeline;
       ctx.dimensions = componentResult.dimensions;
+      syncLegacyFieldsFromDimensions(ctx);
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
       runner.updateState(ctx, ["conversation", "components", "componentMapping", "componentTimeline", "dimensions"], "coloring");
@@ -740,6 +727,7 @@ async function processConversationWorkflow(
         await runner.runActivity(ctx, assignColorsActivity, "coloring");
       ctx.componentColors = colorResult.colors;
       ctx.dimensions = colorResult.dimensions;
+      syncLegacyFieldsFromDimensions(ctx);
       ctx.stepTimings!.coloring = colorTiming;
 
       runner.markComplete(ctx, [
@@ -761,77 +749,36 @@ async function processConversationWorkflow(
       ctx.metadata = result.metadata;
       ctx.stepTimings!.parsing = timing;
 
-      // Check if this is a pre-processed Context Viewer import
-      const isPreProcessed = result.metadata.parserName === "Context Viewer";
-      if (isPreProcessed) {
-        // Extract componentMapping from parts (component field on each part)
-        const componentMapping = extractComponentMappingFromParts(
-          ctx.conversation,
-        );
-        const components = [...new Set(Object.values(componentMapping))];
-
-        // Use pre-computed data from metadata
+      // Context Viewer imports should now flow through the normal pipeline on first import.
+      // We keep user-authored metadata/prompts, but re-run token counting, segmentation,
+      // componentisation, and coloring instead of trusting embedded computed results.
+      const isContextViewerImport = result.metadata.parserName === "Context Viewer";
+      if (isContextViewerImport) {
         ctx.title = result.metadata.title;
-        ctx.componentColors = result.metadata.componentColors;
-        ctx.aiSummary = result.metadata.aiSummary;
-        ctx.analysis = result.metadata.analysis;
-        ctx.components = components;
-        ctx.componentMapping = componentMapping;
-        // Restore custom prompts
         ctx.customPrompt = result.metadata.customPrompt;
         ctx.customSegmentationPrompt = result.metadata.customSegmentationPrompt;
         ctx.customSummaryPrompt = result.metadata.customSummaryPrompt;
         ctx.customAnalysisPrompt = result.metadata.customAnalysisPrompt;
         ctx.customColoringPrompt = result.metadata.customColoringPrompt;
 
-        // Rebuild computed fields (timelines)
-        ctx.componentTimeline = buildComponentTimeline(
-          ctx.conversation,
-          componentMapping,
-        );
-        const staticResult = staticComponentise(ctx.conversation);
-        ctx.staticComponents = staticResult.components;
-        ctx.staticMapping = staticResult.mapping;
-        ctx.staticTimeline = staticResult.timeline;
-
-        // Restore multi-dimension data if present
         if (result.metadata.dimensions) {
           ctx.dimensions = {};
           for (const [dimName, dimExport] of Object.entries(result.metadata.dimensions)) {
-            // Extract per-dimension component mapping from parts
-            const dimMapping: Record<string, string> = {};
-            for (const message of ctx.conversation.messages) {
-              for (const part of message.parts) {
-                if ("dimensions" in part && part.dimensions) {
-                  const dimComp = (part.dimensions as Record<string, string>)[dimName];
-                  if (dimComp) dimMapping[part.id] = dimComp;
-                }
-              }
-            }
+            const importedComponents = dimExport.components || [];
             ctx.dimensions[dimName] = {
               name: dimName,
               prompt: dimExport.prompt,
-              components: dimExport.components,
-              componentMapping: dimMapping,
-              componentTimeline: buildComponentTimeline(ctx.conversation, dimMapping),
-              componentColors: dimExport.colors,
+              components: importedComponents,
+              // Use imported components as custom components so findComponentsActivity
+              // uses them instead of calling AI to identify new ones
+              customComponents: importedComponents.length > 0 ? importedComponents : undefined,
+              componentMapping: {},
+              componentTimeline: [],
+              componentColors: dimExport.colors || {},
               customColoringPrompt: dimExport.coloringPrompt,
             };
           }
-          syncLegacyFieldsFromDimensions(ctx);
         }
-
-        // Skip AI workflow, mark as success — write everything for imports
-        runner.markComplete(ctx, [
-          "conversation", "summary", "metadata", "title",
-          "aiSummary", "analysis",
-          "components", "componentMapping", "componentTimeline", "componentColors",
-          "dimensions",
-          "staticComponents", "staticMapping", "staticTimeline",
-          "customPrompt", "customSegmentationPrompt", "customSummaryPrompt",
-          "customAnalysisPrompt", "customColoringPrompt",
-        ]);
-        return;
       }
 
       runner.updateState(ctx, ["conversation", "summary", "metadata"], "counting-tokens");
@@ -955,6 +902,7 @@ async function processConversationWorkflow(
       ctx.componentMapping = componentResult.mapping;
       ctx.componentTimeline = componentResult.timeline;
       ctx.dimensions = componentResult.dimensions;
+      syncLegacyFieldsFromDimensions(ctx);
       if (componentResult.error) ctx.warnings!.push(componentResult.error);
       ctx.stepTimings!["finding-components"] = componentTiming;
       runner.updateState(ctx, [
@@ -967,6 +915,7 @@ async function processConversationWorkflow(
         await runner.runActivity(ctx, assignColorsActivity, "coloring");
       ctx.componentColors = colorResult.colors;
       ctx.dimensions = colorResult.dimensions;
+      syncLegacyFieldsFromDimensions(ctx);
       ctx.stepTimings!.coloring = colorTiming;
 
       // For new files, mark complete without analysis (user can trigger it manually)
@@ -1507,6 +1456,7 @@ export default function App() {
           title: conv.title,
           conversation: conv.conversation,
           componentMapping: conv.componentMapping,
+          componentColors: conv.componentColors,
           dimensions: conv.dimensions,
         };
       })
@@ -1687,11 +1637,13 @@ export default function App() {
 
     const dimName = editingDimensionName || "default";
     const id = selectedConversation.id;
+    const targetConversations = getDimensionTargetConversations(selectedConversation);
+    const targetConversationIds = new Set(targetConversations.map((conv) => conv.id));
 
     // Update the dimension's custom components in state
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== id) return conv;
+        if (conv.id !== id && !targetConversationIds.has(conv.id)) return conv;
         const dims = { ...(conv.dimensions || {}) };
         if (dims[dimName]) {
           dims[dimName] = { ...dims[dimName]!, customComponents: components };
@@ -1700,29 +1652,36 @@ export default function App() {
       }),
     );
 
-    // Reprocess only this dimension with custom components
+    // Reprocess this dimension with custom components across all source conversations
     setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => {
-        setConversations((prev) =>
-          prev.map((conv) => (conv.id === rid ? { ...conv, ...update } : conv)),
-        );
-      });
+      await Promise.all(
+        targetConversations.map(async (conv) => {
+          const runner = new WorkflowRunner((rid, update) => {
+            setConversations((prev) =>
+              prev.map((item) => (item.id === rid ? { ...item, ...update } : item)),
+            );
+          });
 
-      const conv = conversations.find((c) => c.id === id)!;
-      const ctx = buildBaseContext(conv);
-      const dims = ensureDimensions(ctx);
-      if (dims[dimName]) {
-        dims[dimName]!.customComponents = components;
-      }
-      ctx.targetDimension = dimName;
+          const ctx = buildBaseContext(conv);
+          const dims = ensureDimensions(ctx);
+          if (dims[dimName]) {
+            dims[dimName]!.customComponents = components;
+          }
+          ctx.targetDimension = dimName;
 
-      await processConversationWorkflow(
-        WorkflowEvent.ComponentPromptChanged,
-        ctx,
-        runner,
-        { onAnalysisChunk },
+          await processConversationWorkflow(
+            WorkflowEvent.ComponentPromptChanged,
+            ctx,
+            runner,
+            { onAnalysisChunk },
+          );
+        }),
       );
+
+      if (selectedConversation.isGrouped) {
+        rebuildGroupedConversationFromSources(id);
+      }
     } catch (error) {
       console.error("Failed to reprocess dimension components:", error);
     } finally {
@@ -1855,15 +1814,170 @@ export default function App() {
     }
   };
 
+  const rebuildGroupedConversationFromSources = (groupId: string) => {
+    setConversations((prev) => {
+      const group = prev.find((conv) => conv.id === groupId);
+      if (!group?.isGrouped || !group.sourceConversations) {
+        return prev;
+      }
+
+      const sourceConvs = group.sourceConversations
+        .map((source) => prev.find((conv) => conv.id === source.id))
+        .filter(
+          (conv): conv is WorkflowState =>
+            conv !== undefined && conv.conversation !== undefined,
+        );
+
+      if (sourceConvs.length === 0) {
+        return prev;
+      }
+
+      const messageSourceMap: Record<string, SourceInfo> = {};
+      const allMessages: Message[] = [];
+      const mergedComponentsSet = new Set<string>();
+      const mergedComponentMapping: Record<string, string> = {};
+      const mergedComponentColors: Record<string, string> = {};
+      const mergedStaticComponentsSet = new Set<string>();
+      const mergedStaticMapping: Record<string, string> = {};
+      const mergedDimensions: Record<string, DimensionData> = {};
+      const mergedDimensionComponentSets: Record<string, Set<string>> = {};
+
+      for (const conv of sourceConvs) {
+        if (!conv.conversation) continue;
+
+        for (const msg of conv.conversation.messages) {
+          const newMsgId = `${conv.id}-${msg.id}`;
+          const newParts = msg.parts.map((part) => {
+            const newPartId = `${conv.id}-${part.id}`;
+            messageSourceMap[newPartId] = {
+              conversationId: conv.id,
+              filename: conv.filename,
+              title: conv.title,
+            };
+            return { ...part, id: newPartId };
+          });
+          messageSourceMap[newMsgId] = {
+            conversationId: conv.id,
+            filename: conv.filename,
+            title: conv.title,
+          };
+          allMessages.push({ ...msg, id: newMsgId, parts: newParts } as Message);
+        }
+
+        if (conv.components) {
+          conv.components.forEach((c) => mergedComponentsSet.add(c));
+        }
+        if (conv.componentMapping) {
+          for (const [partId, component] of Object.entries(conv.componentMapping)) {
+            mergedComponentMapping[`${conv.id}-${partId}`] = component;
+          }
+        }
+        if (conv.componentColors) {
+          Object.assign(mergedComponentColors, conv.componentColors);
+        }
+        if (conv.staticComponents) {
+          conv.staticComponents.forEach((c) => mergedStaticComponentsSet.add(c));
+        }
+        if (conv.staticMapping) {
+          for (const [partId, component] of Object.entries(conv.staticMapping)) {
+            mergedStaticMapping[`${conv.id}-${partId}`] = component;
+          }
+        }
+
+        const dims = conv.dimensions && Object.keys(conv.dimensions).length > 0
+          ? conv.dimensions
+          : (conv.components
+              ? {
+                  default: {
+                    name: "default",
+                    prompt: conv.customPrompt,
+                    components: conv.components || [],
+                    componentMapping: conv.componentMapping || {},
+                    componentTimeline: conv.componentTimeline || [],
+                    componentColors: conv.componentColors || {},
+                  },
+                }
+              : {});
+
+        for (const [dimName, dim] of Object.entries(dims)) {
+          if (!mergedDimensions[dimName]) {
+            mergedDimensions[dimName] = {
+              name: dimName,
+              prompt: dim.prompt,
+              components: [],
+              componentMapping: {},
+              componentTimeline: [],
+              componentColors: {},
+            };
+            mergedDimensionComponentSets[dimName] = new Set<string>();
+          }
+
+          if (!mergedDimensions[dimName]!.prompt && dim.prompt) {
+            mergedDimensions[dimName]!.prompt = dim.prompt;
+          }
+
+          for (const component of dim.components || []) {
+            mergedDimensionComponentSets[dimName]!.add(component);
+          }
+          for (const [partId, component] of Object.entries(dim.componentMapping || {})) {
+            mergedDimensions[dimName]!.componentMapping[`${conv.id}-${partId}`] = component;
+            mergedDimensionComponentSets[dimName]!.add(component);
+          }
+          Object.assign(mergedDimensions[dimName]!.componentColors, dim.componentColors || {});
+        }
+      }
+
+      const groupedConversation: Conversation = { messages: allMessages };
+      const mergedComponentTimeline = buildComponentTimeline(groupedConversation, mergedComponentMapping);
+      const mergedStaticTimeline = buildComponentTimeline(groupedConversation, mergedStaticMapping);
+
+      for (const [dimName, dim] of Object.entries(mergedDimensions)) {
+        dim.components = Array.from(mergedDimensionComponentSets[dimName] || []);
+        dim.componentTimeline = buildComponentTimeline(groupedConversation, dim.componentMapping);
+      }
+
+      const updatedGroup: WorkflowState = {
+        ...group,
+        conversation: groupedConversation,
+        summary: summarizeConversation(groupedConversation),
+        messageSourceMap,
+        components: Array.from(mergedComponentsSet),
+        componentMapping: mergedComponentMapping,
+        componentTimeline: mergedComponentTimeline,
+        componentColors: mergedComponentColors,
+        staticComponents: Array.from(mergedStaticComponentsSet),
+        staticMapping: mergedStaticMapping,
+        staticTimeline: mergedStaticTimeline,
+        dimensions: Object.keys(mergedDimensions).length > 0 ? mergedDimensions : group.dimensions,
+      };
+
+      syncLegacyFieldsFromDimensions(updatedGroup);
+
+      return prev.map((conv) => (conv.id === groupId ? updatedGroup : conv));
+    });
+  };
+
+  const getDimensionTargetConversations = (groupOrConversation: WorkflowState) => {
+    if (groupOrConversation.isGrouped && groupOrConversation.sourceConversations) {
+      return groupOrConversation.sourceConversations
+        .map((source) => conversations.find((conv) => conv.id === source.id))
+        .filter((conv): conv is WorkflowState => conv !== undefined && conv.conversation !== undefined);
+    }
+    return groupOrConversation.conversation ? [groupOrConversation] : [];
+  };
+
   // Dimension management handlers
   const handleAddDimension = async (name: string) => {
     if (!selectedConversation?.conversation) return;
     const id = selectedConversation.id;
+    const targetConversationIds = new Set(
+      getDimensionTargetConversations(selectedConversation).map((conv) => conv.id),
+    );
 
-    // Add empty dimension to state, migrating legacy fields to "default" if needed
+    // Add empty dimension to target conversations, migrating legacy fields to "default" if needed
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== id) return conv;
+        if (conv.id !== id && !targetConversationIds.has(conv.id)) return conv;
         let dims = { ...(conv.dimensions || {}) };
         // If no dimensions exist yet, migrate legacy fields to "default"
         if (Object.keys(dims).length === 0 && conv.components) {
@@ -1876,16 +1990,22 @@ export default function App() {
             componentColors: conv.componentColors || {},
           };
         }
-        dims[name] = {
-          name,
-          components: [],
-          componentMapping: {},
-          componentTimeline: [],
-          componentColors: {},
-        };
+        if (!dims[name]) {
+          dims[name] = {
+            name,
+            components: [],
+            componentMapping: {},
+            componentTimeline: [],
+            componentColors: {},
+          };
+        }
         return { ...conv, dimensions: dims };
       }),
     );
+
+    if (selectedConversation.isGrouped) {
+      rebuildGroupedConversationFromSources(id);
+    }
 
     // Activate this dimension
     setActiveDimensions((prev) => new Set([...prev, name]));
@@ -1900,15 +2020,21 @@ export default function App() {
     if (name === "default") return; // Can't remove default
     if (!selectedConversation) return;
     const id = selectedConversation.id;
+    const targetConversationIds = new Set(
+      getDimensionTargetConversations(selectedConversation).map((conv) => conv.id),
+    );
 
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== id) return conv;
+        if (conv.id !== id && !targetConversationIds.has(conv.id)) return conv;
         const dims = { ...(conv.dimensions || {}) };
         delete dims[name];
         return { ...conv, dimensions: dims };
       }),
     );
+    if (selectedConversation.isGrouped) {
+      rebuildGroupedConversationFromSources(id);
+    }
     setActiveDimensions((prev) => {
       const next = new Set(prev);
       next.delete(name);
@@ -1919,10 +2045,13 @@ export default function App() {
   const handleRenameDimension = (oldName: string, newName: string) => {
     if (!selectedConversation) return;
     const id = selectedConversation.id;
+    const targetConversationIds = new Set(
+      getDimensionTargetConversations(selectedConversation).map((conv) => conv.id),
+    );
 
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== id) return conv;
+        if (conv.id !== id && !targetConversationIds.has(conv.id)) return conv;
         const dims = { ...(conv.dimensions || {}) };
         if (!dims[oldName]) return conv;
         dims[newName] = { ...dims[oldName]!, name: newName };
@@ -1936,6 +2065,9 @@ export default function App() {
         return { ...conv, ...updates };
       }),
     );
+    if (selectedConversation.isGrouped) {
+      rebuildGroupedConversationFromSources(id);
+    }
     setActiveDimensions((prev) => {
       const next = new Set(prev);
       if (next.has(oldName)) {
@@ -1963,11 +2095,14 @@ export default function App() {
     if (!selectedConversation?.conversation) return;
 
     const dimName = editingDimensionName || "default";
+    const id = selectedConversation.id;
+    const targetConversations = getDimensionTargetConversations(selectedConversation);
+    const targetConversationIds = new Set(targetConversations.map((conv) => conv.id));
 
     // Update the dimension's prompt in state
     setConversations((prev) =>
       prev.map((conv) => {
-        if (conv.id !== selectedConversation.id) return conv;
+        if (conv.id !== id && !targetConversationIds.has(conv.id)) return conv;
         const dims = { ...(conv.dimensions || {}) };
         if (dims[dimName]) {
           dims[dimName] = { ...dims[dimName]!, prompt: editingPrompt };
@@ -1990,40 +2125,44 @@ export default function App() {
       }),
     );
 
-    // Reprocess only this dimension
-    const id = selectedConversation.id;
+    // Reprocess this dimension on all source conversations for grouped views
     setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((id, update) => {
-        setConversations((prev) =>
-          prev.map((conv) => (conv.id === id ? { ...conv, ...update } : conv)),
-        );
-      });
+      await Promise.all(
+        targetConversations.map(async (conv) => {
+          const runner = new WorkflowRunner((updateId, update) => {
+            setConversations((prev) =>
+              prev.map((item) => (item.id === updateId ? { ...item, ...update } : item)),
+            );
+          });
 
-      const conv = conversations.find((c) => c.id === id)!;
-      const ctx = buildBaseContext(conv);
+          const ctx = buildBaseContext(conv);
+          const dims = ensureDimensions(ctx);
+          if (!dims[dimName]) {
+            dims[dimName] = {
+              name: dimName,
+              components: [],
+              componentMapping: {},
+              componentTimeline: [],
+              componentColors: {},
+            };
+          }
+          dims[dimName]!.prompt = editingPrompt;
+          ctx.targetDimension = dimName;
+          ctx.customPrompt = dimName === "default" ? editingPrompt : ctx.customPrompt;
 
-      // Set up dimension-specific processing
-      const dims = ensureDimensions(ctx);
-      if (!dims[dimName]) {
-        dims[dimName] = {
-          name: dimName,
-          components: [],
-          componentMapping: {},
-          componentTimeline: [],
-          componentColors: {},
-        };
-      }
-      dims[dimName]!.prompt = editingPrompt;
-      ctx.targetDimension = dimName;
-      ctx.customPrompt = dimName === "default" ? editingPrompt : ctx.customPrompt;
-
-      await processConversationWorkflow(
-        WorkflowEvent.ComponentPromptChanged,
-        ctx,
-        runner,
-        { onAnalysisChunk },
+          await processConversationWorkflow(
+            WorkflowEvent.ComponentPromptChanged,
+            ctx,
+            runner,
+            { onAnalysisChunk },
+          );
+        }),
       );
+
+      if (selectedConversation.isGrouped) {
+        rebuildGroupedConversationFromSources(id);
+      }
     } catch (error) {
       console.error("Failed to reprocess dimension:", error);
     } finally {

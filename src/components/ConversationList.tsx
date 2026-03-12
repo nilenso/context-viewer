@@ -159,8 +159,9 @@ export function ConversationList({
   // Inline title editing state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  // Dimension accordion state
-  const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  // Dimension accordion state (scoped per conversation so one card's expansion
+  // doesn't affect other cards with the same dimension name)
+  const [expandedDimensions, setExpandedDimensions] = useState<Record<string, string | null>>({});
   const [addingDimension, setAddingDimension] = useState(false);
   const [newDimensionName, setNewDimensionName] = useState("");
   const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
@@ -890,14 +891,17 @@ export function ConversationList({
                                             {/* Dimension list */}
                                             {dimNames.map((dimName) => {
                                               const dimData = dims![dimName]!;
-                                              const isExpanded = expandedDimension === dimName;
+                                              const isExpanded = expandedDimensions[conversation.id] === dimName;
                                               return (
                                                 <div key={dimName} className="border-t">
                                                   <div
                                                     className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/30 cursor-pointer"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      setExpandedDimension(isExpanded ? null : dimName);
+                                                      setExpandedDimensions((prev) => ({
+                                                        ...prev,
+                                                        [conversation.id]: isExpanded ? null : dimName,
+                                                      }));
                                                     }}
                                                   >
                                                     {isExpanded ? (

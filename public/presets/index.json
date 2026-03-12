@@ -19,6 +19,11 @@
       "id": "workflow-tasks",
       "name": "Workflow Tasks",
       "description": "For analyzing transcripts with granular tasks mapped to tool calls"
+    },
+    {
+      "id": "test-presets",
+      "name": "test",
+      "description": "Exported prompts from \"test\""
     }
   ]
 }

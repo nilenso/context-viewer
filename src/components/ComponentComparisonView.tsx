@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { getComponentWaffleStyles } from "@/lib/component-colors";
+import { blendColors, getComponentWaffleHex, getComponentWaffleStyles } from "@/lib/component-colors";
+import { TUPLE_SEPARATOR } from "@/aggregation";
 import { ArrowUp, ArrowDown, LayoutGrid, Rows3 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -21,7 +22,15 @@ export interface ConversationComponentData {
   dimensionData?: Record<string, {
     componentTokens: Record<string, number>;
     messageComponents?: string[];
+    componentColors?: Record<string, string>;
   }>;
+  // Filtered part-level assignments used to derive AND/tuple comparisons for arbitrary dimension subsets
+  partDimensionTokens?: Array<{
+    tokenCount: number;
+    dimensions: Record<string, string>;
+  }>;
+  // First matching part per message, per dimension, for workflow comparison across dimension subsets
+  messageDimensionComponents?: Array<Record<string, string>>;
 }
 
 /**
@@ -119,9 +128,11 @@ interface ComponentComparisonViewProps {
 export function CompactLegend({
   components,
   componentColors,
+  getColorStyles,
 }: {
   components: string[];
   componentColors?: Record<string, string>;
+  getColorStyles?: (component: string) => { classes: string | null; style: React.CSSProperties | null };
 }) {
   // Get unique components preserving order
   const uniqueComponents = [...new Set(components)].filter(Boolean);
@@ -129,7 +140,9 @@ export function CompactLegend({
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
       {uniqueComponents.map((component) => {
-        const colorStyles = getComponentWaffleStyles(component, componentColors);
+        const colorStyles = getColorStyles
+          ? getColorStyles(component)
+          : getComponentWaffleStyles(component, componentColors);
         return (
           <div key={component} className="flex items-center gap-1.5">
             <span
@@ -155,10 +168,12 @@ export function MessageWorkflowChart({
   messageComponents,
   componentColors,
   squaresPerRow,
+  getColorStyles,
 }: {
   messageComponents: string[];
   componentColors?: Record<string, string>;
   squaresPerRow: number;
+  getColorStyles?: (component: string) => { classes: string | null; style: React.CSSProperties | null };
 }) {
   return (
     <div className="flex-shrink-0">
@@ -169,7 +184,9 @@ export function MessageWorkflowChart({
         }}
       >
         {messageComponents.map((component, index) => {
-          const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+          const colorStyles = component
+            ? (getColorStyles ? getColorStyles(component) : getComponentWaffleStyles(component, componentColors))
+            : null;
           return (
             <div
               key={index}
@@ -197,12 +214,14 @@ function MiniWaffleChart({
   componentColors,
   sortField,
   sortDirection,
+  getColorStyles,
 }: {
   componentTokens: Record<string, number>;
   totalTokens: number;
   componentColors?: Record<string, string>;
   sortField: SortField;
   sortDirection: SortDirection;
+  getColorStyles?: (component: string) => { classes: string | null; style: React.CSSProperties | null };
 }) {
   const GRID_SIZE = 100; // 10x10 grid for mini version
 
@@ -248,7 +267,9 @@ function MiniWaffleChart({
     <div className="flex-shrink-0 w-[138px] h-[138px]">
       <div className="grid grid-cols-[repeat(10,minmax(0,1fr))] gap-0.5">
         {squares.map(({ component, index }) => {
-          const colorStyles = component ? getComponentWaffleStyles(component, componentColors) : null;
+          const colorStyles = component
+            ? (getColorStyles ? getColorStyles(component) : getComponentWaffleStyles(component, componentColors))
+            : null;
           return (
             <div
               key={index}
@@ -277,6 +298,96 @@ function formatTokenCount(tokens: number): string {
   return String(tokens);
 }
 
+function getTupleKeyForDimensions(
+  dimensions: Record<string, string> | undefined,
+  activeDimensions: string[],
+): string | null {
+  if (!dimensions) return null;
+  const tupleParts = activeDimensions
+    .map((dimName) => {
+      const component = dimensions[dimName];
+      return component ? `${dimName}:${component}` : null;
+    })
+    .filter((value): value is string => value !== null);
+
+  return tupleParts.length > 0 ? tupleParts.join(TUPLE_SEPARATOR) : null;
+}
+
+function getColorStylesForComponentKey(
+  componentKey: string,
+  componentColors?: Record<string, string>,
+  dimensionData?: ConversationComponentData["dimensionData"],
+) {
+  if (!componentKey.includes(TUPLE_SEPARATOR) && !componentKey.includes(":")) {
+    return getComponentWaffleStyles(componentKey, componentColors);
+  }
+
+  const tupleParts = componentKey.split(TUPLE_SEPARATOR);
+  const colors = tupleParts
+    .map((part) => {
+      const sepIdx = part.indexOf(":");
+      if (sepIdx <= 0) return null;
+      const dimName = part.slice(0, sepIdx);
+      const component = part.slice(sepIdx + 1);
+      return getComponentWaffleHex(component, dimensionData?.[dimName]?.componentColors);
+    })
+    .filter(Boolean) as string[];
+
+  if (colors.length === 0) {
+    return getComponentWaffleStyles(componentKey, componentColors);
+  }
+
+  return {
+    classes: null,
+    style: { backgroundColor: colors.length === 1 ? colors[0] : blendColors(colors) },
+  };
+}
+
+function deriveConversationViewData(
+  conversation: ConversationComponentData,
+  activeDimensions: string[],
+) {
+  if (!conversation.dimensionData || activeDimensions.length === 0) {
+    return {
+      componentTokens: conversation.componentTokens,
+      totalTokens: conversation.totalTokens,
+      messageComponents: conversation.messageComponents || [],
+    };
+  }
+
+  if (activeDimensions.length === 1) {
+    const [dimName] = activeDimensions;
+    const dimData = dimName ? conversation.dimensionData[dimName] : undefined;
+    if (dimData) {
+      const totalTokens = Object.values(dimData.componentTokens).reduce((sum, value) => sum + value, 0);
+      return {
+        componentTokens: dimData.componentTokens,
+        totalTokens,
+        messageComponents: dimData.messageComponents || [],
+      };
+    }
+  }
+
+  const tupleTokens: Record<string, number> = {};
+  let totalTokens = 0;
+  for (const part of conversation.partDimensionTokens || []) {
+    const tupleKey = getTupleKeyForDimensions(part.dimensions, activeDimensions);
+    if (!tupleKey) continue;
+    tupleTokens[tupleKey] = (tupleTokens[tupleKey] || 0) + part.tokenCount;
+    totalTokens += part.tokenCount;
+  }
+
+  const messageComponents = (conversation.messageDimensionComponents || [])
+    .map((messageDims) => getTupleKeyForDimensions(messageDims, activeDimensions))
+    .filter((value): value is string => value !== null);
+
+  return {
+    componentTokens: tupleTokens,
+    totalTokens,
+    messageComponents,
+  };
+}
+
 /**
  * Absolute waffle chart - each square = tokensPerSquare tokens
  * Height varies based on total tokens, enabling cross-conversation comparison
@@ -290,6 +401,7 @@ function AbsoluteWaffleChart({
   maxRows,
   tokensPerSquare,
   columns,
+  getColorStyles,
 }: {
   componentTokens: Record<string, number>;
   totalTokens: number;
@@ -299,6 +411,7 @@ function AbsoluteWaffleChart({
   maxRows: number;
   tokensPerSquare: number;
   columns: number;
+  getColorStyles?: (component: string) => { classes: string | null; style: React.CSSProperties | null };
 }) {
   // Sort components
   const componentData = sortField === "category"
@@ -351,7 +464,7 @@ function AbsoluteWaffleChart({
       >
         {reversed.map((sq, index) => {
           const colorStyles = sq.component
-            ? getComponentWaffleStyles(sq.component, componentColors)
+            ? (getColorStyles ? getColorStyles(sq.component) : getComponentWaffleStyles(sq.component, componentColors))
             : null;
           return (
             <div
@@ -379,12 +492,14 @@ function ComparisonLegend({
   componentColors,
   sortField,
   sortDirection,
+  getColorStyles,
 }: {
   componentTokens: Record<string, number>;
   totalTokens: number;
   componentColors?: Record<string, string>;
   sortField: SortField;
   sortDirection: SortDirection;
+  getColorStyles?: (component: string) => { classes: string | null; style: React.CSSProperties | null };
 }) {
   const componentData = sortField === "category"
     ? sortByCategory(componentTokens, sortDirection)
@@ -405,7 +520,9 @@ function ComparisonLegend({
   return (
     <div className="flex flex-col gap-0.5 text-xs">
       {componentData.map(({ component, percentage }) => {
-        const colorStyles = getComponentWaffleStyles(component, componentColors);
+        const colorStyles = getColorStyles
+          ? getColorStyles(component)
+          : getComponentWaffleStyles(component, componentColors);
         return (
           <div key={component} className="flex items-center gap-1.5">
             <span
@@ -459,6 +576,43 @@ export function ComponentComparisonView({
   const [localSquaresPerRow, setLocalSquaresPerRow] = useState<number>(20);
   const [localLegendMode, setLocalLegendMode] = useState<LegendMode>("expanded");
 
+  const availableDimensions = useMemo(() => {
+    const dims = new Set<string>();
+    for (const conversation of sourceConversations) {
+      for (const dimName of Object.keys(conversation.dimensionData || {})) {
+        dims.add(dimName);
+      }
+    }
+    const sorted = [...dims].sort((a, b) => {
+      if (a === "default") return -1;
+      if (b === "default") return 1;
+      return a.localeCompare(b);
+    });
+    return sorted;
+  }, [sourceConversations]);
+
+  const [localActiveDimensions, setLocalActiveDimensions] = useState<Set<string>>(() => {
+    if (availableDimensions.length === 0) return new Set();
+    return new Set([availableDimensions[0]!]);
+  });
+
+  const activeDimensions = useMemo(() => {
+    const availableSet = new Set(availableDimensions);
+    const filtered = [...localActiveDimensions].filter((dim) => availableSet.has(dim));
+    if (filtered.length > 0) {
+      return filtered.sort((a, b) => availableDimensions.indexOf(a) - availableDimensions.indexOf(b));
+    }
+    return availableDimensions.length > 0 ? [availableDimensions[0]!] : [];
+  }, [localActiveDimensions, availableDimensions]);
+
+  const derivedConversations = useMemo(
+    () => sourceConversations.map((conversation) => ({
+      conversation,
+      derived: deriveConversationViewData(conversation, activeDimensions),
+    })),
+    [sourceConversations, activeDimensions],
+  );
+
   // Use controlled values if provided, otherwise use local state
   const viewMode = controlledViewMode ?? localViewMode;
   const legendMode = controlledLegendMode ?? localLegendMode;
@@ -493,9 +647,9 @@ export function ComponentComparisonView({
     onSquaresPerRowChange?.(spr);
   };
 
-  // Check if workflow view is available (any conversation has messageComponents)
-  const hasWorkflowData = sourceConversations.some(
-    (c) => c.messageComponents && c.messageComponents.length > 0,
+  // Check if workflow view is available (any conversation has messageComponents for the active dimension selection)
+  const hasWorkflowData = derivedConversations.some(
+    ({ derived }) => derived.messageComponents.length > 0,
   );
 
   const handleSortClick = (field: SortField) => {
@@ -508,6 +662,20 @@ export function ComponentComparisonView({
       // Default: tokens/category descending (largest first), name ascending (A-Z)
       setSortDirection(field === "name" ? "asc" : "desc");
     }
+  };
+
+  const handleToggleDimension = (dimName: string) => {
+    setLocalActiveDimensions((prev) => {
+      const next = new Set(prev);
+      if (next.has(dimName)) {
+        if (next.size > 1) {
+          next.delete(dimName);
+        }
+      } else {
+        next.add(dimName);
+      }
+      return next;
+    });
   };
 
   if (sourceConversations.length === 0) {
@@ -574,6 +742,27 @@ export function ComponentComparisonView({
               )}
             </div>
           </div>
+          {availableDimensions.length > 1 && (
+            <>
+              <Separator orientation="vertical" className="h-6" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground font-medium">Dimensions</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {availableDimensions.map((dimName) => (
+                    <label key={dimName} className="flex items-center gap-1 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={activeDimensions.includes(dimName)}
+                        onChange={() => handleToggleDimension(dimName)}
+                        className="h-3 w-3 accent-blue-600"
+                      />
+                      <span className="text-gray-700">{dimName}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           <Separator orientation="vertical" className="h-6" />
 
           {/* Legend toggle - only for token view */}
@@ -705,15 +894,16 @@ export function ComponentComparisonView({
       {/* Content area */}
       <div className="border rounded-lg bg-muted/30 p-4">
         {/* Shared compact legend - for workflow, tokens-absolute, or compact token view */}
-      {(viewMode === "workflow" || viewMode === "tokens-absolute" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
+      {(viewMode === "workflow" || viewMode === "tokens-absolute" || (viewMode === "tokens" && legendMode === "compact")) && derivedConversations.length > 0 && (
         <div className="mb-4">
           <CompactLegend
             components={
               viewMode === "workflow"
-                ? sourceConversations.flatMap((c) => c.messageComponents || [])
-                : sourceConversations.flatMap((c) => Object.keys(c.componentTokens))
+                ? derivedConversations.flatMap(({ derived }) => derived.messageComponents)
+                : derivedConversations.flatMap(({ derived }) => Object.keys(derived.componentTokens))
             }
-            componentColors={componentColors}
+            componentColors={activeDimensions.length === 1 ? derivedConversations[0]?.conversation.dimensionData?.[activeDimensions[0] || ""]?.componentColors || componentColors : undefined}
+            getColorStyles={(component) => getColorStylesForComponentKey(component, componentColors, derivedConversations[0]?.conversation.dimensionData)}
           />
         </div>
       )}
@@ -722,8 +912,8 @@ export function ComponentComparisonView({
       {viewMode === "tokens-absolute" ? (() => {
         const absColumns = Math.max(2, Math.min(10, squaresPerRow)); // clamp to 2-10
         const MAX_SQUARES = 100; // largest conversation gets 100 squares
-        const maxTokens = Math.max(...sourceConversations.map((c) => c.totalTokens));
-        const tokensPerSquare = Math.ceil(maxTokens / MAX_SQUARES);
+        const maxTokens = Math.max(...derivedConversations.map(({ derived }) => derived.totalTokens));
+        const tokensPerSquare = Math.max(1, Math.ceil(maxTokens / MAX_SQUARES));
         const maxRows = Math.ceil(MAX_SQUARES / absColumns);
 
         return (
@@ -731,7 +921,7 @@ export function ComponentComparisonView({
             className="grid gap-6"
             style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
           >
-              {sourceConversations.map((conv) => (
+              {derivedConversations.map(({ conversation: conv, derived }) => (
                 <div key={conv.id} className="flex flex-col items-center">
                   <div className="mb-1 text-center">
                     <button
@@ -742,18 +932,19 @@ export function ComponentComparisonView({
                       {conv.title || conv.filename}
                     </button>
                     <p className="text-[10px] text-muted-foreground [font-variant:small-caps]">
-                      {conv.turnCount} turns · {conv.messageCount} msgs
+                      {conv.messageCount} msgs
                     </p>
                   </div>
                   <AbsoluteWaffleChart
-                    componentTokens={conv.componentTokens}
-                    totalTokens={conv.totalTokens}
-                    componentColors={componentColors}
+                    componentTokens={derived.componentTokens}
+                    totalTokens={derived.totalTokens}
+                    componentColors={activeDimensions.length === 1 ? conv.dimensionData?.[activeDimensions[0] || ""]?.componentColors || componentColors : undefined}
                     sortField={sortField}
                     sortDirection={sortDirection}
                     maxRows={maxRows}
                     tokensPerSquare={tokensPerSquare}
                     columns={absColumns}
+                    getColorStyles={(component) => getColorStylesForComponentKey(component, componentColors, conv.dimensionData)}
                   />
                 </div>
               ))}
@@ -764,7 +955,7 @@ export function ComponentComparisonView({
         className="grid gap-6"
         style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
       >
-        {sourceConversations.map((conv) => (
+        {derivedConversations.map(({ conversation: conv, derived }) => (
           <div key={conv.id} className={cn(
             "border rounded-lg bg-white",
             viewMode === "tokens" && legendMode === "compact" ? "p-2" : "p-4"
@@ -779,7 +970,7 @@ export function ComponentComparisonView({
                 {conv.title || conv.filename}
               </button>
               <p className="text-xs text-muted-foreground [font-variant:small-caps]">
-                {conv.totalTokens.toLocaleString()} tokens · {conv.turnCount} turns · {conv.messageCount} messages
+                {derived.totalTokens.toLocaleString()} tokens · {conv.messageCount} messages
                 {conv.durationMs !== undefined && ` · ${formatDuration(conv.durationMs)}`}
               </p>
             </div>
@@ -789,29 +980,32 @@ export function ComponentComparisonView({
               {viewMode === "tokens" ? (
                 <>
                   <MiniWaffleChart
-                    componentTokens={conv.componentTokens}
-                    totalTokens={conv.totalTokens}
-                    componentColors={componentColors}
+                    componentTokens={derived.componentTokens}
+                    totalTokens={derived.totalTokens}
+                    componentColors={activeDimensions.length === 1 ? conv.dimensionData?.[activeDimensions[0] || ""]?.componentColors || componentColors : undefined}
                     sortField={sortField}
                     sortDirection={sortDirection}
+                    getColorStyles={(component) => getColorStylesForComponentKey(component, componentColors, conv.dimensionData)}
                   />
                   {legendMode === "expanded" && (
                     <div className="flex-1 min-w-0 max-h-[216px] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
                       <ComparisonLegend
-                        componentTokens={conv.componentTokens}
-                        totalTokens={conv.totalTokens}
-                        componentColors={componentColors}
+                        componentTokens={derived.componentTokens}
+                        totalTokens={derived.totalTokens}
+                        componentColors={activeDimensions.length === 1 ? conv.dimensionData?.[activeDimensions[0] || ""]?.componentColors || componentColors : undefined}
                         sortField={sortField}
                         sortDirection={sortDirection}
+                        getColorStyles={(component) => getColorStylesForComponentKey(component, componentColors, conv.dimensionData)}
                       />
                     </div>
                   )}
                 </>
-              ) : conv.messageComponents ? (
+              ) : derived.messageComponents.length > 0 ? (
                 <MessageWorkflowChart
-                  messageComponents={conv.messageComponents}
-                  componentColors={componentColors}
+                  messageComponents={derived.messageComponents}
+                  componentColors={activeDimensions.length === 1 ? conv.dimensionData?.[activeDimensions[0] || ""]?.componentColors || componentColors : undefined}
                   squaresPerRow={squaresPerRow}
+                  getColorStyles={(component) => getColorStylesForComponentKey(component, componentColors, conv.dimensionData)}
                 />
               ) : (
                 <div className="text-xs text-muted-foreground">
