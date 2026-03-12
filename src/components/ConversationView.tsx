@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation, Message, SourceInfo } from "@/schema";
 import type { DimensionData } from "@/componentisation";
-import { getMessageTokenCount, getPartTokenCount, type ComponentTimelineSnapshot } from "@/aggregation";
+import { getMessageTokenCount, getPartTokenCount, TUPLE_SEPARATOR, type ComponentTimelineSnapshot } from "@/aggregation";
 import {
   type MessageFilter,
   type SortOption as UrlSortOption,
@@ -226,39 +226,69 @@ export function ConversationView({
     onMessageFiltersChange?.(filters);
   };
 
-  // Initialize selected components when components prop changes
-  useEffect(() => {
-    if (components && components.length > 0 && !controlledSelectedComponents) {
-      setLocalSelectedComponents(new Set(components));
+  const componentFilterOptions = useMemo(() => {
+    if (dimensions && Object.keys(dimensions).length > 1) {
+      return Object.entries(dimensions)
+        .map(([dimName, dim]) => ({
+          dimName,
+          options: [...new Set(Object.values(dim.componentMapping))]
+            .sort()
+            .map((component) => ({
+              key: `${dimName}:${component}`,
+              component,
+            })),
+        }))
+        .filter((group) => group.options.length > 0);
     }
-  }, [components, controlledSelectedComponents]);
+
+    return components && components.length > 0
+      ? [{
+          dimName: null as string | null,
+          options: components.map((component) => ({ key: component, component })),
+        }]
+      : [];
+  }, [dimensions, components]);
+
+  const allComponentFilterKeys = useMemo(
+    () => componentFilterOptions.flatMap((group) => group.options.map((option) => option.key)),
+    [componentFilterOptions],
+  );
+
+  const isMultiDimensionComponentFilter = componentFilterOptions.length > 1;
+
+  // Initialize selected components when component filter options change
+  useEffect(() => {
+    if (allComponentFilterKeys.length > 0 && !controlledSelectedComponents) {
+      setLocalSelectedComponents(new Set(allComponentFilterKeys));
+    }
+  }, [allComponentFilterKeys, controlledSelectedComponents]);
 
   // Helper to toggle a component filter
-  const toggleComponent = (component: string) => {
+  const toggleComponent = (componentKey: string) => {
     const newSet = new Set(selectedComponents);
-    if (newSet.has(component)) {
-      newSet.delete(component);
+    if (newSet.has(componentKey)) {
+      newSet.delete(componentKey);
     } else {
-      newSet.add(component);
+      newSet.add(componentKey);
     }
     setSelectedComponents(newSet);
   };
 
   // Toggle all components
   const toggleAllComponents = () => {
-    if (components) {
-      if (selectedComponents.size === components.length) {
+    if (allComponentFilterKeys.length > 0) {
+      if (selectedComponents.size === allComponentFilterKeys.length) {
         setSelectedComponents(new Set());
       } else {
-        setSelectedComponents(new Set(components));
+        setSelectedComponents(new Set(allComponentFilterKeys));
       }
     }
   };
 
   // Get display text for component filter button
   const getComponentFilterDisplayText = () => {
-    if (!components || components.length === 0) return "No Components";
-    if (selectedComponents.size === components.length) return "All Components";
+    if (allComponentFilterKeys.length === 0) return "No Components";
+    if (selectedComponents.size === allComponentFilterKeys.length) return "All Components";
     if (selectedComponents.size === 0) return "No Components";
     return `${selectedComponents.size} Component${selectedComponents.size !== 1 ? 's' : ''}`;
   };
@@ -266,7 +296,7 @@ export function ConversationView({
   // Get combined filter display text
   const getCombinedFilterDisplayText = () => {
     const messageFilterText = getFilterDisplayText();
-    const hasComponentFilter = components && components.length > 0;
+    const hasComponentFilter = allComponentFilterKeys.length > 0;
 
     if (!hasComponentFilter) {
       return messageFilterText;
@@ -274,7 +304,7 @@ export function ConversationView({
 
     const componentFilterText = getComponentFilterDisplayText();
     const isAllMessages = hasAllFilters;
-    const isAllComponents = selectedComponents.size === components.length;
+    const isAllComponents = selectedComponents.size === allComponentFilterKeys.length;
 
     if (isAllMessages && isAllComponents) {
       return "All Filters";
@@ -289,6 +319,59 @@ export function ConversationView({
     return `${activeCount} Filter${activeCount !== 1 ? 's' : ''}`;
   };
 
+  const partMatchesComponentFilters = useCallback((partId: string, sourceDims?: Record<string, DimensionData>, sourceMapping?: Record<string, string>) => {
+    if (allComponentFilterKeys.length === 0) return true;
+    if (selectedComponents.size === 0) return false;
+    if (selectedComponents.size === allComponentFilterKeys.length) return true;
+
+    if (isMultiDimensionComponentFilter) {
+      const selectedByDimension = new Map<string, Set<string>>();
+      const allByDimension = new Map<string, Set<string>>();
+
+      for (const group of componentFilterOptions) {
+        if (!group.dimName) continue;
+        allByDimension.set(group.dimName, new Set(group.options.map((option) => option.component)));
+        selectedByDimension.set(
+          group.dimName,
+          new Set(
+            group.options
+              .filter((option) => selectedComponents.has(option.key))
+              .map((option) => option.component),
+          ),
+        );
+      }
+
+      const sourceAssignments: Record<string, string | undefined> = {};
+      const defaultComponent = sourceMapping?.[partId] || componentMapping?.[partId];
+      if (defaultComponent) {
+        sourceAssignments.default = defaultComponent;
+      }
+      if (sourceDims) {
+        for (const [dimName, dim] of Object.entries(sourceDims)) {
+          sourceAssignments[dimName] = dim.componentMapping[partId];
+        }
+      }
+
+      let hasRelevantDimension = false;
+      for (const [dimName, allForDim] of allByDimension.entries()) {
+        const selectedForDim = selectedByDimension.get(dimName);
+        if (!selectedForDim || selectedForDim.size === allForDim.size) {
+          continue;
+        }
+        hasRelevantDimension = true;
+        const component = sourceAssignments[dimName];
+        if (!component || !selectedForDim.has(component)) {
+          return false;
+        }
+      }
+
+      return hasRelevantDimension;
+    }
+
+    const component = sourceMapping?.[partId] || componentMapping?.[partId];
+    return component ? selectedComponents.has(component) : false;
+  }, [allComponentFilterKeys, selectedComponents, isMultiDimensionComponentFilter, componentFilterOptions, componentMapping]);
+
   // Handle clicking on a component badge - filters to show only that component
   const handleComponentClick = (component: string) => {
     setSelectedComponents(new Set([component]));
@@ -296,9 +379,9 @@ export function ConversationView({
 
   const selectedAutoComponentMatchesPart = useCallback((partId: string, selected: string) => {
     // Multi-dimension tuple selection from ComponentsView, e.g.
-    // "default:instructions|relevance:high"
-    if (selected.includes("|") || selected.includes(":")) {
-      const tupleParts = selected.split("|").map((entry) => {
+    // "default:instructions · relevance:high"
+    if (selected.includes(TUPLE_SEPARATOR)) {
+      const tupleParts = selected.split(TUPLE_SEPARATOR).map((entry) => {
         const sepIdx = entry.indexOf(":");
         if (sepIdx <= 0) return null;
         return {
@@ -310,6 +393,10 @@ export function ConversationView({
       if (tupleParts.length === 0) return false;
 
       return tupleParts.every(({ dimName, component }) => {
+        if (dimName === "default") {
+          const defaultMapping = dimensions?.default?.componentMapping || componentMapping || {};
+          return defaultMapping[partId] === component;
+        }
         const dim = dimensions?.[dimName];
         return dim?.componentMapping[partId] === component;
       });
@@ -317,7 +404,7 @@ export function ConversationView({
 
     // Single-dimension selection: use the currently active dimension mapping.
     return effectiveAutoComponentMapping[partId] === selected;
-  }, [dimensions, effectiveAutoComponentMapping]);
+  }, [dimensions, componentMapping, effectiveAutoComponentMapping]);
 
   // Get sort icon based on current sort
   const getSortIcon = () => {
@@ -459,7 +546,7 @@ export function ConversationView({
       return sourceConversationComponents;
     }
 
-    const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
+    const hasComponentFilters = allComponentFilterKeys.length > 0 && selectedComponents.size > 0 && selectedComponents.size < allComponentFilterKeys.length;
 
     // Compute filtered data for each source conversation
     return sourceWorkflowStates
@@ -521,12 +608,10 @@ export function ConversationView({
           for (const part of message.parts) {
             if (!partPassesMessageTypeFilter(part, message.role)) continue;
 
-            const { legacyComponent, allComponents, dimensionAssignments } = getPartComponents(part.id);
+            const { legacyComponent, dimensionAssignments } = getPartComponents(part.id);
 
-            if (hasComponentFilters) {
-              if (allComponents.length === 0 || allComponents.some((c) => !selectedComponents.has(c))) {
-                continue;
-              }
+            if (hasComponentFilters && !partMatchesComponentFilters(part.id, source.dimensions, source.componentMapping)) {
+              continue;
             }
 
             messagePassed = true;
@@ -612,7 +697,7 @@ export function ConversationView({
         return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [sourceWorkflowStates, sourceConversationComponents, components, selectedComponents, hasAllFilters, messageFiltersSet]);
+  }, [sourceWorkflowStates, sourceConversationComponents, selectedComponents, hasAllFilters, messageFiltersSet, allComponentFilterKeys.length, partMatchesComponentFilters]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
@@ -626,22 +711,9 @@ export function ConversationView({
         }
       }
 
-      // Filter by components - hide part if ANY of its components (across dimensions) is unselected
-      if (componentMapping && components && selectedComponents.size > 0 && selectedComponents.size < components.length) {
-        // Collect all components this part belongs to across all dimensions
-        const partComponents: string[] = [];
-        const legacyComp = componentMapping[part.id];
-        if (legacyComp) partComponents.push(legacyComp);
-        if (dimensions) {
-          for (const dim of Object.values(dimensions)) {
-            const dc = dim.componentMapping[part.id];
-            if (dc && !partComponents.includes(dc)) partComponents.push(dc);
-          }
-        }
-        // Part must have at least one component, and ALL must be selected
-        if (partComponents.length === 0 || partComponents.some(c => !selectedComponents.has(c))) {
-          return false;
-        }
+      // Filter by components
+      if (!partMatchesComponentFilters(part.id, dimensions, componentMapping)) {
+        return false;
       }
 
       // Filter by search query
@@ -696,7 +768,7 @@ export function ConversationView({
     }
 
     return sorted;
-  }, [conversation.messages, messageFiltersSet, hasAllFilters, searchQuery, sortBy, componentMapping, components, selectedComponents]);
+  }, [conversation.messages, messageFiltersSet, hasAllFilters, searchQuery, sortBy, componentMapping, dimensions, partMatchesComponentFilters]);
 
   // Generate markdown and copy to clipboard
   const copyToMarkdown = useCallback(async () => {
@@ -712,7 +784,7 @@ export function ConversationView({
         const filterNames = Array.from(messageFiltersSet).map(f => f.replace(":", " → "));
         activeFilters.push(`Message types: ${filterNames.join(", ")}`);
       }
-      if (components && selectedComponents.size > 0 && selectedComponents.size < components.length) {
+      if (allComponentFilterKeys.length > 0 && selectedComponents.size > 0 && selectedComponents.size < allComponentFilterKeys.length) {
         activeFilters.push(`Components: ${Array.from(selectedComponents).join(", ")}`);
       }
 
@@ -957,12 +1029,12 @@ export function ConversationView({
                     </div>
 
                     {/* Vertical Separator - only show if components exist */}
-                    {components && components.length > 0 && (
+                    {allComponentFilterKeys.length > 0 && (
                       <Separator orientation="vertical" className="h-auto" />
                     )}
 
                     {/* Component Filters Section - only show if components exist */}
-                    {components && components.length > 0 && (
+                    {allComponentFilterKeys.length > 0 && (
                       <div className="p-3 overflow-y-auto min-w-[240px] max-w-[300px]">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -975,54 +1047,36 @@ export function ConversationView({
                               onClick={toggleAllComponents}
                               className="h-6 text-xs"
                             >
-                              {selectedComponents.size === components.length ? "Clear All" : "Select All"}
+                              {selectedComponents.size === allComponentFilterKeys.length ? "Clear All" : "Select All"}
                             </Button>
                           </div>
                           <div className="space-y-1">
-                            {dimensions && Object.keys(dimensions).length > 1 ? (
-                              // Group by dimension
-                              Object.entries(dimensions).map(([dimName, dim]) => {
-                                const dimComponents = [...new Set(Object.values(dim.componentMapping))].sort();
-                                if (dimComponents.length === 0) return null;
-                                return (
-                                  <div key={dimName}>
+                            {componentFilterOptions.map((group) => {
+                              if (group.options.length === 0) return null;
+                              return (
+                                <div key={group.dimName || "default"}>
+                                  {isMultiDimensionComponentFilter && group.dimName && (
                                     <div className="text-xs font-medium text-muted-foreground px-2 pt-2 pb-1">
-                                      {dimName}
+                                      {group.dimName}
                                     </div>
-                                    {dimComponents.map((component) => (
-                                      <label
-                                        key={`${dimName}:${component}`}
-                                        className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
-                                      >
-                                        <Checkbox
-                                          checked={selectedComponents.has(component)}
-                                          onCheckedChange={() => toggleComponent(component)}
-                                        />
-                                        <span className="text-sm flex-1 break-words">
-                                          {component}
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              // Flat list (single or no dimensions)
-                              components.map((component) => (
-                                <label
-                                  key={component}
-                                  className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
-                                >
-                                  <Checkbox
-                                    checked={selectedComponents.has(component)}
-                                    onCheckedChange={() => toggleComponent(component)}
-                                  />
-                                  <span className="text-sm flex-1 break-words">
-                                    {component}
-                                  </span>
-                                </label>
-                              ))
-                            )}
+                                  )}
+                                  {group.options.map((option) => (
+                                    <label
+                                      key={option.key}
+                                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                                    >
+                                      <Checkbox
+                                        checked={selectedComponents.has(option.key)}
+                                        onCheckedChange={() => toggleComponent(option.key)}
+                                      />
+                                      <span className="text-sm flex-1 break-words">
+                                        {option.component}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
