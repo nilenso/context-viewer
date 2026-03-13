@@ -1,0 +1,23 @@
+{
+  "id": "workflow-from-paper",
+  "name": "workflow-from-the-paper",
+  "description": "Exported prompts from \"workflow-from-the-paper\"",
+  "components": [
+    "Explore",
+    "Reproduce",
+    "Run tests",
+    "Locate",
+    "Search",
+    "Generate fix"
+  ],
+  "colors": {
+    "Explore": "#1F77B4",
+    "Reproduce": "#FF7F0E",
+    "Run tests": "#2CA02C",
+    "Locate": "#D62728",
+    "Search": "#9467BD",
+    "Generate fix": "#8C564B"
+  },
+  "componentIdentificationPrompt": "Classify into one of the following categories.\n\n- Explore: Listing, navigating, and reading files to gather contextual information.\n- Locate: Identifying specific code regions or elements relevant to the bug or issue.\n- Search: Employing search tools to find occurrences of code elements, symbols, or patterns expressed via regular expressions.\n- Reproduce: Creating test cases to confirm the presence of the bug or the issue.\n- Generate fix: Proposing or writing code modifications intended to resolve the issue.\n- Run tests: Executing test cases to validate the proposed fix or to validate the test cases themselves.\n- Refactor: Improving code quality through optimization, reformatting, or commenting.\n- Explain: Producing natural language explanations or summaries of the issue or applied fix.",
+  "coloringPrompt": "Given this list of components, assign distinct color hexes to each component.\n\nReturn ONLY a valid JSON object mapping each component to a color name.\nExample format: {\"component_name\": \"#a1b3f\", \"another_component\": \"#fah134\"}"
+}

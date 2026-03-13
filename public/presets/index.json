@@ -19,6 +19,11 @@
       "id": "workflow-tasks",
       "name": "Workflow Tasks",
       "description": "For analyzing transcripts with granular tasks mapped to tool calls"
+    },
+    {
+      "id": "workflow-from-paper",
+      "name": "Workflow From The Paper",
+      "description": "For analyzing transcripts with granular tasks mapped to tool calls"
     }
   ]
 }

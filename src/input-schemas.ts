@@ -588,6 +588,46 @@ export type OpenCodeStepFinishPart = z.infer<typeof OpenCodeStepFinishPartSchema
 export type OpenCodePatchPart = z.infer<typeof OpenCodePatchPartSchema>;
 
 // ============================================================================
+// OpenHands Transcripts Format Schema (JSON)
+// ============================================================================
+
+// Reuses the same tool call format as completions (OpenAI function calling)
+const OpenHandsToolCallSchema = z.object({
+  id: z.string(),
+  type: z.literal("function"),
+  function: z.object({
+    name: z.string(),
+    arguments: z.string(),
+  }),
+});
+
+const OpenHandsMessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant", "tool"]),
+  content: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+  tool_calls: z.array(OpenHandsToolCallSchema).optional(),
+  tool_call_id: z.string().nullable().optional(),
+});
+
+const OpenHandsTrajectoryMetadataSchema = z.object({
+  agent: z.string().optional(),
+  instance: z.string().optional(),
+  outcome: z.string().optional(),
+  num_iterations: z.number().optional(),
+}).passthrough();
+
+export const OpenHandsInputSchema = z.object({
+  object: z.literal("chat.completion"),
+  trajectory_metadata: OpenHandsTrajectoryMetadataSchema,
+  messages: z.array(OpenHandsMessageSchema),
+});
+
+export type OpenHandsInput = z.infer<typeof OpenHandsInputSchema>;
+export type OpenHandsMessage = z.infer<typeof OpenHandsMessageSchema>;
+export type OpenHandsToolCall = z.infer<typeof OpenHandsToolCallSchema>;
+export type OpenHandsTrajectoryMetadata = z.infer<typeof OpenHandsTrajectoryMetadataSchema>;
+
+// ============================================================================
 // SWE-bench Trajectory Format Schema (JSON)
 // ============================================================================
 
