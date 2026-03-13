@@ -126,8 +126,8 @@ export function WaffleChart({
               <span className="text-muted-foreground tabular-nums text-xs w-16 text-right">
                 {tokens.toLocaleString()}
               </span>
-              <span className="text-muted-foreground tabular-nums w-10 text-right">
-                {percentage.toFixed(0)}%
+              <span className="text-muted-foreground tabular-nums w-16 text-right">
+                {percentage.toFixed(2)}%
               </span>
             </button>
           );
