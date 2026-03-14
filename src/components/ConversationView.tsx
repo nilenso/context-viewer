@@ -227,18 +227,19 @@ export function ConversationView({
   };
 
   const componentFilterOptions = useMemo(() => {
-    if (dimensions && Object.keys(dimensions).length > 1) {
-      return Object.entries(dimensions)
+    if (dimensions && Object.keys(dimensions).length > 0) {
+      const groups = Object.entries(dimensions)
         .map(([dimName, dim]) => ({
           dimName,
           options: [...new Set(Object.values(dim.componentMapping))]
             .sort()
             .map((component) => ({
-              key: `${dimName}:${component}`,
+              key: Object.keys(dimensions).length > 1 ? `${dimName}:${component}` : component,
               component,
             })),
         }))
         .filter((group) => group.options.length > 0);
+      if (groups.length > 0) return groups;
     }
 
     return components && components.length > 0

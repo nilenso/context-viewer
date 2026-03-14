@@ -152,7 +152,7 @@ export function CompactLegend({
               )}
               style={colorStyles.style || undefined}
             />
-            <span className="text-muted-foreground [font-variant:small-caps]">{component}</span>
+            <span className="text-muted-foreground [font-variant:small-caps]">{formatTupleLabel(component)}</span>
           </div>
         );
       })}
@@ -296,6 +296,21 @@ function formatTokenCount(tokens: number): string {
     return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
   }
   return String(tokens);
+}
+
+/** Strip dimension-name prefixes from a tuple key for display.
+ *  e.g. "DEFAULT:ENV_FAILURE · TOOL_FAILURES:TOOL_CALL_SUCCESS" → "ENV_FAILURE · TOOL_CALL_SUCCESS" */
+function formatTupleLabel(tupleKey: string): string {
+  if (!tupleKey.includes(TUPLE_SEPARATOR) && !tupleKey.includes(":")) {
+    return tupleKey;
+  }
+  return tupleKey
+    .split(TUPLE_SEPARATOR)
+    .map((part) => {
+      const sepIdx = part.indexOf(":");
+      return sepIdx > 0 ? part.slice(sepIdx + 1) : part;
+    })
+    .join(TUPLE_SEPARATOR);
 }
 
 function getTupleKeyForDimensions(
@@ -533,7 +548,7 @@ function ComparisonLegend({
               style={colorStyles.style || undefined}
             />
             <span className="flex-1 truncate text-muted-foreground [font-variant:small-caps]">
-              {component}
+              {formatTupleLabel(component)}
             </span>
             <span className="text-muted-foreground tabular-nums [font-variant:small-caps]">
               {percentage.toFixed(0)}%
