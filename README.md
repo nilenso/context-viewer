@@ -11,9 +11,9 @@ This tool itself is very simple, and the data mostly comes from a
 single prompt that you can use yourself. The visualisations are useful
 though.
 
-Here's a quick demo at 2x speed:
+Here's a quick demo:
 
-https://github.com/user-attachments/assets/bdea325b-ee7d-41fb-8214-5b76c124717a
+[![Context Viewer Demo](https://img.youtube.com/vi/tILkUHD3yz4/maxresdefault.jpg)](https://youtu.be/tILkUHD3yz4?si=ztlnsDeZu3RnkRYi&t=130)
 
 
 ### Samples
