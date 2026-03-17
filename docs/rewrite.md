@@ -83,3 +83,80 @@ Thoughts on restructuring or rewriting.
   - "Automatic vs Static" components
   - "Dimensions"
   -
+
+## AI rebuttal
+
+You don't need a full rewrite, but you do need a significant
+restructuring of App.tsx and the state layer.
+
+The core issue is that App.tsx is doing too much — it's ~3000 lines
+acting as orchestrator, state manager, workflow runner, and
+grouped-conversation builder all at once. Most of the pain points trace
+back to this, not to fundamentally broken abstractions.
+
+### What's actually solid (don't rewrite):
+- Parsers — they work flawlessly
+- Schema definitions (schema.ts) — clean Zod types
+- Aggregation logic — pure functions, well-separated
+- Component color mapping — the mapping system itself is fine
+- URL state hook — works as designed
+
+### What needs restructuring (not rewriting from scratch):
+
+**1. Extract state management from App.tsx.** This is the single
+highest-leverage change. A proper state layer (even just a context +
+reducer, or Zustand) would fix:
+- Filtering inconsistencies (conversation vs. group vs. component
+  filters all mutating different places)
+- "Apply prompts to all" bugs (state updates are scattered across
+  handler functions)
+- Grouped conversation state being a hack (it's built inline in App.tsx
+  with 200+ lines of concatenation logic)
+
+**2. Make dimensions first-class.** Right now dimensions are bolted on —
+`components`, `componentColors`, `componentMapping` exist at the top
+level AND inside `dimensions["default"]`. Colors, filtering, and "apply
+to all" break because of this dual representation. Unify to always use
+the dimensions map.
+
+**3. Rethink grouped conversations as a proper model**, not as "append
+messages and remap IDs". The data model should be something like a
+`ConversationGroup` that references source conversations and computes
+derived views, rather than building a fake merged `WorkflowState`.
+
+**4. Make the workflow pipeline explicit.** Right now the workflow is a
+big function with conditional branches per `WorkflowEvent`. Extract it
+into a pipeline with clear stages that can be re-entered at any point.
+This fixes:
+- "Generate summary in its current position is weird"
+- "Connection between summary and analysis is confusing"
+- Prompt iteration not carrying forward context from previous runs
+
+### What's incremental fixes (not structural):
+- Color prompt not mentioning hexes — prompt change
+- Percentage precision toggle — small UI addition
+- Timeline graph unused — remove it or defer
+- Terminology changes (context vs conversation) — search-and-replace
+  after structural work
+- Preset export/import UX — UI work, not architecture
+
+### Recommended approach: restructure in phases, not a Big Bang rewrite.
+
+1. **Extract state into a dedicated store** (pull the ~1500 lines of
+   state + handlers out of App.tsx)
+2. **Unify the dimension model** (eliminate the dual
+   top-level/dimension representation)
+3. **Extract grouped conversations into their own module** with a proper
+   data model
+4. **Add tests as you go** — especially for the state transitions and
+   grouped conversation logic
+
+This gets 80% of the systemic fixes without throwing away working code.
+The parsers, schemas, aggregation, and AI integration all stay intact.
+The restructuring targets the orchestration and state layer, which is
+where the bugs actually live.
+
+A full rewrite risks re-introducing bugs in the parts that work fine
+(parsers, token counting, color mapping) while spending months getting
+back to feature parity. The problems are concentrated — fix the
+concentration point.
