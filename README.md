@@ -58,6 +58,16 @@ VITE_AI_API_KEY=your-openai-api-key
 VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
 ```
 
+## Documentation
+
+- [System overview](docs/system-overview.md) — data model, processing pipeline, visualizations, and interactive workflow
+- [Workflow](docs/WORKFLOW.md) — multi-stage pipeline from conversation log to visual insights
+- [Capabilities](docs/CAPABILITIES.md) — what Context Viewer can do
+- [Categorisation](docs/categorisation.md) — how conversation content is organized into semantic categories
+- [Segmentation](docs/segmentation.md) — splitting message parts into self-contained semantic units
+- [Tech stack](docs/tech-stack.md) — TypeScript/React stack, build tools, and libraries
+- [Long prompts analysis](docs/long-prompts.md) — patterns and evolution of system prompts across CLI tools
+
 ## Design
 
 Conversation data is private. Your data should stay with you. So this
