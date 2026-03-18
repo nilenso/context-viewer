@@ -16,9 +16,9 @@ import type {
   ToolResultPart,
   ImagePart,
   FilePart,
-  SourceInfo,
+  OriginInfo,
 } from "@/schema";
-import type { DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/component-types";
 
 type MessagePart =
   | TextPart
@@ -34,13 +34,13 @@ interface MessagePartViewProps {
   componentMapping?: Record<string, string>;
   componentColors?: Record<string, string>;
   onComponentClick?: (component: string) => void;
-  sourceInfo?: SourceInfo;
+  originInfo?: OriginInfo;
   // Multi-dimension support
   dimensions?: Record<string, DimensionData>;
   activeDimensions?: Set<string>;
 }
 
-export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, dimensions, activeDimensions }: MessagePartViewProps) {
+export function MessagePartView({ part, isExpanded = false, componentMapping, componentColors, onComponentClick, originInfo, dimensions, activeDimensions }: MessagePartViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Sync with parent's isExpanded prop

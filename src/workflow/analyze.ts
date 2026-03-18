@@ -2,10 +2,11 @@
  * Context analysis generation + composite sequences involving analysis.
  */
 
-import type { WorkflowState, WorkflowCallbacks, WorkflowDataField } from "./types";
+import type { WorkflowState, WorkflowCallbacks } from "./types";
 import { type Notify, startStep, endStep, timed, updateState } from "./runner";
 import { generateContextAnalysis } from "../ai-summary";
 import { runSummary } from "./summarize";
+import { getAllComponents, getDefaultDimension } from "./dimensions";
 
 export async function runAnalysis(
   ctx: WorkflowState,
@@ -14,25 +15,21 @@ export async function runAnalysis(
 ) {
   startStep(notify, ctx, "analysis");
   const { result, timing } = await timed(async () => {
-    const allComponents = new Set(ctx.components || []);
-    if (ctx.dimensions) {
-      for (const dim of Object.values(ctx.dimensions)) {
-        for (const c of dim.components) allComponents.add(c);
-      }
-    }
+    const allComponents = getAllComponents(ctx);
 
-    if (!ctx.aiSummary || allComponents.size === 0) {
+    if (!ctx.aiSummary || allComponents.length === 0) {
       const missing = [];
       if (!ctx.aiSummary) missing.push("aiSummary");
-      if (allComponents.size === 0) missing.push("components");
+      if (allComponents.length === 0) missing.push("components");
       console.warn(`[analysis] Skipping: missing ${missing.join(", ")}`);
       return { analysis: "", error: undefined as string | undefined };
     }
 
+    const defaultDim = getDefaultDimension(ctx);
     return generateContextAnalysis(
       ctx.conversation!,
-      ctx.componentTimeline || [],
-      [...allComponents],
+      defaultDim?.componentTimeline || [],
+      allComponents,
       ctx.aiSummary,
       (chunk) => callbacks.onAnalysisChunk?.(ctx.id, chunk),
       ctx.customAnalysisPrompt,
@@ -81,25 +78,3 @@ export async function regenerateAnalysisIfNeeded(
   return true;
 }
 
-/** Determine which data fields to write back for component/segmentation reprocess. */
-export function completionFieldsForReprocess(
-  event: "component" | "segmentation",
-  hadAnalysis: boolean,
-): WorkflowDataField[] {
-  const base: WorkflowDataField[] = [
-    "conversation", "components", "componentMapping", "componentTimeline",
-    "componentColors", "dimensions",
-  ];
-
-  if (event === "component") {
-    base.push("customPrompt");
-  } else {
-    base.push("customSegmentationPrompt", "segmentationThreshold");
-  }
-
-  if (hadAnalysis) {
-    base.push("analysis", "aiSummary");
-  }
-
-  return base;
-}

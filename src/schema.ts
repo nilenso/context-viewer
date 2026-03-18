@@ -123,16 +123,16 @@ export const ConversationSchema = z.object({
 });
 
 // ============================================================================
-// Source Conversation Info (for grouped conversations)
+// Origin Info (provenance: which file a message came from in a group)
 // ============================================================================
 
-export const SourceInfoSchema = z.object({
+export const OriginInfoSchema = z.object({
   conversationId: z.string(),
   filename: z.string(),
   title: z.string().optional(),
 });
 
-export type SourceInfo = z.infer<typeof SourceInfoSchema>;
+export type OriginInfo = z.infer<typeof OriginInfoSchema>;
 
 // ============================================================================
 // Type Exports

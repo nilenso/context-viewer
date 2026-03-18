@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles, blendColors, getComponentWaffleHex } from "@/lib/component-colors";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
-import { type DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/component-types";
 import { computeTupleTokens, TUPLE_SEPARATOR, aggregateComponentTokens, type ComponentTimelineSnapshot } from "@/aggregation";
 
 // Message type filter in format "role:type" (e.g., "assistant:tool-call")

@@ -7,8 +7,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { MessagePartView } from "./MessagePartView";
-import type { Message, SourceInfo } from "@/schema";
-import type { DimensionData } from "@/componentisation";
+import type { Message, OriginInfo } from "@/schema";
+import type { DimensionData } from "@/component-types";
 import { getMessageTokenCount } from "@/aggregation";
 import { cn } from "@/lib/utils";
 
@@ -20,8 +20,8 @@ interface MessageViewProps {
   componentColors?: Record<string, string>;
   onComponentClick?: (component: string) => void;
   // For grouped conversations
-  sourceInfo?: SourceInfo;
-  messageSourceMap?: Record<string, SourceInfo>;
+  originInfo?: OriginInfo;
+  messageOriginMap?: Record<string, OriginInfo>;
   // For relative time display
   conversationStartTime?: Date;
   // Multi-dimension support
@@ -51,7 +51,7 @@ function formatRelativeTime(startTime: Date, messageTime: Date): string {
   }
 }
 
-export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, sourceInfo, messageSourceMap, conversationStartTime, dimensions, activeDimensions }: MessageViewProps) {
+export function MessageView({ message, index, isExpanded = false, componentMapping, componentColors, onComponentClick, originInfo, messageOriginMap, conversationStartTime, dimensions, activeDimensions }: MessageViewProps) {
   const [isOpen, setIsOpen] = useState(isExpanded);
 
   // Calculate relative time if we have timestamps
@@ -128,9 +128,9 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
           <span className="text-base">{getRoleEmoji()}</span>
           <Badge className={getRoleBadgeColor()}>{message.role}</Badge>
           <span className="text-sm text-muted-foreground">#{index + 1}</span>
-          {sourceInfo && (
+          {originInfo && (
             <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
-              {sourceInfo.title || sourceInfo.filename}
+              {originInfo.title || originInfo.filename}
             </Badge>
           )}
           {totalTokens > 0 && (
@@ -155,7 +155,7 @@ export function MessageView({ message, index, isExpanded = false, componentMappi
               componentMapping={componentMapping}
               componentColors={componentColors}
               onComponentClick={onComponentClick}
-              sourceInfo={messageSourceMap?.[part.id]}
+              originInfo={messageOriginMap?.[part.id]}
               dimensions={dimensions}
               activeDimensions={activeDimensions}
             />

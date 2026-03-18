@@ -159,9 +159,15 @@ describe("Export → Import round-trip", () => {
           },
         ],
       },
-      componentMapping: { p1: "greeting", p2: "context", p3: "response" },
-      componentColors: { greeting: "blue", context: "green", response: "red" },
-      components: ["greeting", "context", "response"],
+      dimensions: {
+        default: {
+          name: "default",
+          components: ["greeting", "context", "response"],
+          componentMapping: { p1: "greeting", p2: "context", p3: "response" },
+          componentTimeline: [],
+          componentColors: { greeting: "blue", context: "green", response: "red" },
+        },
+      },
       aiSummary: "A simple greeting conversation",
       analysis: "Basic two-turn exchange",
       customPrompt: "Find components",
@@ -175,10 +181,9 @@ describe("Export → Import round-trip", () => {
 
     // Verify structure
     expect(exported.id).toBe("test-1");
-    expect(exported.colors).toEqual(workflowState.componentColors);
+    expect(exported.colors).toEqual(workflowState.dimensions.default.componentColors);
     expect(exported.summary).toBe(workflowState.aiSummary);
     expect(exported.conversation.messages).toHaveLength(2);
-    expect(exported.dimensions).toBeUndefined(); // No multi-dimension data
 
     // Verify component annotations on parts
     const parts = exported.conversation.messages.flatMap((m) => m.parts);
@@ -194,11 +199,10 @@ describe("Export → Import round-trip", () => {
     expect(conversation.messages).toHaveLength(2);
 
     const metadata = parser.extractMetadata(exported);
-    expect(metadata.componentColors).toEqual(workflowState.componentColors);
+    expect(metadata.componentColors).toEqual(workflowState.dimensions.default.componentColors);
     expect(metadata.aiSummary).toBe(workflowState.aiSummary);
     expect(metadata.analysis).toBe(workflowState.analysis);
     expect(metadata.customPrompt).toBe(workflowState.customPrompt);
-    expect(metadata.dimensions).toBeUndefined();
   });
 
   it("round-trips a multi-dimension conversation", () => {
@@ -225,10 +229,14 @@ describe("Export → Import round-trip", () => {
           },
         ],
       },
-      componentMapping: { p1: "identity", p2: "task_description", p3: "project_context" },
-      componentColors: { identity: "blue", task_description: "green", project_context: "orange" },
-      components: ["identity", "task_description", "project_context"],
       dimensions: {
+        default: {
+          name: "default",
+          components: ["identity", "task_description", "project_context"],
+          componentMapping: { p1: "identity", p2: "task_description", p3: "project_context" },
+          componentTimeline: [],
+          componentColors: { identity: "blue", task_description: "green", project_context: "orange" },
+        },
         workflow: {
           name: "workflow",
           components: ["identity", "task_description", "project_context"],
@@ -259,7 +267,7 @@ describe("Export → Import round-trip", () => {
 
     // Verify multi-dimension data is present
     expect(exported.dimensions).toBeDefined();
-    expect(Object.keys(exported.dimensions!)).toEqual(["workflow", "error_types"]);
+    expect(Object.keys(exported.dimensions!)).toEqual(["default", "workflow", "error_types"]);
 
     // Verify per-dimension data
     const workflowDim = exported.dimensions!["workflow"]!;
@@ -275,14 +283,14 @@ describe("Export → Import round-trip", () => {
     // Verify per-part dimension annotations
     const allParts = exported.conversation.messages.flatMap((m) => m.parts);
     const p1 = allParts.find((p) => p.id === "p1")!;
-    expect(p1.component).toBe("identity"); // Legacy field
-    expect(p1.dimensions).toEqual({ workflow: "identity", error_types: "setup" });
+    expect(p1.component).toBe("identity");
+    expect(p1.dimensions).toEqual({ default: "identity", workflow: "identity", error_types: "setup" });
 
     const p2 = allParts.find((p) => p.id === "p2")!;
-    expect(p2.dimensions).toEqual({ workflow: "task_description", error_types: "bug_description" });
+    expect(p2.dimensions).toEqual({ default: "task_description", workflow: "task_description", error_types: "bug_description" });
 
-    // Legacy colors should still be the default componentColors
-    expect(exported.colors).toEqual(workflowState.componentColors);
+    // Colors should come from the default dimension
+    expect(exported.colors).toEqual(workflowState.dimensions.default.componentColors);
 
     // Import
     const parser = new ContextViewerParser();
@@ -292,16 +300,16 @@ describe("Export → Import round-trip", () => {
     expect(conversation.messages).toHaveLength(2);
 
     const metadata = parser.extractMetadata(exported);
-    expect(metadata.componentColors).toEqual(workflowState.componentColors);
+    expect(metadata.componentColors).toEqual(workflowState.dimensions.default.componentColors);
     expect(metadata.dimensions).toBeDefined();
-    expect(Object.keys(metadata.dimensions!)).toEqual(["workflow", "error_types"]);
+    expect(Object.keys(metadata.dimensions!)).toEqual(["default", "workflow", "error_types"]);
     expect(metadata.dimensions!["error_types"]!.prompt).toBe("Identify error-related components");
     expect(metadata.dimensions!["error_types"]!.coloringPrompt).toBe("Use warm colors for errors");
 
     // Verify dimension part annotations survive parse (carried via passthrough)
     const parsedParts = conversation.messages.flatMap((m) => m.parts);
     const parsedP1 = parsedParts.find((p) => p.id === "p1")! as Record<string, unknown>;
-    expect(parsedP1["dimensions"]).toEqual({ workflow: "identity", error_types: "setup" });
+    expect(parsedP1["dimensions"]).toEqual({ default: "identity", workflow: "identity", error_types: "setup" });
   });
 
   it("backward compat: old export without dimensions imports correctly", () => {

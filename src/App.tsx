@@ -4,11 +4,10 @@ import "./parsers";
 import { useConversationStore, buildBaseContext } from "./stores/conversation-store";
 import { useUIStore } from "./stores/ui-store";
 import type { WorkflowState } from "./workflow/types";
-import { WorkflowEvent } from "./workflow/types";
+import { PipelineStep } from "./workflow/types";
 import type { Notify } from "./workflow/runner";
-import { processConversationWorkflow } from "./workflow/pipeline";
-import { ensureDimensions } from "./workflow/dimensions";
-import { getComponentisationConfig } from "./workflow/component-identification";
+import { runPipelineFrom, generateSummaryOnDemand, generateAnalysisOnDemand, rerunSummary } from "./workflow/pipeline";
+import { ensureDimensions, getDefaultDimension, getAllComponents } from "./workflow/dimensions";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { aggregateComponentTokens } from "./aggregation";
 import { ConversationList } from "./components/ConversationList";
@@ -94,12 +93,11 @@ export default function App() {
         const basePath = import.meta.env.BASE_URL || "/";
         window.history.replaceState({}, "", basePath);
       } else {
-        const conv = conversations.find((c) => c.id === id);
-        const isGrouped = conv?.isGrouped ?? false;
-        navigateToConversation(id, isGrouped);
+        const isGroup = !!useConversationStore.getState().groups[id];
+        navigateToConversation(id, isGroup);
       }
     },
-    [conversations, navigateToConversation],
+    [navigateToConversation],
   );
 
   // ---- Derived state ----
@@ -108,22 +106,116 @@ export default function App() {
     [conversations],
   );
 
-  const selectedConversation = useMemo(() => {
+  const groups = useConversationStore((s) => s.groups);
+  const selectedGroup = selectedId ? groups[selectedId] : undefined;
+
+  const selectedConversation = useMemo((): WorkflowState | undefined => {
     if (conversations.length === 0) return undefined;
+
+    // If a group is selected, build a virtual WorkflowState from member files
+    if (selectedGroup) {
+      const memberConvs = selectedGroup.fileIds
+        .map((fid) => conversations.find((c) => c.id === fid))
+        .filter((c): c is WorkflowState => !!c?.conversation);
+
+      if (memberConvs.length === 0) return undefined;
+
+      // Concatenate messages with prefixed IDs (for display)
+      const allMessages: import("./schema").Message[] = [];
+      const messageOriginMap: Record<string, import("./schema").OriginInfo> = {};
+
+      for (const conv of memberConvs) {
+        if (!conv.conversation) continue;
+        for (const msg of conv.conversation.messages) {
+          const newMsgId = `${conv.id}-${msg.id}`;
+          const newParts = msg.parts.map((part) => {
+            const newPartId = `${conv.id}-${part.id}`;
+            messageOriginMap[newPartId] = {
+              conversationId: conv.id,
+              filename: conv.filename,
+              title: conv.title,
+            };
+            return { ...part, id: newPartId };
+          });
+          messageOriginMap[newMsgId] = {
+            conversationId: conv.id,
+            filename: conv.filename,
+            title: conv.title,
+          };
+          allMessages.push({ ...msg, id: newMsgId, parts: newParts } as import("./schema").Message);
+        }
+      }
+
+      // Merge dimensions across member files
+      const mergedDims: Record<string, import("./component-types").DimensionData> = {};
+      const allDimNames = new Set<string>();
+      for (const conv of memberConvs) {
+        if (conv.dimensions) {
+          for (const name of Object.keys(conv.dimensions)) allDimNames.add(name);
+        }
+      }
+      for (const dimName of allDimNames) {
+        const componentsSet = new Set<string>();
+        const mapping: Record<string, string> = {};
+        const colors: Record<string, string> = {};
+        for (const conv of memberConvs) {
+          const dim = conv.dimensions?.[dimName];
+          if (!dim) continue;
+          for (const c of dim.components) componentsSet.add(c);
+          for (const [partId, component] of Object.entries(dim.componentMapping)) {
+            mapping[`${conv.id}-${partId}`] = component;
+          }
+          Object.assign(colors, dim.componentColors);
+        }
+        mergedDims[dimName] = {
+          name: dimName,
+          components: [...componentsSet],
+          componentMapping: mapping,
+          componentTimeline: [],
+          componentColors: colors,
+        };
+      }
+
+      // Merge static components
+      const staticComponentsSet = new Set<string>();
+      const staticMapping: Record<string, string> = {};
+      for (const conv of memberConvs) {
+        if (conv.staticComponents) conv.staticComponents.forEach((c) => staticComponentsSet.add(c));
+        if (conv.staticMapping) {
+          for (const [partId, component] of Object.entries(conv.staticMapping)) {
+            staticMapping[`${conv.id}-${partId}`] = component;
+          }
+        }
+      }
+
+      return {
+        id: selectedGroup.id,
+        filename: selectedGroup.name,
+        title: selectedGroup.title,
+        status: "success",
+        conversation: { messages: allMessages },
+        dimensions: Object.keys(mergedDims).length > 0 ? mergedDims : undefined,
+        staticComponents: [...staticComponentsSet],
+        staticMapping,
+        messageOriginMap,
+      } as WorkflowState & { messageOriginMap: Record<string, import("./schema").OriginInfo> };
+    }
+
     return conversations.find((conv) => conv.id === selectedId) ?? conversations[0];
-  }, [conversations, selectedId]);
+  }, [conversations, selectedId, selectedGroup]);
 
-  const sourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
-    if (!selectedConversation?.isGrouped || !selectedConversation.sourceConversations) return undefined;
+  const memberComponentData = useMemo((): ConversationComponentData[] | undefined => {
+    if (!selectedGroup) return undefined;
 
-    return selectedConversation.sourceConversations
-      .map((source) => {
-        const conv = conversations.find((c) => c.id === source.id);
-        if (!conv?.conversation || !conv.componentMapping) return null;
+    return selectedGroup.fileIds
+      .map((fileId) => {
+        const conv = conversations.find((c) => c.id === fileId);
+        const defaultDim = conv ? getDefaultDimension(conv) : undefined;
+        if (!conv?.conversation || !defaultDim?.componentMapping) return null;
 
         const { componentTokens, totalTokens } = aggregateComponentTokens(
           conv.conversation,
-          conv.componentMapping,
+          defaultDim.componentMapping,
         );
 
         let turnCount = 0;
@@ -142,7 +234,7 @@ export default function App() {
           }
           let messageComponent = "other";
           for (const part of message.parts) {
-            const component = conv.componentMapping[part.id];
+            const component = defaultDim.componentMapping[part.id];
             if (component) {
               if (messageComponent === "other") messageComponent = component;
               break;
@@ -157,8 +249,8 @@ export default function App() {
             : undefined;
 
         const result: ConversationComponentData = {
-          id: source.id,
-          filename: source.filename,
+          id: fileId,
+          filename: conv.filename,
           componentTokens,
           totalTokens,
           turnCount,
@@ -170,25 +262,26 @@ export default function App() {
         return result;
       })
       .filter((data): data is ConversationComponentData => data !== null);
-  }, [selectedConversation, conversations]);
+  }, [selectedGroup, conversations]);
 
-  const sourceWorkflowStates = useMemo(() => {
-    if (!selectedConversation?.isGrouped || !selectedConversation.sourceConversations) return undefined;
-    return selectedConversation.sourceConversations
-      .map((source) => {
-        const conv = conversations.find((c) => c.id === source.id);
-        if (!conv?.conversation || !conv.componentMapping) return null;
+  const memberWorkflowStates = useMemo(() => {
+    if (!selectedGroup) return undefined;
+    return selectedGroup.fileIds
+      .map((fileId) => {
+        const conv = conversations.find((c) => c.id === fileId);
+        const dim = conv ? getDefaultDimension(conv) : undefined;
+        if (!conv?.conversation || !dim?.componentMapping) return null;
         return {
-          id: source.id,
-          filename: source.filename,
+          id: fileId,
+          filename: conv.filename,
           title: conv.title,
           conversation: conv.conversation,
-          componentMapping: conv.componentMapping,
+          componentMapping: dim.componentMapping,
           dimensions: conv.dimensions,
         };
       })
       .filter((state): state is NonNullable<typeof state> => state !== null);
-  }, [selectedConversation, conversations]);
+  }, [selectedGroup, conversations]);
 
   // ---- Preset loading ----
   useEffect(() => {
@@ -234,6 +327,8 @@ export default function App() {
       return;
     }
     if (!conversations.some((conv) => conv.id === selectedId)) {
+      // Don't reset if this is a group or a pending group from session import
+      if (useConversationStore.getState().groups[selectedId]) return;
       const pendingGroups = useConversationStore.getState().pendingSessionImport?.groups;
       if (pendingGroups?.some((g) => g.id === selectedId)) return;
       setSelectedId(firstConversation.id);
@@ -242,7 +337,7 @@ export default function App() {
 
   // Process pending groups from session import
   useEffect(() => {
-    processPendingGroups(setSelectedId);
+    processPendingGroups();
   }, [conversations]);
 
   // Switch to analysis tab when analysis starts streaming
@@ -261,7 +356,7 @@ export default function App() {
           ...msg,
           parts: msg.parts.map((part) => ({
             ...part,
-            component: selectedConversation.componentMapping?.[part.id],
+            component: getDefaultDimension(selectedConversation)?.componentMapping[part.id],
           })),
         })),
       };
@@ -271,11 +366,11 @@ export default function App() {
         msg: (index: number) => conversationWithComponents.messages[index],
         part: (msgIndex: number, partIndex: number) =>
           conversationWithComponents.messages[msgIndex]?.parts[partIndex],
-        componentComparison: sourceConversationComponents,
-        componentColors: selectedConversation.componentColors,
+        componentComparison: memberComponentData,
+        componentColors: getDefaultDimension(selectedConversation)?.componentColors,
       };
     }
-  }, [selectedConversation, sourceConversationComponents]);
+  }, [selectedConversation, memberComponentData]);
 
   // URL auto-import
   const importInProgressRef = useRef(false);
@@ -314,17 +409,17 @@ export default function App() {
     const id = selectedConversation.id;
     ui.setReprocessingId(id);
     try {
-      // Check if grouped
-      if (selectedConversation.isGrouped && selectedConversation.sourceConversations) {
-        const sourceConvs = selectedConversation.sourceConversations
-          .map((source) => conversations.find((c) => c.id === source.id))
-          .filter((c): c is WorkflowState => c !== null && c?.conversation !== null);
+      // If this is a group, fan out to member files
+      if (selectedGroup) {
+        const memberConvs = selectedGroup.fileIds
+          .map((fid) => conversations.find((c) => c.id === fid))
+          .filter((c): c is WorkflowState => !!c?.conversation);
 
         await Promise.all(
-          sourceConvs.map(async (conv) => {
+          memberConvs.map(async (conv) => {
             await useConversationStore.getState().handleReprocessWithRunner(
               conv,
-              WorkflowEvent.ComponentPromptChanged,
+              PipelineStep.Identify,
               (ctx) => {
                 ctx.customPrompt = options.customPrompt;
                 ctx.customComponents = options.customComponents;
@@ -338,7 +433,7 @@ export default function App() {
 
       await useConversationStore.getState().handleReprocessWithRunner(
         selectedConversation,
-        WorkflowEvent.ComponentPromptChanged,
+        PipelineStep.Identify,
         (ctx) => {
           ctx.customPrompt = options.customPrompt;
           ctx.customComponents = options.customComponents;
@@ -358,15 +453,15 @@ export default function App() {
     const id = selectedConversation.id;
     ui.setReprocessingId(id);
     try {
-      if (selectedConversation.isGrouped && selectedConversation.sourceConversations) {
-        const sourceConvs = selectedConversation.sourceConversations
-          .map((source) => conversations.find((c) => c.id === source.id))
-          .filter((c): c is WorkflowState => c !== null && c?.conversation !== null);
+      if (selectedGroup) {
+        const memberConvs = selectedGroup.fileIds
+          .map((fid) => conversations.find((c) => c.id === fid))
+          .filter((c): c is WorkflowState => !!c?.conversation);
         await Promise.all(
-          sourceConvs.map(async (conv) => {
+          memberConvs.map(async (conv) => {
             await useConversationStore.getState().handleReprocessWithRunner(
               conv,
-              WorkflowEvent.SegmentationPromptChanged,
+              PipelineStep.Segment,
               (ctx) => {
                 ctx.customSegmentationPrompt = options.customSegmentationPrompt;
                 ctx.segmentationThreshold = options.segmentationThreshold;
@@ -379,7 +474,7 @@ export default function App() {
       }
       await useConversationStore.getState().handleReprocessWithRunner(
         selectedConversation,
-        WorkflowEvent.SegmentationPromptChanged,
+        PipelineStep.Segment,
         (ctx) => {
           ctx.customSegmentationPrompt = options.customSegmentationPrompt;
           ctx.segmentationThreshold = options.segmentationThreshold;
@@ -414,7 +509,7 @@ export default function App() {
         ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
       };
 
-      await processConversationWorkflow(WorkflowEvent.SummaryPromptChanged, ctx, notify, {
+      await rerunSummary(ctx, notify, {
         onSummaryChunk,
         onAnalysisChunk: shouldRegenerateAnalysis ? onAnalysisChunk : undefined,
       });
@@ -437,12 +532,9 @@ export default function App() {
         ...buildBaseContext(conv),
         analysis: "",
         customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt,
-        isGrouped: conv.isGrouped,
-        sourceConversations: conv.sourceConversations,
-        messageSourceMap: conv.messageSourceMap,
       };
 
-      await processConversationWorkflow(WorkflowEvent.GenerateAnalysis, ctx, notify, {
+      await generateAnalysisOnDemand(ctx, notify, {
         onSummaryChunk,
         onAnalysisChunk,
       });
@@ -465,12 +557,9 @@ export default function App() {
         ...buildBaseContext(conv),
         aiSummary: "",
         customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt,
-        isGrouped: conv.isGrouped,
-        sourceConversations: conv.sourceConversations,
-        messageSourceMap: conv.messageSourceMap,
       };
 
-      await processConversationWorkflow(WorkflowEvent.GenerateSummary, ctx, notify, {
+      await generateSummaryOnDemand(ctx, notify, {
         onSummaryChunk,
       });
     } catch (error) {
@@ -547,10 +636,9 @@ export default function App() {
         };
       }
       dims[dimName]!.prompt = ui.editingPrompt;
-      ctx.targetDimension = dimName;
       ctx.customPrompt = dimName === "default" ? ui.editingPrompt : ctx.customPrompt;
 
-      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, notify, { onAnalysisChunk });
+      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk });
     } catch (error) {
       console.error("Failed to reprocess dimension:", error);
     } finally {
@@ -564,8 +652,7 @@ export default function App() {
     const dimName = dimensionName || "default";
     ui.setEditingDimensionName(dimName);
 
-    const dimComponents = conv?.dimensions?.[dimName]?.components;
-    const currentComponents = dimComponents || conv?.components || [];
+    const currentComponents = conv?.dimensions?.[dimName]?.components || [];
     ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
     ui.setIsComponentsDialogOpen(true);
   };
@@ -601,9 +688,8 @@ export default function App() {
       const ctx = buildBaseContext(conv);
       const dims = ensureDimensions(ctx);
       if (dims[dimName]) dims[dimName]!.customComponents = components;
-      ctx.targetDimension = dimName;
 
-      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, notify, { onAnalysisChunk });
+      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk });
     } catch (error) {
       console.error("Failed to reprocess dimension components:", error);
     } finally {
@@ -678,7 +764,7 @@ export default function App() {
       const ctx = buildBaseContext(selectedConversation);
       ctx.customColoringPrompt = ui.editingColoringPrompt;
 
-      await processConversationWorkflow(WorkflowEvent.ColoringPromptChanged, ctx, notify, {});
+      await runPipelineFrom(PipelineStep.Color, ctx, notify);
       updateConversation(id, { customColoringPrompt: ui.editingColoringPrompt });
     } catch (error) {
       console.error("Failed to reprocess coloring:", error);
@@ -697,16 +783,6 @@ export default function App() {
       prev.map((conv) => {
         if (conv.id !== id) return conv;
         let dims = { ...(conv.dimensions || {}) };
-        if (Object.keys(dims).length === 0 && conv.components) {
-          dims["default"] = {
-            name: "default",
-            prompt: conv.customPrompt,
-            components: conv.components || [],
-            componentMapping: conv.componentMapping || {},
-            componentTimeline: conv.componentTimeline || [],
-            componentColors: conv.componentColors || {},
-          };
-        }
         dims[name] = {
           name,
           components: [],
@@ -774,14 +850,24 @@ export default function App() {
   const handleGroupConversations = (idsToGroup?: string[], groupName?: string, existingGroupId?: string, groupTitle?: string) =>
     useConversationStore.getState().handleGroupConversations(idsToGroup, setSelectedId, groupName, existingGroupId, groupTitle);
 
-  const handleUngroupConversation = (id: string) =>
-    useConversationStore.getState().handleUngroupConversation(id, selectedId, setSelectedId);
+  const handleUngroupConversation = (id: string) => {
+    useConversationStore.getState().removeGroup(id);
+    if (selectedId === id) setSelectedId(null);
+  };
 
-  const handleDeleteConversation = (id: string) =>
-    useConversationStore.getState().deleteConversation(id, selectedId, setSelectedId);
+  const handleDeleteConversation = (id: string) => {
+    useConversationStore.getState().deleteConversation(id);
+    if (selectedId === id) setSelectedId(null);
+  };
 
-  const handleUpdateGroupSources = (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) =>
-    useConversationStore.getState().handleUpdateGroupSources(groupId, newSources, selectedId, setSelectedId);
+  const handleUpdateGroupSources = (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => {
+    const newFileIds = newSources.map((s) => s.id);
+    if (newFileIds.length <= 1) {
+      handleUngroupConversation(groupId);
+    } else {
+      useConversationStore.getState().updateGroup(groupId, { fileIds: newFileIds });
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileDrop,
@@ -900,6 +986,7 @@ export default function App() {
             <aside className="relative">
               <ConversationList
                 conversations={conversations}
+                groups={groups}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 selectedIds={selectedIds}
@@ -941,18 +1028,10 @@ export default function App() {
                 selectedConversation.conversation ? (
                   <ConversationView
                     conversation={selectedConversation.conversation}
-                    componentMapping={selectedConversation.componentMapping}
-                    componentTimeline={selectedConversation.componentTimeline}
-                    componentColors={selectedConversation.componentColors}
-                    components={(() => {
-                      const dims = selectedConversation.dimensions;
-                      if (!dims || Object.keys(dims).length <= 1) return selectedConversation.components;
-                      const allComps = new Set(selectedConversation.components || []);
-                      for (const dim of Object.values(dims)) {
-                        for (const c of dim.components) allComps.add(c);
-                      }
-                      return [...allComps];
-                    })()}
+                    componentMapping={getDefaultDimension(selectedConversation)?.componentMapping}
+                    componentTimeline={getDefaultDimension(selectedConversation)?.componentTimeline}
+                    componentColors={getDefaultDimension(selectedConversation)?.componentColors}
+                    components={getAllComponents(selectedConversation)}
                     dimensions={selectedConversation.dimensions}
                     activeDimensions={ui.activeDimensions}
                     onActiveDimensionsChange={ui.setActiveDimensions}
@@ -961,12 +1040,12 @@ export default function App() {
                     warnings={selectedConversation.warnings}
                     onReprocessComponents={handleReprocessComponents}
                     isReprocessing={ui.reprocessingId === selectedConversation.id}
-                    messageSourceMap={selectedConversation.messageSourceMap}
-                    isGrouped={selectedConversation.isGrouped}
-                    groupTitle={selectedConversation.title}
+                    messageOriginMap={selectedGroup ? (selectedConversation as any).messageOriginMap : undefined}
+                    isGrouped={!!selectedGroup}
+                    groupTitle={selectedGroup?.title || selectedConversation.title}
                     onConversationClick={setSelectedId}
-                    sourceConversationComponents={sourceConversationComponents}
-                    sourceWorkflowStates={sourceWorkflowStates}
+                    memberComponentData={memberComponentData}
+                    memberWorkflowStates={memberWorkflowStates}
                     onAddDimension={handleAddDimension}
                     onRemoveDimension={handleRemoveDimension}
                     onRenameDimension={handleRenameDimension}
@@ -1051,7 +1130,7 @@ export default function App() {
                   onGenerateAnalysis={() => handleGenerateAnalysis(selectedConversation.id)}
                   canGenerateAnalysis={
                     selectedConversation.status === "success" &&
-                    !!selectedConversation.components?.length &&
+                    !!getAllComponents(selectedConversation).length &&
                     !selectedConversation.analysis
                   }
                 />
@@ -1075,11 +1154,11 @@ export default function App() {
         value={ui.editingPrompt}
         onChange={ui.setEditingPrompt}
         onApply={handleApplyPrompt}
-        placeholder="Enter your componentisation prompt..."
+        placeholder="Enter your component identification prompt..."
         warningText={
           ui.editingDimensionName && ui.editingDimensionName !== "default"
-            ? `This will re-run componentisation for the "${ui.editingDimensionName}" dimension`
-            : "This will re-run componentisation, visualization, and analysis"
+            ? `This will re-run component identification and classification for the "${ui.editingDimensionName}" dimension`
+            : "This will re-run component identification and classification, visualization, and analysis"
         }
       />
 
@@ -1108,7 +1187,7 @@ export default function App() {
         onChange={ui.setEditingSegmentationPrompt}
         onApply={handleApplySegmentationPrompt}
         placeholder="Enter your segmentation prompt..."
-        warningText="This will re-run segmentation, componentisation, visualization, and analysis"
+        warningText="This will re-run segmentation, component identification and classification, visualization, and analysis"
         threshold={ui.editingSegmentationThreshold}
         onThresholdChange={ui.setEditingSegmentationThreshold}
         thresholdDefault={DEFAULT_SEGMENTATION_THRESHOLD}

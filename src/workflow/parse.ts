@@ -10,9 +10,8 @@ import { type Notify, startStep, endStep, timed } from "./runner";
 import { parserRegistry } from "../parser";
 import { summarizeConversation } from "../conversation-summary";
 import { parseFileContent } from "../lib/file-formats";
-import { buildComponentTimeline } from "../componentisation";
-import { staticComponentise } from "../static-componentisation";
-import { syncLegacyFieldsFromDimensions } from "./dimensions";
+import { buildComponentTimeline } from "../component-classification";
+import { staticComponentise } from "../static-components";
 
 export async function runParse(ctx: WorkflowState, notify: Notify) {
   startStep(notify, ctx, "parsing");
@@ -56,27 +55,32 @@ export function restorePreProcessedImport(
 ) {
   const componentMapping = extractComponentMappingFromParts(conversation);
   const components = [...new Set(Object.values(componentMapping))];
+  const componentTimeline = buildComponentTimeline(conversation, componentMapping);
 
   ctx.title = metadata.title;
-  ctx.componentColors = metadata.componentColors;
   ctx.aiSummary = metadata.aiSummary;
   ctx.analysis = metadata.analysis;
-  ctx.components = components;
-  ctx.componentMapping = componentMapping;
   ctx.customPrompt = metadata.customPrompt;
   ctx.customSegmentationPrompt = metadata.customSegmentationPrompt;
   ctx.customSummaryPrompt = metadata.customSummaryPrompt;
   ctx.customAnalysisPrompt = metadata.customAnalysisPrompt;
   ctx.customColoringPrompt = metadata.customColoringPrompt;
 
-  ctx.componentTimeline = buildComponentTimeline(conversation, componentMapping);
-  const staticResult = staticComponentise(conversation);
-  ctx.staticComponents = staticResult.components;
-  ctx.staticMapping = staticResult.mapping;
-  ctx.staticTimeline = staticResult.timeline;
+  // Set up default dimension from the imported data
+  ctx.dimensions = {
+    default: {
+      name: "default",
+      prompt: metadata.customPrompt,
+      components,
+      componentMapping,
+      componentTimeline,
+      componentColors: metadata.componentColors || {},
+      customColoringPrompt: metadata.customColoringPrompt,
+    },
+  };
 
+  // Restore additional dimensions if present
   if (metadata.dimensions) {
-    ctx.dimensions = {};
     for (const [dimName, dimExport] of Object.entries(metadata.dimensions)) {
       const dimMapping: Record<string, string> = {};
       for (const message of conversation.messages) {
@@ -97,8 +101,12 @@ export function restorePreProcessedImport(
         customColoringPrompt: dimExport.coloringPrompt,
       };
     }
-    syncLegacyFieldsFromDimensions(ctx);
   }
+
+  const staticResult = staticComponentise(conversation);
+  ctx.staticComponents = staticResult.components;
+  ctx.staticMapping = staticResult.mapping;
+  ctx.staticTimeline = staticResult.timeline;
 }
 
 export { summarizeConversation } from "../conversation-summary";

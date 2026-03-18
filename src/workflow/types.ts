@@ -1,7 +1,8 @@
-import type { Conversation, SourceInfo } from "../schema";
+import type { Conversation } from "../schema";
 import type { ConversationSummary } from "../conversation-summary";
 import type { ConversationMetadata } from "../parser";
-import type { DimensionData, ComponentTimelineSnapshot } from "../componentisation";
+import type { DimensionData } from "../component-types";
+import type { ComponentTimelineSnapshot } from "../aggregation";
 import type { ProcessingPhase } from "../workflow-logger";
 
 export type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
@@ -49,15 +50,8 @@ export interface WorkflowState {
   aiSummary?: string;
   analysis?: string;
 
-  // Component data (automatic - AI-based)
-  components?: string[];
-  componentMapping?: Record<string, string>;
-  componentTimeline?: ComponentTimelineSnapshot[];
-  componentColors?: Record<string, string>;
-
-  // Multi-dimensional component data
+  // Component data (all stored per-dimension)
   dimensions?: Record<string, DimensionData>;
-  targetDimension?: string;
 
   // Static component data (deterministic)
   staticComponents?: string[];
@@ -69,10 +63,23 @@ export interface WorkflowState {
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   pausedAtStep?: ProcessingStep;
 
-  // Grouped conversation data
-  isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
-  messageSourceMap?: Record<string, SourceInfo>;
+}
+
+/**
+ * Lightweight group metadata.
+ * Groups reference member files by ID — no concatenated conversation.
+ */
+export interface Group {
+  id: string;
+  name: string;
+  title?: string;
+  fileIds: string[];
+  customPrompt?: string;
+  customSegmentationPrompt?: string;
+  customSummaryPrompt?: string;
+  customAnalysisPrompt?: string;
+  customColoringPrompt?: string;
+  segmentationThreshold?: number;
 }
 
 export interface WorkflowBatchResult {
@@ -80,18 +87,16 @@ export interface WorkflowBatchResult {
 }
 
 /**
- * Event types that trigger workflow execution
+ * Ordered pipeline steps for conversation processing.
+ * runPipelineFrom(step) runs from that step through the end.
  */
-export enum WorkflowEvent {
-  NewFile = "new-file",
-  ComponentPromptChanged = "component-prompt-changed",
-  SegmentationPromptChanged = "segmentation-prompt-changed",
-  SummaryPromptChanged = "summary-prompt-changed",
-  ColoringPromptChanged = "coloring-prompt-changed",
-  GroupedConversation = "grouped-conversation",
-  GenerateAnalysis = "generate-analysis",
-  GenerateSummary = "generate-summary",
-  ResumeFromApiKeyPause = "resume-from-api-key-pause",
+export enum PipelineStep {
+  Parse = 0,
+  CountTokens = 1,
+  Segment = 2,
+  Identify = 3,
+  Classify = 4,
+  Color = 5,
 }
 
 /**
@@ -108,7 +113,7 @@ export interface WorkflowCallbacks {
 export type WorkflowDataField = Exclude<
   keyof WorkflowState,
   "id" | "filename" | "status" | "step" | "error" | "warnings" | "stepTimings" |
-  "file" | "config" | "regenerateAnalysis" | "pausedAtStep" | "targetDimension"
+  "file" | "config" | "regenerateAnalysis" | "pausedAtStep"
 >;
 
 export interface WorkflowOptions {
@@ -119,8 +124,8 @@ export interface WorkflowOptions {
 }
 
 // Re-export types that App.tsx needs from other modules
-export type { ComponentTimelineSnapshot } from "../componentisation";
-export type { DimensionData } from "../componentisation";
+export type { ComponentTimelineSnapshot } from "../aggregation";
+export type { DimensionData } from "../component-types";
 export type { ConversationSummary } from "../conversation-summary";
 export type { ConversationMetadata } from "../parser";
 export type { ProcessingPhase } from "../workflow-logger";

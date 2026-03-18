@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,7 @@ import {
   Plus,
   Pencil,
 } from "lucide-react";
-import type { DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/component-types";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { cn } from "@/lib/utils";
 import { ApiKeyInput } from "./ApiKeyInput";
@@ -56,7 +56,7 @@ type ProcessingStep =
 interface WorkflowState {
   id: string;
   filename: string;
-  title?: string; // Custom title, displays instead of filename when set
+  title?: string;
   status?: ConversationStatus;
   step?: ProcessingStep;
   summary?: {
@@ -67,15 +67,19 @@ interface WorkflowState {
   warnings?: string[];
   stepTimings?: Partial<Record<ProcessingStep, number>>;
   pausedAtStep?: ProcessingStep;
-  // Multi-dimensional component data
   dimensions?: Record<string, DimensionData>;
-  // Grouped conversation data
-  isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  title?: string;
+  fileIds: string[];
 }
 
 interface ConversationListProps {
   conversations: WorkflowState[];
+  groups: Record<string, Group>;
   selectedId: string | null;
   onSelect: (id: string) => void;
   selectedIds: Set<string>;
@@ -113,6 +117,7 @@ interface ConversationListProps {
 
 export function ConversationList({
   conversations,
+  groups,
   selectedId,
   onSelect,
   selectedIds,
@@ -166,22 +171,41 @@ export function ConversationList({
   const [renamingDimension, setRenamingDimension] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
+  // Group helpers
+  const getGroup = (id: string): Group | undefined => groups[id];
+  const isGroupEntry = (id: string): boolean => !!groups[id];
+  const isPartOfGroup = (id: string): boolean =>
+    Object.values(groups).some((g) => g.fileIds.includes(id));
+  const getMemberFiles = (groupId: string): Array<{ id: string; filename: string; title?: string }> => {
+    const group = groups[groupId];
+    if (!group) return [];
+    return group.fileIds.map((fid) => {
+      const conv = conversations.find((c) => c.id === fid);
+      return { id: fid, filename: conv?.filename || fid, title: conv?.title };
+    });
+  };
+
+  // Build unified display list: individual files + group entries
+  type DisplayItem = { id: string; filename: string; title?: string; isGroup: boolean; conv?: WorkflowState };
+  const displayItems = useMemo((): DisplayItem[] => {
+    const items: DisplayItem[] = [];
+    for (const conv of conversations) {
+      items.push({ id: conv.id, filename: conv.filename, title: conv.title, isGroup: false, conv });
+    }
+    for (const group of Object.values(groups)) {
+      items.push({ id: group.id, filename: group.name, title: group.title, isGroup: true });
+    }
+    return items;
+  }, [conversations, groups]);
+
   // Count of selectable conversations (non-grouped, success status)
   const selectableConversations = conversations.filter(
-    (c) => !c.isGrouped && c.status === "success",
+    (c) => c.status === "success",
   );
   const canGroup = selectedIds.size >= 2;
 
-  // Check if a conversation is part of any grouped conversation
-  const isPartOfGroup = (id: string): boolean => {
-    return conversations.some(
-      (c) => c.isGrouped && c.sourceConversations?.some((s) => s.id === id),
-    );
-  };
-
-  // Check if a conversation can be deleted (not grouped and not part of any group)
-  const canDelete = (conversation: WorkflowState): boolean => {
-    return !conversation.isGrouped && !isPartOfGroup(conversation.id);
+  const canDelete = (id: string): boolean => {
+    return !isGroupEntry(id) && !isPartOfGroup(id);
   };
 
   // Save title and exit editing mode
@@ -440,13 +464,19 @@ export function ConversationList({
         <div className="relative">
           <ScrollArea className="h-[calc(100vh-14rem)]">
             <div className="space-y-2">
-              {conversations.map((conversation) => {
+              {/* Build unified list: conversations + group entries */}
+              {[...conversations, ...Object.values(groups).map((g): WorkflowState => ({
+                id: g.id,
+                filename: g.name,
+                title: g.title,
+                status: "success",
+              }))].map((conversation) => {
                 const isProcessing =
                   conversation.status === "processing" ||
                   (conversation.status === "success" && conversation.step);
                 const isExpanded = !collapsedProgress.has(conversation.id);
                 const isSelectable =
-                  !conversation.isGrouped && conversation.status === "success";
+                  !isGroupEntry(conversation.id) && conversation.status === "success";
                 const isSelected = selectedIds.has(conversation.id);
 
                 return (
@@ -469,7 +499,7 @@ export function ConversationList({
                         "border-blue-400 bg-blue-50/50",
                       conversation.status === "failed" &&
                         "border-red-200 bg-red-50",
-                      conversation.isGrouped &&
+                      isGroupEntry(conversation.id) &&
                         "border-purple-200 bg-purple-50/30",
                     )}
                   >
@@ -504,34 +534,34 @@ export function ConversationList({
                             />
                           )}
                           {/* Grouped icon */}
-                          {conversation.isGrouped && (
+                          {isGroupEntry(conversation.id) && (
                             <Layers className="h-4 w-4 shrink-0 text-purple-600" />
                           )}
                           {/* Status icons for non-grouped */}
-                          {!conversation.isGrouped &&
+                          {!isGroupEntry(conversation.id) &&
                             conversation.status === "pending" && (
                               <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
                             )}
-                          {!conversation.isGrouped && isProcessing && (
+                          {!isGroupEntry(conversation.id) && isProcessing && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
                           )}
-                          {!conversation.isGrouped &&
+                          {!isGroupEntry(conversation.id) &&
                             conversation.status === "success" &&
                             !conversation.step &&
                             !conversation.warnings && (
                               <FileText className="h-4 w-4 shrink-0" />
                             )}
-                          {!conversation.isGrouped &&
+                          {!isGroupEntry(conversation.id) &&
                             conversation.status === "success" &&
                             !conversation.step &&
                             conversation.warnings && (
                               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
                             )}
-                          {!conversation.isGrouped &&
+                          {!isGroupEntry(conversation.id) &&
                             conversation.status === "failed" && (
                               <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                             )}
-                          {!conversation.isGrouped &&
+                          {!isGroupEntry(conversation.id) &&
                             conversation.status === "paused-for-api-key" && (
                               <Pause className="h-4 w-4 shrink-0 text-amber-600" />
                             )}
@@ -563,11 +593,11 @@ export function ConversationList({
                                 if (onRename) {
                                   e.stopPropagation();
                                   setEditingId(conversation.id);
-                                  setEditingTitle(conversation.title || (conversation.isGrouped ? "" : conversation.filename));
+                                  setEditingTitle(conversation.title || (isGroupEntry(conversation.id) ? "" : conversation.filename));
                                 }
                               }}
                             >
-                              {conversation.isGrouped
+                              {isGroupEntry(conversation.id)
                                 ? conversation.title || "Grouped"
                                 : conversation.title || conversation.filename}
                             </span>
@@ -588,7 +618,7 @@ export function ConversationList({
                             </div>
                           )}
                           {/* Ungroup button for grouped conversations */}
-                          {conversation.isGrouped &&
+                          {isGroupEntry(conversation.id) &&
                             conversation.status === "success" &&
                             !conversation.step && (
                               <div
@@ -622,15 +652,15 @@ export function ConversationList({
                         </div>
 
                         {/* Source files for grouped conversation */}
-                        {conversation.isGrouped &&
-                          conversation.sourceConversations && (
+                        {isGroupEntry(conversation.id) &&
+                          getMemberFiles(conversation.id) && (
                             <div
                               className="text-xs text-purple-600 pl-6 truncate"
-                              title={conversation.sourceConversations
+                              title={getMemberFiles(conversation.id)
                                 .map((s) => s.title || s.filename)
                                 .join(", ")}
                             >
-                              {conversation.sourceConversations
+                              {getMemberFiles(conversation.id)
                                 .map((s) => s.title || s.filename)
                                 .join(", ")}
                             </div>
@@ -648,13 +678,13 @@ export function ConversationList({
                               </Badge>
                             )}
 
-                          {conversation.isGrouped &&
-                            conversation.sourceConversations && (
+                          {isGroupEntry(conversation.id) &&
+                            getMemberFiles(conversation.id) && (
                               <Badge
                                 variant="outline"
                                 className="self-start text-xs border-purple-400 text-purple-700 bg-purple-50"
                               >
-                                {conversation.sourceConversations.length} files
+                                {getMemberFiles(conversation.id).length} files
                               </Badge>
                             )}
 
@@ -1078,12 +1108,12 @@ export function ConversationList({
                     {conversation.status === "success" && !conversation.step && (
                       <div className="px-3 pb-2 pt-1 border-t flex items-center gap-3">
                         {onApplyPromptsToAll &&
-                          !conversation.isGrouped &&
+                          !isGroupEntry(conversation.id) &&
                           conversations.filter(
                             (c) =>
                               c.id !== conversation.id &&
                               c.status === "success" &&
-                              !c.isGrouped &&
+                              !isGroupEntry(c.id) &&
                               !c.step,
                           ).length > 0 && (
                             <button
@@ -1097,7 +1127,7 @@ export function ConversationList({
                               <span>Apply prompts to all</span>
                             </button>
                           )}
-                        {onExportPromptsAsPreset && !conversation.isGrouped && (
+                        {onExportPromptsAsPreset && !isGroupEntry(conversation.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1109,7 +1139,7 @@ export function ConversationList({
                             <span>Export preset</span>
                           </button>
                         )}
-                        {onDeleteConversation && canDelete(conversation) && (
+                        {onDeleteConversation && canDelete(conversation.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1194,8 +1224,8 @@ export function ConversationList({
               onRemoveDimension={onRemoveDimension}
               onRenameDimension={onRenameDimension}
               onEditDimensionPrompt={onEditDimensionPrompt}
-              isGrouped={expandedConversation.isGrouped}
-              sourceConversations={expandedConversation.sourceConversations}
+              isGrouped={isGroupEntry(expandedConversation.id)}
+              memberFiles={getMemberFiles(expandedConversation.id)}
               onUpdateGroupSources={
                 onUpdateGroupSources
                   ? (newSources) => onUpdateGroupSources(expandedConversation.id, newSources)

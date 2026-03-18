@@ -1,6 +1,6 @@
 import type { Conversation } from "@/schema";
 import type { ConversationMetadata } from "@/parser";
-import type { DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/component-types";
 import { aggregateComponentTokens } from "@/aggregation";
 import {
   SessionExportSchema,
@@ -19,23 +19,19 @@ import {
 interface WorkflowState {
   id: string;
   filename: string;
-  title?: string; // Custom display title
+  title?: string;
   status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
   conversation?: Conversation;
-  componentMapping?: Record<string, string>;
-  componentColors?: Record<string, string>;
   aiSummary?: string;
   analysis?: string;
   metadata?: ConversationMetadata;
-  isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
   dimensions?: Record<string, DimensionData>;
-  // Custom prompts
   customPrompt?: string;
   customSegmentationPrompt?: string;
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
+  segmentationThreshold?: number;
 }
 
 /**
@@ -82,9 +78,10 @@ export function buildFileExport(conv: WorkflowState): FileExport {
     throw new Error(`Cannot export conversation ${conv.id}: no conversation data`);
   }
 
+  const defaultDim = conv.dimensions?.["default"];
   const conversationWithComponents = buildConversationWithComponents(
     conv.conversation,
-    conv.componentMapping,
+    defaultDim?.componentMapping,
     conv.dimensions,
   );
 
@@ -102,7 +99,7 @@ export function buildFileExport(conv: WorkflowState): FileExport {
 
   // Build per-dimension export data when multiple dimensions exist
   let dimensionsExport: Record<string, ExportDimension> | undefined;
-  if (conv.dimensions && Object.keys(conv.dimensions).length > 1) {
+  if (conv.dimensions && Object.keys(conv.dimensions).length > 0) {
     dimensionsExport = {};
     for (const [dimName, dim] of Object.entries(conv.dimensions)) {
       dimensionsExport[dimName] = {
@@ -118,7 +115,7 @@ export function buildFileExport(conv: WorkflowState): FileExport {
     id: conv.id,
     filename: conv.filename,
     conversation: conversationWithComponents,
-    colors: conv.componentColors || {},
+    colors: defaultDim?.componentColors || {},
     summary: conv.aiSummary || null,
     analysis: conv.analysis || null,
     metadata: conv.metadata,
@@ -139,8 +136,9 @@ export function buildFileExport(conv: WorkflowState): FileExport {
 function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
   return {
     componentComparison: conversations.map((conv) => {
+      const defaultDim = conv.dimensions?.["default"];
       const { componentTokens, totalTokens } = conv.conversation
-        ? aggregateComponentTokens(conv.conversation, conv.componentMapping || {})
+        ? aggregateComponentTokens(conv.conversation, defaultDim?.componentMapping || {})
         : { componentTokens: {} as Record<string, number>, totalTokens: 0 };
 
       const analytics: AnalyticsExport["componentComparison"][number] = {
@@ -166,24 +164,23 @@ function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
  */
 export function buildSessionExport(
   conversations: WorkflowState[],
+  groups?: Record<string, import("@/workflow/types").Group>,
 ): SessionExport {
-  // Only include successfully processed individual files (not grouped)
   const individualFiles = conversations.filter(
-    (c) => !c.isGrouped && c.status === "success" && c.conversation,
+    (c) => c.status === "success" && c.conversation,
   );
 
-  // Get grouped conversations
-  const groups = conversations.filter((c) => c.isGrouped);
+  const groupList = groups ? Object.values(groups) : [];
 
   const data = {
     version: "1.0" as const,
     exportedAt: new Date().toISOString(),
     files: individualFiles.map(buildFileExport),
-    groups: groups.map((g) => {
+    groups: groupList.map((g) => {
       const group: { id: string; name: string; title?: string; fileIds: string[] } = {
         id: g.id,
-        name: g.filename,
-        fileIds: g.sourceConversations?.map((s) => s.id) || [],
+        name: g.name,
+        fileIds: g.fileIds,
       };
       if (g.title) {
         group.title = g.title;
@@ -193,8 +190,53 @@ export function buildSessionExport(
     analytics: buildAnalytics(individualFiles),
   };
 
-  // Validate against schema (catches bugs during development)
   return SessionExportSchema.parse(data);
+}
+
+/**
+ * Export a conversation's prompts as a reusable preset file.
+ */
+export function exportPromptsAsPreset(source: WorkflowState): void {
+  const defaultDim = source.dimensions?.["default"];
+  const defaultName = source.title || source.filename.replace(/\.[^.]+$/, "");
+  const name = window.prompt("Preset name:", defaultName);
+  if (!name) return;
+
+  const preset: Record<string, unknown> = {
+    id: `custom-${Date.now()}`,
+    name,
+    description: `Exported prompts from "${name}"`,
+    components: defaultDim?.components || [],
+    colors: defaultDim?.componentColors || {},
+  };
+
+  if (source.customSegmentationPrompt) preset.segmentationPrompt = source.customSegmentationPrompt;
+  if (source.segmentationThreshold != null) preset.segmentationThreshold = source.segmentationThreshold;
+  if (source.customPrompt) preset.componentIdentificationPrompt = source.customPrompt;
+  if (source.customColoringPrompt) preset.coloringPrompt = source.customColoringPrompt;
+  if (source.customSummaryPrompt) preset.summaryPrompt = source.customSummaryPrompt;
+  if (source.customAnalysisPrompt) preset.analysisPrompt = source.customAnalysisPrompt;
+
+  if (source.dimensions && Object.keys(source.dimensions).length > 1) {
+    const dimPrompts: Record<string, { prompt?: string; coloringPrompt?: string; components: string[] }> = {};
+    for (const [dimName, dim] of Object.entries(source.dimensions)) {
+      dimPrompts[dimName] = {
+        prompt: dim.prompt,
+        coloringPrompt: dim.customColoringPrompt,
+        components: dim.components,
+      };
+    }
+    preset.dimensions = dimPrompts;
+  }
+
+  const json = JSON.stringify(preset, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-preset.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /**

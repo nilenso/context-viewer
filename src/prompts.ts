@@ -7,7 +7,7 @@ export type PromptKey =
   | "segmentation"
   | "conversation-summary"
   | "component-identification"
-  | "component-mapping"
+  | "component-classification"
   | "component-coloring"
   | "context-analysis";
 
@@ -76,8 +76,8 @@ ${JSON.stringify(conversationOverview, null, 2)}`;
     },
   },
 
-  "component-mapping": {
-    key: "component-mapping",
+  "component-classification": {
+    key: "component-classification",
     description: "Maps message part IDs to identified components",
     template: ({ conversationJson, componentsJson, componentDescriptions }) => `given this conversation and the list of components, give me a mapping
 of message part ids in the conversation, to a component from the list, for all the message parts
@@ -155,72 +155,7 @@ export function getAllPromptKeys(): PromptKey[] {
  * This is the part shown in the UI without the output format specification
  */
 export function getDefaultComponentIdentificationPrompt(): string {
-    return `
-- identity: Establishes who the AI is, its name, role, and fundamental nature. Defines the relationship between the AI and the user (assistant, partner, tool). Sets the foundation for all subsequent behavioral instructions.
-
-- personality: Governs how the AI communicates, behaves, and presents itself. Covers tone, interaction style, autonomy boundaries, and explicit behavioral constraints that shape the user experience.
-- personality.guidelines: General principles for interaction style and response formatting.
-- personality.behavior: Constraints on decision-making like avoiding assumptions, not over-engineering, completing tasks fully.
-- personality.communication: Output formatting rules including emoji usage, conciseness, reasoning transparency, markdown conventions.
-- personality.autonomy: How much independent action the AI can take versus requiring user approval or confirmation.
-- personality.model_steering: Emphatic instructions using caps, repetition, and specific prohibitions to override model defaults.
-- personality.examples: Concrete scenarios demonstrating expected interaction patterns.
-
-- environment: Runtime context the AI operates within. Includes system information, security boundaries, and platform-specific adaptations.
-- environment.platform: OS detection, shell type, working directory, date/time awareness.
-- environment.security: Rules around secrets, credentials, dangerous operations, and forbidden actions.
-- environment.sandboxing: Network restrictions, file system boundaries, approval requirements for sensitive operations.
-
-- code_style: Standards for generated and modified code. Ensures consistency with project conventions and quality expectations.
-- code_style.conventions: Formatting, naming, patterns to match existing codebase style.
-- code_style.quality: Security practices, accessibility, performance considerations.
-- code_style.examples: Sample code blocks demonstrating expected output format.
-
-- search: How the AI discovers and navigates code. Covers tool selection, search strategies, and context management for exploration tasks.
-- search.tool_selection: When to use grep vs glob vs codebase indexing vs sub-agents.
-- search.context_separation: How to spawn sub-agents or background tasks for large searches.
-- search.examples: Sample search workflows and query patterns.
-
-- workflow: Structured approaches to problem-solving. Includes task tracking, operational modes, and version control practices.
-- workflow.task_management: When and how to use todo lists, progress tracking, memory tools.
-- workflow.modes: Different operational states like planning, spec, architect, suggest, autopilot.
-- workflow.git: Version control operations including commit conventions, branch management, PR creation, and safety constraints.
-- workflow.git.commands: Which git commands to use and avoid.
-- workflow.git.commits: Message format, conventional commits, co-authoring, footer conventions.
-- workflow.examples: Sample workflows for features, bug fixes, refactoring.
-
-- project_context: Instructions for loading user or project-specific configuration. Points to external files that customize AI behavior per workspace.
-- project_context.config_files: Paths like CLAUDE.md, AGENTS.md, .gemini/settings, .kiro/steering.
-
-- tools: Everything about tools, their definitions and instructions around when, and how to use them
-- tools.policies: Meta-instructions governing tool usage across all tools. Establishes priorities, parallelization rules, and fallback behaviors.
-- tools.policies.guidelines: General rules for tool selection, preferring specialized tools over bash.
-- tools.policies.model_steering: Emphatic overrides for common model mistakes in tool usage.
-- tools.policies.examples: Correct and incorrect tool usage patterns.
-- tools.description: What the tool does and its primary purpose.
-- tools.conditions: When and where to use versus alternatives.
-- tools.usage: How to invoke, required parameters, common patterns.
-- tools.schema: Formal parameter definitions, types, constraints.
-- tools.file: File system operations for reading, writing, editing, and organizing files. Core capability present in all coding assistants.
-- tools.file.read: Viewing file contents, supporting various formats (text, images, notebooks, PDFs).
-- tools.file.write: Creating new files, overwriting existing content.
-- tools.file.edit: Targeted modifications using search/replace, diffs, or line-based edits.
-- tools.file.search: Pattern matching with glob, content search with grep/ripgrep.
-- tools.file.directory: Listing, creating, navigating directory structures.
-- tools.shell: Terminal and command execution capabilities. Running system commands, background processes, and handling output.
-- tools.shell.execution: Running commands, timeout handling, output capture.
-- tools.shell.background: Long-running processes, async execution, task monitoring.
-- tools.shell.restrictions: Forbidden commands, interactive mode limitations.
-- tools.communication: Mechanisms for AI-user interaction beyond chat. Includes questions, confirmations, and structured feedback.
-- tools.communication.questions: Asking for clarification, presenting choices, gathering preferences.
-- tools.communication.notifications: Progress updates, completion messages, error reporting.
-- tools.advanced: Specialized capabilities beyond basic file and shell operations. Present in some but not all assistants.
-- tools.advanced.web: Fetching URLs, web search, processing external content.
-- tools.advanced.agents: Spawning sub-agents, parallel task execution, background agents.
-- tools.advanced.notebooks: Jupyter notebook cell editing and execution.
-- tools.advanced.images: Viewing and analyzing screenshots, diagrams, visual content.
-- tools.advanced.integrations: MCP servers, external tool protocols, IDE hooks.
-`;
+    return `Given this conversation, give me a list of all the topics. Each topic can be 3 to 4 words in length. Topics can also be hierarchical like topic.sub_topic_1, topic.sub_topic_2.`;
 }
 
 /**

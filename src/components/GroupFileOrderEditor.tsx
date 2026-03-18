@@ -26,7 +26,7 @@ interface SourceConversation {
 }
 
 interface GroupFileOrderEditorProps {
-  sourceConversations: SourceConversation[];
+  memberFiles: SourceConversation[];
   onApply: (newSources: SourceConversation[]) => void;
 }
 
@@ -81,15 +81,15 @@ function SortableItem({
 }
 
 export function GroupFileOrderEditor({
-  sourceConversations,
+  memberFiles,
   onApply,
 }: GroupFileOrderEditorProps) {
-  const [items, setItems] = useState<SourceConversation[]>(() => [...sourceConversations]);
+  const [items, setItems] = useState<SourceConversation[]>(() => [...memberFiles]);
 
-  // Sync when sourceConversations changes externally
+  // Sync when memberFiles changes externally
   useEffect(() => {
-    setItems([...sourceConversations]);
-  }, [sourceConversations]);
+    setItems([...memberFiles]);
+  }, [memberFiles]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -114,9 +114,9 @@ export function GroupFileOrderEditor({
   };
 
   const hasChanges = useCallback(() => {
-    if (items.length !== sourceConversations.length) return true;
-    return items.some((item, i) => item.id !== sourceConversations[i].id);
-  }, [items, sourceConversations]);
+    if (items.length !== memberFiles.length) return true;
+    return items.some((item, i) => item.id !== memberFiles[i].id);
+  }, [items, memberFiles]);
 
   const willDissolve = items.length <= 1;
 
@@ -158,7 +158,7 @@ export function GroupFileOrderEditor({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setItems([...sourceConversations])}
+            onClick={() => setItems([...memberFiles])}
           >
             Reset
           </Button>

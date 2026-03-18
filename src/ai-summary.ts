@@ -2,7 +2,7 @@ import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { computeTupleTokens, generateComponentCSV, type ComponentTimelineSnapshot } from "./aggregation";
-import type { DimensionData } from "./componentisation";
+import type { DimensionData } from "./component-types";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";

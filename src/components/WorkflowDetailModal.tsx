@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DimensionData } from "@/componentisation";
+import type { DimensionData } from "@/component-types";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import {
@@ -122,7 +122,7 @@ interface WorkflowDetailModalProps {
   onEditDimensionPrompt?: (id: string, dimensionName: string) => void;
   // Grouped conversation support
   isGrouped?: boolean;
-  sourceConversations?: Array<{ id: string; filename: string; title?: string }>;
+  memberFiles?: Array<{ id: string; filename: string; title?: string }>;
   onUpdateGroupSources?: (newSources: Array<{ id: string; filename: string; title?: string }>) => void;
 }
 
@@ -151,7 +151,7 @@ export function WorkflowDetailModal({
   onRenameDimension,
   onEditDimensionPrompt,
   isGrouped,
-  sourceConversations,
+  memberFiles,
   onUpdateGroupSources,
 }: WorkflowDetailModalProps) {
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
@@ -672,7 +672,7 @@ export function WorkflowDetailModal({
                                     {isDimExpanded && (
                                       <div className="px-7 py-1.5 bg-muted/20 space-y-0.5">
                                         {dimData.components.length === 0 ? (
-                                          <p className="text-muted-foreground italic">No components yet. Edit the prompt to run componentisation.</p>
+                                          <p className="text-muted-foreground italic">No components yet. Edit the prompt to run component identification.</p>
                                         ) : (
                                           [...new Set(dimData.components)].map((comp) => {
                                             const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
@@ -789,14 +789,14 @@ export function WorkflowDetailModal({
               );
             })}
 
-            {isGrouped && sourceConversations && onUpdateGroupSources && (
+            {isGrouped && memberFiles && onUpdateGroupSources && (
               <div className="border rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ListOrdered className="h-4 w-4" />
                   File Order
                 </div>
                 <GroupFileOrderEditor
-                  sourceConversations={sourceConversations}
+                  memberFiles={memberFiles}
                   onApply={onUpdateGroupSources}
                 />
               </div>

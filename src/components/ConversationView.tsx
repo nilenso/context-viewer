@@ -25,8 +25,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStaticComponentLabel } from "@/lib/static-component-colors";
-import type { Conversation, Message, SourceInfo } from "@/schema";
-import type { DimensionData } from "@/componentisation";
+import type { Conversation, Message, OriginInfo } from "@/schema";
+import type { DimensionData } from "@/component-types";
 import { getMessageTokenCount, getPartTokenCount, type ComponentTimelineSnapshot } from "@/aggregation";
 import {
   type MessageFilter,
@@ -47,7 +47,7 @@ export { ALL_MESSAGE_FILTERS };
 type MessageFilterWithAll = MessageFilter | "all";
 
 // Minimal workflow state info needed for computing source conversation components
-interface SourceWorkflowState {
+interface MemberWorkflowState {
   id: string;
   filename: string;
   title?: string;
@@ -78,13 +78,13 @@ interface ConversationViewProps {
   onReprocessComponents?: (options?: { customPrompt?: string; customComponents?: string[] }) => Promise<void>;
   isReprocessing?: boolean;
   // Grouped conversation data
-  messageSourceMap?: Record<string, SourceInfo>;
+  messageOriginMap?: Record<string, OriginInfo>;
   isGrouped?: boolean;
   groupTitle?: string;
   onConversationClick?: (id: string) => void;
-  sourceConversationComponents?: ConversationComponentData[];
+  memberComponentData?: ConversationComponentData[];
   // Source workflow states for grouped conversations (for filtered comparison)
-  sourceWorkflowStates?: SourceWorkflowState[];
+  memberWorkflowStates?: MemberWorkflowState[];
 
   // URL-controlled state (optional - falls back to local state if not provided)
   activeTab?: TabType;
@@ -131,12 +131,12 @@ export function ConversationView({
   warnings,
   onReprocessComponents,
   isReprocessing,
-  messageSourceMap,
+  messageOriginMap,
   isGrouped,
   groupTitle,
   onConversationClick,
-  sourceConversationComponents,
-  sourceWorkflowStates,
+  memberComponentData,
+  memberWorkflowStates,
   // URL-controlled state
   activeTab: controlledActiveTab,
   onTabChange,
@@ -406,21 +406,21 @@ export function ConversationView({
   };
 
   // Compute filtered source conversation components for grouped conversation comparison
-  const filteredSourceConversationComponents = useMemo((): ConversationComponentData[] | undefined => {
+  const filteredMemberComponentData = useMemo((): ConversationComponentData[] | undefined => {
     // Check if any filters are active
     const hasMessageTypeFilters = !hasAllFilters;
     const hasComponentFilters = components && selectedComponents.size > 0 && selectedComponents.size < components.length;
 
     // Use pre-computed data if no filters are active or no source states provided
     if (!hasMessageTypeFilters && !hasComponentFilters) {
-      return sourceConversationComponents;
+      return memberComponentData;
     }
-    if (!sourceWorkflowStates || sourceWorkflowStates.length === 0) {
-      return sourceConversationComponents;
+    if (!memberWorkflowStates || memberWorkflowStates.length === 0) {
+      return memberComponentData;
     }
 
     // Compute filtered data for each source conversation
-    return sourceWorkflowStates
+    return memberWorkflowStates
       .map((source) => {
         if (!source.conversation || !source.componentMapping) {
           return null;
@@ -556,7 +556,7 @@ export function ConversationView({
         return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [sourceWorkflowStates, sourceConversationComponents, messageFiltersSet, hasAllFilters, components, selectedComponents]);
+  }, [memberWorkflowStates, memberComponentData, messageFiltersSet, hasAllFilters, components, selectedComponents]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {
@@ -670,11 +670,11 @@ export function ConversationView({
 
       // Get unique filenames from messages
       const filenames = new Set<string>();
-      if (isGrouped && messageSourceMap) {
+      if (isGrouped && messageOriginMap) {
         filteredAndSortedMessages.forEach(({ message }) => {
-          const sourceInfo = messageSourceMap[message.id];
-          if (sourceInfo?.filename) {
-            filenames.add(sourceInfo.filename);
+          const originInfo = messageOriginMap[message.id];
+          if (originInfo?.filename) {
+            filenames.add(originInfo.filename);
           }
         });
       } else {
@@ -706,8 +706,8 @@ export function ConversationView({
       let currentFile = "";
 
       for (const { message, originalIndex, tokens } of filteredAndSortedMessages) {
-        const sourceInfo = isGrouped && messageSourceMap ? messageSourceMap[message.id] : undefined;
-        const filename = sourceInfo?.filename || "conversation";
+        const originInfo = isGrouped && messageOriginMap ? messageOriginMap[message.id] : undefined;
+        const filename = originInfo?.filename || "conversation";
 
         // Add file header if file changed
         if (isGrouped && filename !== currentFile) {
@@ -715,7 +715,7 @@ export function ConversationView({
           // Calculate tokens for this file
           const fileTokens = filteredAndSortedMessages
             .filter(m => {
-              const mSource = messageSourceMap?.[m.message.id];
+              const mSource = messageOriginMap?.[m.message.id];
               return (mSource?.filename || "conversation") === filename;
             })
             .reduce((sum, m) => sum + m.tokens, 0);
@@ -792,7 +792,7 @@ export function ConversationView({
     selectedComponents,
     componentMapping,
     isGrouped,
-    messageSourceMap,
+    messageOriginMap,
     conversation.messages.length,
   ]);
 
@@ -837,7 +837,7 @@ export function ConversationView({
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
           <TabsTrigger value="chart">Timeline Chart</TabsTrigger>
-          {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
+          {isGrouped && filteredMemberComponentData && filteredMemberComponentData.length > 0 && (
             <TabsTrigger value="comparison">Component Comparison</TabsTrigger>
           )}
         </TabsList>
@@ -1107,8 +1107,8 @@ export function ConversationView({
                 componentMapping={componentMapping}
                 componentColors={componentColors}
                 onComponentClick={handleComponentClick}
-                sourceInfo={isGrouped ? messageSourceMap?.[message.id] : undefined}
-                messageSourceMap={isGrouped ? messageSourceMap : undefined}
+                originInfo={isGrouped ? messageOriginMap?.[message.id] : undefined}
+                messageOriginMap={isGrouped ? messageOriginMap : undefined}
                 conversationStartTime={conversationStartTime}
                 dimensions={dimensions}
                 activeDimensions={activeDimensions}
@@ -1195,7 +1195,7 @@ export function ConversationView({
 
                   if (relevantParts.length === 0) return null;
 
-                  const sourceInfo = isGrouped ? messageSourceMap?.[message.id] : undefined;
+                  const originInfo = isGrouped ? messageOriginMap?.[message.id] : undefined;
                   return (
                     <Card key={msgIndex} className="p-4">
                       <div className="mb-3 flex items-center gap-2 flex-wrap">
@@ -1205,9 +1205,9 @@ export function ConversationView({
                         <Badge variant="secondary" className="text-xs capitalize">
                           {message.role}
                         </Badge>
-                        {sourceInfo && (
+                        {originInfo && (
                           <Badge variant="outline" className="text-xs border-purple-400 text-purple-700 bg-purple-50">
-                            {sourceInfo.title || sourceInfo.filename}
+                            {originInfo.title || originInfo.filename}
                           </Badge>
                         )}
                         <span className="text-xs text-muted-foreground">
@@ -1223,7 +1223,7 @@ export function ConversationView({
                               isExpanded={false}
                               componentMapping={componentMapping}
                               componentColors={componentColors}
-                              sourceInfo={isGrouped ? messageSourceMap?.[part.id] : undefined}
+                              originInfo={isGrouped ? messageOriginMap?.[part.id] : undefined}
                               dimensions={dimensions}
                               activeDimensions={activeDimensions}
                             />
@@ -1260,10 +1260,10 @@ export function ConversationView({
         </div>
       </TabsContent>
 
-      {isGrouped && filteredSourceConversationComponents && filteredSourceConversationComponents.length > 0 && (
+      {isGrouped && filteredMemberComponentData && filteredMemberComponentData.length > 0 && (
         <TabsContent value="comparison" className="flex-1 mt-0 overflow-auto">
           <ComponentComparisonView
-            sourceConversations={filteredSourceConversationComponents}
+            memberFiles={filteredMemberComponentData}
             componentColors={componentColors}
             hasActiveFilters={!hasAllFilters}
             groupTitle={groupTitle}

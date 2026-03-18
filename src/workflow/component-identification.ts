@@ -6,21 +6,18 @@
  */
 
 import type { WorkflowState } from "./types";
-import type { DimensionData } from "../componentisation";
+import type { DimensionData } from "../component-types";
 import { timed } from "./runner";
-import { identifyComponents, getComponentisationConfig } from "../componentisation";
+import { identifyComponents } from "../component-identification";
+import { getAIConfig } from "../ai-config";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
 export async function runIdentifyComponents(ctx: WorkflowState): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
-    const dimNames = ctx.targetDimension
-      ? [ctx.targetDimension]
-      : getDimensionNames(ctx).length > 0
-        ? getDimensionNames(ctx)
-        : ["default"];
+    const dimNames = getDimensionNames(ctx);
 
-    const config = getComponentisationConfig();
+    const config = getAIConfig("Componentisation");
     const errors: string[] = [];
 
     await Promise.all(
@@ -62,12 +59,9 @@ export async function runIdentifyComponents(ctx: WorkflowState): Promise<{ timin
   });
 
   ctx.dimensions = result.dimensions;
-  const defaultDim = result.dimensions["default"];
-  if (defaultDim) ctx.components = defaultDim.components;
   if (result.errors.length > 0) ctx.warnings!.push(result.errors.join("; "));
 
   return { timing };
 }
 
-export { getComponentisationConfig } from "../componentisation";
-export { buildComponentTimeline } from "../componentisation";
+export { buildComponentTimeline } from "../component-classification";

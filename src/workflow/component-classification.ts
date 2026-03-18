@@ -6,11 +6,8 @@
  */
 
 import type { WorkflowState } from "./types";
-import {
-  mapComponentsToIds,
-  getComponentisationConfig,
-  buildComponentTimeline,
-} from "../componentisation";
+import { mapComponentsToIds, buildComponentTimeline } from "../component-classification";
+import { getAIConfig } from "../ai-config";
 import { getDefaultComponentIdentificationPrompt } from "../prompts";
 import { timed } from "./runner";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
@@ -18,13 +15,9 @@ import { ensureDimensions, getDimensionNames } from "./dimensions";
 export async function runClassifyComponents(ctx: WorkflowState): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
-    const dimNames = ctx.targetDimension
-      ? [ctx.targetDimension]
-      : getDimensionNames(ctx).length > 0
-        ? getDimensionNames(ctx)
-        : ["default"];
+    const dimNames = getDimensionNames(ctx);
 
-    const config = getComponentisationConfig();
+    const config = getAIConfig("Componentisation");
     const errors: string[] = [];
 
     await Promise.all(
@@ -71,12 +64,6 @@ export async function runClassifyComponents(ctx: WorkflowState): Promise<{ timin
   });
 
   ctx.dimensions = result.dimensions;
-  const defaultDim = result.dimensions["default"];
-  if (defaultDim) {
-    ctx.components = defaultDim.components;
-    ctx.componentMapping = defaultDim.componentMapping;
-    ctx.componentTimeline = defaultDim.componentTimeline;
-  }
   if (result.errors.length > 0) ctx.warnings!.push(result.errors.join("; "));
 
   return { timing };

@@ -92,7 +92,7 @@ export type LegendMode = "expanded" | "compact";
 export type { SortField, SortDirection };
 
 interface ComponentComparisonViewProps {
-  sourceConversations: ConversationComponentData[];
+  memberFiles: ConversationComponentData[];
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
   groupTitle?: string;
@@ -432,7 +432,7 @@ function ComparisonLegend({
  * Grid of waffle charts comparing component distribution across conversations
  */
 export function ComponentComparisonView({
-  sourceConversations,
+  memberFiles,
   componentColors,
   hasActiveFilters,
   groupTitle,
@@ -494,7 +494,7 @@ export function ComponentComparisonView({
   };
 
   // Check if workflow view is available (any conversation has messageComponents)
-  const hasWorkflowData = sourceConversations.some(
+  const hasWorkflowData = memberFiles.some(
     (c) => c.messageComponents && c.messageComponents.length > 0,
   );
 
@@ -510,7 +510,7 @@ export function ComponentComparisonView({
     }
   };
 
-  if (sourceConversations.length === 0) {
+  if (memberFiles.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
         <p>No conversations to compare.</p>
@@ -705,13 +705,13 @@ export function ComponentComparisonView({
       {/* Content area */}
       <div className="border rounded-lg bg-muted/30 p-4">
         {/* Shared compact legend - for workflow, tokens-absolute, or compact token view */}
-      {(viewMode === "workflow" || viewMode === "tokens-absolute" || (viewMode === "tokens" && legendMode === "compact")) && sourceConversations.length > 0 && (
+      {(viewMode === "workflow" || viewMode === "tokens-absolute" || (viewMode === "tokens" && legendMode === "compact")) && memberFiles.length > 0 && (
         <div className="mb-4">
           <CompactLegend
             components={
               viewMode === "workflow"
-                ? sourceConversations.flatMap((c) => c.messageComponents || [])
-                : sourceConversations.flatMap((c) => Object.keys(c.componentTokens))
+                ? memberFiles.flatMap((c) => c.messageComponents || [])
+                : memberFiles.flatMap((c) => Object.keys(c.componentTokens))
             }
             componentColors={componentColors}
           />
@@ -722,7 +722,7 @@ export function ComponentComparisonView({
       {viewMode === "tokens-absolute" ? (() => {
         const absColumns = Math.max(2, Math.min(10, squaresPerRow)); // clamp to 2-10
         const MAX_SQUARES = 100; // largest conversation gets 100 squares
-        const maxTokens = Math.max(...sourceConversations.map((c) => c.totalTokens));
+        const maxTokens = Math.max(...memberFiles.map((c) => c.totalTokens));
         const tokensPerSquare = Math.ceil(maxTokens / MAX_SQUARES);
         const maxRows = Math.ceil(MAX_SQUARES / absColumns);
 
@@ -731,7 +731,7 @@ export function ComponentComparisonView({
             className="grid gap-6"
             style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
           >
-              {sourceConversations.map((conv) => (
+              {memberFiles.map((conv) => (
                 <div key={conv.id} className="flex flex-col items-center">
                   <div className="mb-1 text-center">
                     <button
@@ -764,7 +764,7 @@ export function ComponentComparisonView({
         className="grid gap-6"
         style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
       >
-        {sourceConversations.map((conv) => (
+        {memberFiles.map((conv) => (
           <div key={conv.id} className={cn(
             "border rounded-lg bg-white",
             viewMode === "tokens" && legendMode === "compact" ? "p-2" : "p-4"

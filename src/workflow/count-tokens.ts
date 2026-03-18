@@ -6,7 +6,7 @@
 import type { WorkflowState } from "./types";
 import { type Notify, startStep, endStep, timed } from "./runner";
 import { addTokenCounts } from "../add-token-counts";
-import { staticComponentise } from "../static-componentisation";
+import { staticComponentise } from "../static-components";
 
 export async function runCountTokens(ctx: WorkflowState, notify: Notify) {
   startStep(notify, ctx, "counting-tokens");
