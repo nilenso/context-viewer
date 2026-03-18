@@ -176,12 +176,18 @@ export async function generateSummary(
 
 export function openPromptEditor(id: string, dimensionName?: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const conv = store.conversations.find((c) => c.id === id);
+  // For groups, read prompt from first member file
+  const group = store.getGroup(id);
+  const sourceConv = conv ?? (group
+    ? store.conversations.find((c) => group.fileIds.includes(c.id) && c.dimensions)
+    : undefined);
   const dimName = dimensionName || "default";
   const ui = useUIStore.getState();
   ui.setEditingDimensionName(dimName);
 
-  const dimPrompt = conv?.dimensions?.[dimName]?.prompt;
+  const dimPrompt = sourceConv?.dimensions?.[dimName]?.prompt;
   const currentPrompt =
     dimPrompt ||
     ui.loadedPreset?.componentIdentificationPrompt ||
@@ -192,12 +198,17 @@ export function openPromptEditor(id: string, dimensionName?: string) {
 
 export function openComponentsEditor(id: string, dimensionName?: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const conv = store.conversations.find((c) => c.id === id);
+  const group = store.getGroup(id);
+  const sourceConv = conv ?? (group
+    ? store.conversations.find((c) => group.fileIds.includes(c.id) && c.dimensions)
+    : undefined);
   const dimName = dimensionName || "default";
   const ui = useUIStore.getState();
   ui.setEditingDimensionName(dimName);
 
-  const currentComponents = conv?.dimensions?.[dimName]?.components || [];
+  const currentComponents = sourceConv?.dimensions?.[dimName]?.components || [];
   ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
   ui.setIsComponentsDialogOpen(true);
 }
@@ -229,11 +240,16 @@ export function openAnalysisPromptEditor(id: string) {
 
 export function openColoringPromptEditor(id: string, dimensionName?: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const conv = store.conversations.find((c) => c.id === id);
+  const group = store.getGroup(id);
+  const sourceConv = conv ?? (group
+    ? store.conversations.find((c) => group.fileIds.includes(c.id) && c.dimensions)
+    : undefined);
   const ui = useUIStore.getState();
   const dimName = dimensionName || ui.editingDimensionName || "default";
   ui.setEditingDimensionName(dimName);
-  const dimPrompt = conv?.dimensions?.[dimName]?.customColoringPrompt;
+  const dimPrompt = sourceConv?.dimensions?.[dimName]?.customColoringPrompt;
   ui.setEditingColoringPrompt(dimPrompt || getDefaultColoringPrompt());
   ui.setIsColoringPromptDialogOpen(true);
 }
@@ -249,9 +265,13 @@ export async function applyPrompt(selectedConversation: WorkflowState | undefine
   const dimName = ui.editingDimensionName || "default";
   const id = selectedConversation.id;
 
+  // For groups, update all member files; for single files, update just the one
+  const group = store.getGroup(id);
+  const idsToUpdate = group ? group.fileIds : [id];
+
   store.setConversations((prev) =>
     prev.map((conv) => {
-      if (conv.id !== id) return conv;
+      if (!idsToUpdate.includes(conv.id)) return conv;
       const dims = { ...(conv.dimensions || {}) };
       if (dims[dimName]) {
         dims[dimName] = { ...dims[dimName]!, prompt: ui.editingPrompt };
@@ -306,9 +326,12 @@ export async function applyComponents(selectedConversation: WorkflowState | unde
   const dimName = ui.editingDimensionName || "default";
   const id = selectedConversation.id;
 
+  const group = store.getGroup(id);
+  const idsToUpdate = group ? group.fileIds : [id];
+
   store.setConversations((prev) =>
     prev.map((conv) => {
-      if (conv.id !== id) return conv;
+      if (!idsToUpdate.includes(conv.id)) return conv;
       const dims = { ...(conv.dimensions || {}) };
       if (dims[dimName]) {
         dims[dimName] = { ...dims[dimName]!, customComponents: components };
@@ -378,9 +401,12 @@ export async function applyColoringPrompt(selectedConversation: WorkflowState | 
   const dimName = ui.editingDimensionName || "default";
   ui.setReprocessingId(id);
 
+  const group = store.getGroup(id);
+  const idsToUpdate = group ? group.fileIds : [id];
+
   store.setConversations((prev) =>
     prev.map((conv) => {
-      if (conv.id !== id) return conv;
+      if (!idsToUpdate.includes(conv.id)) return conv;
       const dims = { ...(conv.dimensions || {}) };
       if (dims[dimName]) {
         dims[dimName] = { ...dims[dimName]!, customColoringPrompt: ui.editingColoringPrompt };

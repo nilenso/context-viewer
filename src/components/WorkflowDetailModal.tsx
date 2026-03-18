@@ -133,7 +133,10 @@ export function WorkflowDetailModal({
   const stepTimings = conv?.stepTimings;
   const aiSummary = conv?.aiSummary;
   const warnings = conv?.warnings;
-  const dimensions = conv?.dimensions;
+  // For groups, derive dimensions from the first member file
+  const dimensions = conv?.dimensions ?? (group
+    ? conversations.find((c) => group.fileIds.includes(c.id) && c.dimensions)?.dimensions
+    : undefined);
   const isGrouped = !!group;
   const memberFiles = group
     ? group.fileIds.flatMap((fid) => {
