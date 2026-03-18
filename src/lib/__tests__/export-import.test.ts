@@ -166,11 +166,11 @@ describe("Export → Import round-trip", () => {
           componentMapping: { p1: "greeting", p2: "context", p3: "response" },
           componentTimeline: [],
           componentColors: { greeting: "blue", context: "green", response: "red" },
+          prompt: "Find components",
         },
       },
       aiSummary: "A simple greeting conversation",
       analysis: "Basic two-turn exchange",
-      customPrompt: "Find components",
     };
 
     // Export
@@ -202,7 +202,7 @@ describe("Export → Import round-trip", () => {
     expect(metadata.componentColors).toEqual(workflowState.dimensions.default.componentColors);
     expect(metadata.aiSummary).toBe(workflowState.aiSummary);
     expect(metadata.analysis).toBe(workflowState.analysis);
-    expect(metadata.customPrompt).toBe(workflowState.customPrompt);
+    expect(metadata.customPrompt).toBe(workflowState.dimensions.default.prompt);
   });
 
   it("round-trips a multi-dimension conversation", () => {

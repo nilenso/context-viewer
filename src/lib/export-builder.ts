@@ -26,11 +26,9 @@ interface WorkflowState {
   analysis?: string;
   metadata?: ConversationMetadata;
   dimensions?: Record<string, DimensionData>;
-  customPrompt?: string;
   customSegmentationPrompt?: string;
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
-  customColoringPrompt?: string;
   segmentationThreshold?: number;
 }
 
@@ -86,14 +84,16 @@ export function buildFileExport(conv: WorkflowState): FileExport {
   );
 
   // Build custom prompts object only if any prompts are customized
-  const customPrompts = conv.customPrompt || conv.customSegmentationPrompt ||
-    conv.customSummaryPrompt || conv.customAnalysisPrompt || conv.customColoringPrompt
+  const identPrompt = defaultDim?.prompt;
+  const coloringPrompt = defaultDim?.customColoringPrompt;
+  const customPrompts = identPrompt || conv.customSegmentationPrompt ||
+    conv.customSummaryPrompt || conv.customAnalysisPrompt || coloringPrompt
     ? {
-        componentIdentification: conv.customPrompt,
+        componentIdentification: identPrompt,
         segmentation: conv.customSegmentationPrompt,
         summary: conv.customSummaryPrompt,
         analysis: conv.customAnalysisPrompt,
-        coloring: conv.customColoringPrompt,
+        coloring: coloringPrompt,
       }
     : undefined;
 
@@ -212,8 +212,8 @@ export function exportPromptsAsPreset(source: WorkflowState): void {
 
   if (source.customSegmentationPrompt) preset.segmentationPrompt = source.customSegmentationPrompt;
   if (source.segmentationThreshold != null) preset.segmentationThreshold = source.segmentationThreshold;
-  if (source.customPrompt) preset.componentIdentificationPrompt = source.customPrompt;
-  if (source.customColoringPrompt) preset.coloringPrompt = source.customColoringPrompt;
+  if (defaultDim?.prompt) preset.componentIdentificationPrompt = defaultDim.prompt;
+  if (defaultDim?.customColoringPrompt) preset.coloringPrompt = defaultDim.customColoringPrompt;
   if (source.customSummaryPrompt) preset.summaryPrompt = source.customSummaryPrompt;
   if (source.customAnalysisPrompt) preset.analysisPrompt = source.customAnalysisPrompt;
 

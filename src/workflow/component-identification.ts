@@ -12,10 +12,10 @@ import { identifyComponents } from "../component-identification";
 import { getAIConfig } from "../ai-config";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
-export async function runIdentifyComponents(ctx: WorkflowState): Promise<{ timing: number }> {
+export async function runIdentifyComponents(ctx: WorkflowState, onlyDims?: string[]): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
-    const dimNames = getDimensionNames(ctx);
+    const dimNames = onlyDims ?? getDimensionNames(ctx);
 
     const config = getAIConfig("Componentisation");
     const errors: string[] = [];
@@ -23,8 +23,8 @@ export async function runIdentifyComponents(ctx: WorkflowState): Promise<{ timin
     await Promise.all(
       dimNames.map(async (dimName) => {
         const dimData = dims[dimName];
-        const prompt = dimData?.prompt ?? ctx.customPrompt;
-        const customComponents = dimData?.customComponents ?? ctx.customComponents;
+        const prompt = dimData?.prompt;
+        const customComponents = dimData?.customComponents;
 
         let components: string[];
 

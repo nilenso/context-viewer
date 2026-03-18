@@ -33,13 +33,10 @@ export interface WorkflowState {
   // Execution inputs
   file?: File;
   config?: any;
-  customPrompt?: string;
   customSegmentationPrompt?: string;
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
-  customColoringPrompt?: string;
   segmentationThreshold?: number;
-  customComponents?: string[];
   regenerateAnalysis?: boolean;
   presetColors?: Record<string, string>;
 

@@ -394,7 +394,18 @@ export default function App() {
   const handleReprocessComponents = async (options: { customPrompt?: string; customComponents?: string[] } = {}) => {
     if (!selectedConversation?.conversation) return;
     const id = selectedConversation.id;
+    const dimName = ui.editingDimensionName || "default";
     ui.setReprocessingId(id);
+
+    const seedDimension = (ctx: WorkflowState) => {
+      const dims = ensureDimensions(ctx);
+      if (!dims[dimName]) {
+        dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+      }
+      if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
+      if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
+    };
+
     try {
       // If this is a group, fan out to member files
       if (selectedGroup) {
@@ -407,11 +418,9 @@ export default function App() {
             await useConversationStore.getState().handleReprocessWithRunner(
               conv,
               PipelineStep.Identify,
-              (ctx) => {
-                ctx.customPrompt = options.customPrompt;
-                ctx.customComponents = options.customComponents;
-              },
+              seedDimension,
               { onAnalysisChunk },
+              [dimName],
             );
           }),
         );
@@ -421,11 +430,9 @@ export default function App() {
       await useConversationStore.getState().handleReprocessWithRunner(
         selectedConversation,
         PipelineStep.Identify,
-        (ctx) => {
-          ctx.customPrompt = options.customPrompt;
-          ctx.customComponents = options.customComponents;
-        },
+        seedDimension,
         { onAnalysisChunk },
+        [dimName],
       );
     } catch (error) {
       console.error("Failed to reprocess:", error);
@@ -596,7 +603,6 @@ export default function App() {
     const dimPrompt = conv?.dimensions?.[dimName]?.prompt;
     const currentPrompt =
       dimPrompt ||
-      conv?.customPrompt ||
       ui.loadedPreset?.componentIdentificationPrompt ||
       getDefaultComponentIdentificationPrompt();
     ui.setEditingPrompt(currentPrompt);
@@ -630,7 +636,6 @@ export default function App() {
         return {
           ...conv,
           dimensions: dims,
-          ...(dimName === "default" ? { customPrompt: ui.editingPrompt } : {}),
         };
       }),
     );
@@ -652,9 +657,8 @@ export default function App() {
         };
       }
       dims[dimName]!.prompt = ui.editingPrompt;
-      ctx.customPrompt = dimName === "default" ? ui.editingPrompt : ctx.customPrompt;
 
-      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk });
+      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk }, [dimName]);
     } catch (error) {
       console.error("Failed to reprocess dimension:", error);
     } finally {
@@ -705,7 +709,7 @@ export default function App() {
       const dims = ensureDimensions(ctx);
       if (dims[dimName]) dims[dimName]!.customComponents = components;
 
-      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk });
+      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk }, [dimName]);
     } catch (error) {
       console.error("Failed to reprocess dimension components:", error);
     } finally {
@@ -761,10 +765,13 @@ export default function App() {
     }
   };
 
-  const handleOpenColoringPromptEditor = (id: string) => {
+  const handleOpenColoringPromptEditor = (id: string, dimensionName?: string) => {
     setSelectedId(id);
     const conv = conversations.find((c) => c.id === id);
-    ui.setEditingColoringPrompt(conv?.customColoringPrompt || getDefaultColoringPrompt());
+    const dimName = dimensionName || ui.editingDimensionName || "default";
+    ui.setEditingDimensionName(dimName);
+    const dimPrompt = conv?.dimensions?.[dimName]?.customColoringPrompt;
+    ui.setEditingColoringPrompt(dimPrompt || getDefaultColoringPrompt());
     ui.setIsColoringPromptDialogOpen(true);
   };
 
@@ -773,15 +780,31 @@ export default function App() {
     if (!selectedConversation?.conversation) return;
 
     const id = selectedConversation.id;
+    const dimName = ui.editingDimensionName || "default";
     ui.setReprocessingId(id);
+
+    // Store coloring prompt on the dimension
+    useConversationStore.getState().setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== id) return conv;
+        const dims = { ...(conv.dimensions || {}) };
+        if (dims[dimName]) {
+          dims[dimName] = { ...dims[dimName]!, customColoringPrompt: ui.editingColoringPrompt };
+        }
+        return { ...conv, dimensions: dims };
+      }),
+    );
 
     try {
       const notify: Notify = (rid, update) => updateConversation(rid, update);
-      const ctx = buildBaseContext(selectedConversation);
-      ctx.customColoringPrompt = ui.editingColoringPrompt;
+      const conv = conversations.find((c) => c.id === id)!;
+      const ctx = buildBaseContext(conv);
+      const dims = ensureDimensions(ctx);
+      if (dims[dimName]) {
+        dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
+      }
 
-      await runPipelineFrom(PipelineStep.Color, ctx, notify);
-      updateConversation(id, { customColoringPrompt: ui.editingColoringPrompt });
+      await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, [dimName]);
     } catch (error) {
       console.error("Failed to reprocess coloring:", error);
       updateConversation(id, { status: "failed", step: undefined, error: "Coloring reprocessing failed" });

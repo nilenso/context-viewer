@@ -77,11 +77,12 @@ export async function reprocessWithRunner(
   startFrom: PipelineStep,
   contextModifier: (ctx: WorkflowState) => void,
   callbacks: WorkflowCallbacks,
+  dimNames?: string[],
 ): Promise<void> {
   const notify: Notify = (id, update) => store.updateConversation(id, update);
   const ctx = buildBaseContext(conv);
   contextModifier(ctx);
-  await runPipelineFrom(startFrom, ctx, notify, callbacks);
+  await runPipelineFrom(startFrom, ctx, notify, callbacks, dimNames);
 }
 
 /** Apply prompts, component list, and colors from one conversation to all others. */
@@ -93,22 +94,13 @@ export async function applyPromptsToAll(
   const source = conversations.find((c) => c.id === sourceId);
   if (!source) return;
 
-  // Copy prompts
-  const promptFields = {
-    customPrompt: source.customPrompt,
+  // Conversation-level prompt fields
+  const convPrompts = {
     customSegmentationPrompt: source.customSegmentationPrompt,
     customSummaryPrompt: source.customSummaryPrompt,
     customAnalysisPrompt: source.customAnalysisPrompt,
-    customColoringPrompt: source.customColoringPrompt,
     segmentationThreshold: source.segmentationThreshold,
   };
-
-  // Also copy component list and colors from the default dimension
-  const sourceDim = source.dimensions?.["default"];
-  const customComponents = sourceDim?.components?.length ? sourceDim.components : undefined;
-  const presetColors = sourceDim?.componentColors && Object.keys(sourceDim.componentColors).length > 0
-    ? sourceDim.componentColors
-    : undefined;
 
   const targets = conversations.filter(
     (c) => c.id !== sourceId && c.status === "success" && c.conversation,
@@ -118,32 +110,90 @@ export async function applyPromptsToAll(
 
   await Promise.all(
     targets.map(async (conv) => {
-      let startFrom: PipelineStep | null = null;
-      if (
-        promptFields.customSegmentationPrompt !== conv.customSegmentationPrompt ||
-        promptFields.segmentationThreshold !== conv.segmentationThreshold
-      ) {
-        startFrom = PipelineStep.Segment;
-      } else if (promptFields.customPrompt !== conv.customPrompt) {
-        startFrom = PipelineStep.Identify;
-      } else if (promptFields.customColoringPrompt !== conv.customColoringPrompt) {
-        startFrom = PipelineStep.Color;
+      // Check if segmentation changed (conversation-level)
+      const segChanged =
+        convPrompts.customSegmentationPrompt !== conv.customSegmentationPrompt ||
+        convPrompts.segmentationThreshold !== conv.segmentationThreshold;
+
+      // Copy conversation-level prompts
+      store.updateConversation(conv.id, convPrompts);
+
+      if (segChanged) {
+        // Segmentation changed — reprocess all dimensions from Segment
+        const notify: Notify = (id, update) => store.updateConversation(id, update);
+        const ctx = buildBaseContext(conv);
+        Object.assign(ctx, convPrompts);
+        // Copy source dimensions into ctx so they carry the new prompts
+        if (source.dimensions) {
+          const dims = ctx.dimensions || {};
+          for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
+            dims[dimName] = {
+              ...(dims[dimName] || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
+              prompt: sourceDim.prompt,
+              customColoringPrompt: sourceDim.customColoringPrompt,
+              customComponents: sourceDim.customComponents,
+            };
+          }
+          ctx.dimensions = dims;
+        }
+        await runPipelineFrom(PipelineStep.Segment, ctx, notify, {
+          onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
+        });
+        return;
       }
 
-      store.updateConversation(conv.id, promptFields);
-
-      if (startFrom === null) return;
+      // No segmentation change — diff per-dimension and reprocess only what changed
+      if (!source.dimensions) return;
 
       const notify: Notify = (id, update) => store.updateConversation(id, update);
       const ctx = buildBaseContext(conv);
-      Object.assign(ctx, promptFields);
-      // Pass component list and colors so pipeline uses them directly
-      if (customComponents) ctx.customComponents = customComponents;
-      if (presetColors) ctx.presetColors = presetColors;
+      const dims = ctx.dimensions || {};
 
-      await runPipelineFrom(startFrom, ctx, notify, {
-        onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
-      });
+      // Track which dims need reprocessing at which step
+      const identifyDims: string[] = [];
+      const colorDims: string[] = [];
+
+      for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
+        const targetDim = dims[dimName];
+
+        // Copy source dimension prompts/components into target
+        dims[dimName] = {
+          ...(targetDim || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
+          prompt: sourceDim.prompt,
+          customColoringPrompt: sourceDim.customColoringPrompt,
+          customComponents: sourceDim.customComponents,
+        };
+
+        if (sourceDim.prompt !== targetDim?.prompt ||
+            JSON.stringify(sourceDim.customComponents) !== JSON.stringify(targetDim?.customComponents)) {
+          identifyDims.push(dimName);
+        } else if (sourceDim.customColoringPrompt !== targetDim?.customColoringPrompt) {
+          colorDims.push(dimName);
+        }
+      }
+
+      ctx.dimensions = dims;
+
+      // Copy component lists as presets for dims being reprocessed
+      for (const dimName of identifyDims) {
+        const sourceDim = source.dimensions![dimName];
+        if (!sourceDim) continue;
+        if (sourceDim.components?.length) {
+          dims[dimName]!.customComponents = sourceDim.components;
+        }
+      }
+
+      // Run identify+classify+color for dims with prompt changes
+      if (identifyDims.length > 0) {
+        await runPipelineFrom(PipelineStep.Identify, ctx, notify, {
+          onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
+        }, identifyDims);
+      }
+
+      // Run color-only for dims with only coloring prompt changes
+      if (colorDims.length > 0) {
+        await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, colorDims);
+      }
     }),
   );
 }

@@ -7,11 +7,11 @@ import { type Notify, startStep, endStep, timed } from "./runner";
 import { assignComponentColors } from "../component-coloring";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
-export async function runAssignColors(ctx: WorkflowState, notify: Notify) {
+export async function runAssignColors(ctx: WorkflowState, notify: Notify, onlyDims?: string[]) {
   startStep(notify, ctx, "coloring");
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
-    const dimNames = getDimensionNames(ctx);
+    const dimNames = onlyDims ?? getDimensionNames(ctx);
 
     await Promise.all(
       dimNames.map(async (dimName) => {
@@ -23,7 +23,7 @@ export async function runAssignColors(ctx: WorkflowState, notify: Notify) {
           ctx.config,
           ctx.id,
           ctx.presetColors,
-          dimData.customColoringPrompt ?? ctx.customColoringPrompt,
+          dimData.customColoringPrompt,
         );
         dims[dimName] = { ...dimData, componentColors: colors };
       }),

@@ -12,10 +12,10 @@ import { getDefaultComponentIdentificationPrompt } from "../prompts";
 import { timed } from "./runner";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
-export async function runClassifyComponents(ctx: WorkflowState): Promise<{ timing: number }> {
+export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: string[]): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
-    const dimNames = getDimensionNames(ctx);
+    const dimNames = onlyDims ?? getDimensionNames(ctx);
 
     const config = getAIConfig("Componentisation");
     const errors: string[] = [];
@@ -25,7 +25,7 @@ export async function runClassifyComponents(ctx: WorkflowState): Promise<{ timin
         const dimData = dims[dimName];
         if (!dimData || !config || !dimData.components?.length) return;
 
-        const prompt = dimData.prompt ?? ctx.customPrompt;
+        const prompt = dimData.prompt;
         const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
 
         try {

@@ -42,14 +42,12 @@ function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = f
   }
   if (startFrom <= PipelineStep.Identify) {
     fields.add("dimensions");
-    fields.add("customPrompt");
   }
   if (startFrom <= PipelineStep.Classify) {
     fields.add("dimensions");
   }
   if (startFrom <= PipelineStep.Color) {
     fields.add("dimensions");
-    fields.add("customColoringPrompt");
   }
 
   if (includeAnalysis) {
@@ -65,36 +63,58 @@ function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = f
 // ---------------------------------------------------------------------------
 
 /**
+ * Run the dimension-level pipeline steps from `startFrom` through Color.
+ * Throws on error — callers handle try/catch and markComplete/markFailed.
+ *
+ * When `dimNames` is provided, only those dimensions are processed.
+ * When omitted, all dimensions run.
+ */
+async function runDimensionSteps(
+  startFrom: PipelineStep,
+  ctx: WorkflowState,
+  notify: Notify,
+  dimNames?: string[],
+): Promise<void> {
+  if (startFrom <= PipelineStep.Segment) {
+    await runSegment(ctx, notify);
+    updateState(notify, ctx, ["conversation"], "finding-components");
+  }
+
+  if (startFrom <= PipelineStep.Classify) {
+    startStep(notify, ctx, "finding-components");
+    if (startFrom <= PipelineStep.Identify) {
+      const { timing } = await runIdentifyComponents(ctx, dimNames);
+      ctx.stepTimings!["identifying-components" as any] = timing;
+    }
+    const { timing: classTiming } = await runClassifyComponents(ctx, dimNames);
+    ctx.stepTimings!["classifying-components" as any] = classTiming;
+    endStep(ctx, "finding-components");
+    updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
+  }
+
+  if (startFrom <= PipelineStep.Color) {
+    await runAssignColors(ctx, notify, dimNames);
+  }
+}
+
+/**
  * Run the processing pipeline from `startFrom` through the end.
  * This is the main reprocess entrypoint for prompt changes.
+ *
+ * When `dimNames` is provided, only those dimensions are processed
+ * (for dimension-scoped changes like editing one dimension's prompt).
+ * When omitted, all dimensions are processed (for conversation-level
+ * changes like segmentation, or new file processing).
  */
 export async function runPipelineFrom(
   startFrom: PipelineStep,
   ctx: WorkflowState,
   notify: Notify,
   callbacks?: WorkflowCallbacks,
+  dimNames?: string[],
 ): Promise<void> {
   try {
-    if (startFrom <= PipelineStep.Segment) {
-      await runSegment(ctx, notify);
-      updateState(notify, ctx, ["conversation"], "finding-components");
-    }
-
-    if (startFrom <= PipelineStep.Classify) {
-      startStep(notify, ctx, "finding-components");
-      if (startFrom <= PipelineStep.Identify) {
-        const { timing } = await runIdentifyComponents(ctx);
-        ctx.stepTimings!["identifying-components" as any] = timing;
-      }
-      const { timing: classTiming } = await runClassifyComponents(ctx);
-      ctx.stepTimings!["classifying-components" as any] = classTiming;
-      endStep(ctx, "finding-components");
-      updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
-    }
-
-    if (startFrom <= PipelineStep.Color) {
-      await runAssignColors(ctx, notify);
-    }
+    await runDimensionSteps(startFrom, ctx, notify, dimNames);
 
     // Regenerate analysis if it existed before
     const regenerated = callbacks
@@ -116,8 +136,8 @@ const PRE_PROCESSED_COMPLETE: WorkflowDataField[] = [
   "aiSummary", "analysis",
   "dimensions",
   "staticComponents", "staticMapping", "staticTimeline",
-  "customPrompt", "customSegmentationPrompt", "customSummaryPrompt",
-  "customAnalysisPrompt", "customColoringPrompt",
+  "customSegmentationPrompt", "customSummaryPrompt",
+  "customAnalysisPrompt",
 ];
 
 const PARSED_FIELDS: WorkflowDataField[] = [
@@ -129,7 +149,7 @@ const NEW_FILE_COMPLETE: WorkflowDataField[] = [
   "conversation", "summary", "metadata",
   "dimensions",
   "staticComponents", "staticMapping", "staticTimeline",
-  "customPrompt", "customSegmentationPrompt",
+  "customSegmentationPrompt",
 ];
 
 export async function processNewFile(
@@ -156,19 +176,7 @@ export async function processNewFile(
     }
     updateState(notify, ctx, PARSED_FIELDS, "segmenting");
 
-    // Run pipeline from Segment through Color
-    await runSegment(ctx, notify);
-    updateState(notify, ctx, ["conversation"], "finding-components");
-
-    startStep(notify, ctx, "finding-components");
-    const { timing: idTiming } = await runIdentifyComponents(ctx);
-    ctx.stepTimings!["identifying-components" as any] = idTiming;
-    const { timing: classTiming } = await runClassifyComponents(ctx);
-    ctx.stepTimings!["classifying-components" as any] = classTiming;
-    endStep(ctx, "finding-components");
-    updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
-
-    await runAssignColors(ctx, notify);
+    await runDimensionSteps(PipelineStep.Segment, ctx, notify);
     markComplete(notify, ctx, NEW_FILE_COMPLETE);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
@@ -189,18 +197,7 @@ export async function resumeFromPause(
   callbacks: WorkflowCallbacks,
 ): Promise<void> {
   try {
-    await runSegment(ctx, notify);
-    updateState(notify, ctx, ["conversation"], "finding-components");
-
-    startStep(notify, ctx, "finding-components");
-    const { timing: idTiming } = await runIdentifyComponents(ctx);
-    ctx.stepTimings!["identifying-components" as any] = idTiming;
-    const { timing: classTiming } = await runClassifyComponents(ctx);
-    ctx.stepTimings!["classifying-components" as any] = classTiming;
-    endStep(ctx, "finding-components");
-    updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
-
-    await runAssignColors(ctx, notify);
+    await runDimensionSteps(PipelineStep.Segment, ctx, notify);
     markComplete(notify, ctx, RESUME_COMPLETE);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
@@ -290,10 +287,19 @@ export async function runWorkflows(
         warnings: [],
         stepTimings: {},
         config: getAIConfig("Componentisation"),
-        customComponents: options?.customComponents,
         presetColors: options?.presetColors,
-        customPrompt: options?.customPrompt,
         customSegmentationPrompt: options?.customSegmentationPrompt,
+        dimensions: (options?.customPrompt || options?.customComponents) ? {
+          default: {
+            name: "default",
+            prompt: options?.customPrompt,
+            customComponents: options?.customComponents,
+            components: [],
+            componentMapping: {},
+            componentTimeline: [],
+            componentColors: {},
+          },
+        } : undefined,
       };
 
       await processNewFile(ctx, notify, {

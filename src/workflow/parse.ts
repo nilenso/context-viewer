@@ -60,11 +60,9 @@ export function restorePreProcessedImport(
   ctx.title = metadata.title;
   ctx.aiSummary = metadata.aiSummary;
   ctx.analysis = metadata.analysis;
-  ctx.customPrompt = metadata.customPrompt;
   ctx.customSegmentationPrompt = metadata.customSegmentationPrompt;
   ctx.customSummaryPrompt = metadata.customSummaryPrompt;
   ctx.customAnalysisPrompt = metadata.customAnalysisPrompt;
-  ctx.customColoringPrompt = metadata.customColoringPrompt;
 
   // Set up default dimension from the imported data
   ctx.dimensions = {

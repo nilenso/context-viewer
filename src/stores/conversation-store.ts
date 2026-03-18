@@ -62,6 +62,7 @@ interface ConversationStore {
     startFrom: PipelineStep,
     contextModifier: (ctx: WorkflowState) => void,
     callbacks: WorkflowCallbacks,
+    dimNames?: string[],
   ) => Promise<void>;
   handleApplyPromptsToAll: (sourceId: string) => Promise<void>;
   handleExportPromptsAsPreset: (sourceId: string) => void;
@@ -212,8 +213,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       return get().createGroup(validIds, groupName, existingId, title);
     },
 
-    handleReprocessWithRunner: async (conv, startFrom, contextModifier, callbacks) => {
-      await reprocessWithRunner(accessor, conv, startFrom, contextModifier, callbacks);
+    handleReprocessWithRunner: async (conv, startFrom, contextModifier, callbacks, dimNames?) => {
+      await reprocessWithRunner(accessor, conv, startFrom, contextModifier, callbacks, dimNames);
     },
 
     handleApplyPromptsToAll: (sourceId) => applyPromptsToAll(accessor, sourceId),
