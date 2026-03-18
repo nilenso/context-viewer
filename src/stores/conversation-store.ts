@@ -9,6 +9,7 @@ import { parseFileDropInput } from "../lib/file-import";
 import {
   runWorkflowMutation,
   reprocessWithRunner,
+  reprocessTarget,
   applyPromptsToAll,
   resumeWorkflowsWithApiKey,
   type StoreAccessor,
@@ -59,6 +60,13 @@ interface ConversationStore {
   groupConversations: (ids: string[], name?: string, existingId?: string, title?: string) => string;
   handleReprocessWithRunner: (
     conv: WorkflowState,
+    startFrom: PipelineStep,
+    contextModifier: (ctx: WorkflowState) => void,
+    callbacks: WorkflowCallbacks,
+    dimNames?: string[],
+  ) => Promise<void>;
+  handleReprocessTarget: (
+    targetId: string,
     startFrom: PipelineStep,
     contextModifier: (ctx: WorkflowState) => void,
     callbacks: WorkflowCallbacks,
@@ -215,6 +223,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
     handleReprocessWithRunner: async (conv, startFrom, contextModifier, callbacks, dimNames?) => {
       await reprocessWithRunner(accessor, conv, startFrom, contextModifier, callbacks, dimNames);
+    },
+
+    handleReprocessTarget: async (targetId, startFrom, contextModifier, callbacks, dimNames?) => {
+      await reprocessTarget(accessor, targetId, startFrom, contextModifier, callbacks, dimNames);
     },
 
     handleApplyPromptsToAll: (sourceId) => applyPromptsToAll(accessor, sourceId),

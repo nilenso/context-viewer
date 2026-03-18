@@ -71,12 +71,9 @@ export interface Group {
   name: string;
   title?: string;
   fileIds: string[];
-  customPrompt?: string;
-  customSegmentationPrompt?: string;
+  // Group-level prompts (summary/analysis run on virtual merged conversation)
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
-  customColoringPrompt?: string;
-  segmentationThreshold?: number;
   // Group-level AI outputs (generated from concatenated member content)
   aiSummary?: string;
   analysis?: string;

@@ -3,7 +3,7 @@
  * These accept a store accessor to read/write state.
  */
 
-import type { WorkflowState, WorkflowCallbacks, WorkflowOptions } from "./types";
+import type { WorkflowState, WorkflowCallbacks, WorkflowOptions, Group } from "./types";
 import { PipelineStep } from "./types";
 import type { Notify } from "./runner";
 import { runPipelineFrom, resumeFromPause, runWorkflows } from "./pipeline";
@@ -15,6 +15,7 @@ import { buildBaseContext } from "./context";
 export interface StoreAccessor {
   getState: () => {
     conversations: WorkflowState[];
+    groups: Record<string, Group>;
     pendingSessionImport: any;
   };
   updateConversation: (id: string, update: Partial<WorkflowState>) => void;
@@ -83,6 +84,38 @@ export async function reprocessWithRunner(
   const ctx = buildBaseContext(conv);
   contextModifier(ctx);
   await runPipelineFrom(startFrom, ctx, notify, callbacks, dimNames);
+}
+
+/**
+ * Reprocess a target (file or group) from a given pipeline step.
+ * If the target is a group, fans out to all member files.
+ */
+export async function reprocessTarget(
+  store: StoreAccessor,
+  targetId: string,
+  startFrom: PipelineStep,
+  contextModifier: (ctx: WorkflowState) => void,
+  callbacks: WorkflowCallbacks,
+  dimNames?: string[],
+): Promise<void> {
+  const { conversations, groups } = store.getState();
+  const group = groups[targetId];
+
+  if (group) {
+    const memberConvs = group.fileIds
+      .map((fid) => conversations.find((c) => c.id === fid))
+      .filter((c): c is WorkflowState => !!c?.conversation);
+
+    await Promise.all(
+      memberConvs.map((conv) =>
+        reprocessWithRunner(store, conv, startFrom, contextModifier, callbacks, dimNames),
+      ),
+    );
+  } else {
+    const conv = conversations.find((c) => c.id === targetId);
+    if (!conv?.conversation) return;
+    await reprocessWithRunner(store, conv, startFrom, contextModifier, callbacks, dimNames);
+  }
 }
 
 /** Apply prompts, component list, and colors from one conversation to all others. */

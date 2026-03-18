@@ -6,7 +6,7 @@ import { useUIStore } from "./stores/ui-store";
 import type { WorkflowState } from "./workflow/types";
 import { PipelineStep } from "./workflow/types";
 import type { Notify } from "./workflow/runner";
-import { runPipelineFrom, generateSummaryOnDemand, generateAnalysisOnDemand, rerunSummary } from "./workflow/pipeline";
+import { generateSummaryOnDemand, generateAnalysisOnDemand, rerunSummary } from "./workflow/pipeline";
 import { ensureDimensions, getDefaultDimension, getAllComponents } from "./workflow/dimensions";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { aggregateComponentTokens } from "./aggregation";
@@ -397,40 +397,18 @@ export default function App() {
     const dimName = ui.editingDimensionName || "default";
     ui.setReprocessingId(id);
 
-    const seedDimension = (ctx: WorkflowState) => {
-      const dims = ensureDimensions(ctx);
-      if (!dims[dimName]) {
-        dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
-      }
-      if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
-      if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
-    };
-
     try {
-      // If this is a group, fan out to member files
-      if (selectedGroup) {
-        const memberConvs = selectedGroup.fileIds
-          .map((fid) => conversations.find((c) => c.id === fid))
-          .filter((c): c is WorkflowState => !!c?.conversation);
-
-        await Promise.all(
-          memberConvs.map(async (conv) => {
-            await useConversationStore.getState().handleReprocessWithRunner(
-              conv,
-              PipelineStep.Identify,
-              seedDimension,
-              { onAnalysisChunk },
-              [dimName],
-            );
-          }),
-        );
-        return;
-      }
-
-      await useConversationStore.getState().handleReprocessWithRunner(
-        selectedConversation,
+      await useConversationStore.getState().handleReprocessTarget(
+        id,
         PipelineStep.Identify,
-        seedDimension,
+        (ctx) => {
+          const dims = ensureDimensions(ctx);
+          if (!dims[dimName]) {
+            dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          }
+          if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
+          if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
+        },
         { onAnalysisChunk },
         [dimName],
       );
@@ -447,27 +425,8 @@ export default function App() {
     const id = selectedConversation.id;
     ui.setReprocessingId(id);
     try {
-      if (selectedGroup) {
-        const memberConvs = selectedGroup.fileIds
-          .map((fid) => conversations.find((c) => c.id === fid))
-          .filter((c): c is WorkflowState => !!c?.conversation);
-        await Promise.all(
-          memberConvs.map(async (conv) => {
-            await useConversationStore.getState().handleReprocessWithRunner(
-              conv,
-              PipelineStep.Segment,
-              (ctx) => {
-                ctx.customSegmentationPrompt = options.customSegmentationPrompt;
-                ctx.segmentationThreshold = options.segmentationThreshold;
-              },
-              { onAnalysisChunk },
-            );
-          }),
-        );
-        return;
-      }
-      await useConversationStore.getState().handleReprocessWithRunner(
-        selectedConversation,
+      await useConversationStore.getState().handleReprocessTarget(
+        id,
         PipelineStep.Segment,
         (ctx) => {
           ctx.customSegmentationPrompt = options.customSegmentationPrompt;
@@ -642,23 +601,19 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
-      const conv = conversations.find((c) => c.id === id)!;
-      const ctx = buildBaseContext(conv);
-
-      const dims = ensureDimensions(ctx);
-      if (!dims[dimName]) {
-        dims[dimName] = {
-          name: dimName,
-          components: [],
-          componentMapping: {},
-          componentTimeline: [],
-          componentColors: {},
-        };
-      }
-      dims[dimName]!.prompt = ui.editingPrompt;
-
-      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk }, [dimName]);
+      await useConversationStore.getState().handleReprocessTarget(
+        id,
+        PipelineStep.Identify,
+        (ctx) => {
+          const dims = ensureDimensions(ctx);
+          if (!dims[dimName]) {
+            dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          }
+          dims[dimName]!.prompt = ui.editingPrompt;
+        },
+        { onAnalysisChunk },
+        [dimName],
+      );
     } catch (error) {
       console.error("Failed to reprocess dimension:", error);
     } finally {
@@ -703,13 +658,16 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
-      const conv = conversations.find((c) => c.id === id)!;
-      const ctx = buildBaseContext(conv);
-      const dims = ensureDimensions(ctx);
-      if (dims[dimName]) dims[dimName]!.customComponents = components;
-
-      await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk }, [dimName]);
+      await useConversationStore.getState().handleReprocessTarget(
+        id,
+        PipelineStep.Identify,
+        (ctx) => {
+          const dims = ensureDimensions(ctx);
+          if (dims[dimName]) dims[dimName]!.customComponents = components;
+        },
+        { onAnalysisChunk },
+        [dimName],
+      );
     } catch (error) {
       console.error("Failed to reprocess dimension components:", error);
     } finally {
@@ -783,28 +741,19 @@ export default function App() {
     const dimName = ui.editingDimensionName || "default";
     ui.setReprocessingId(id);
 
-    // Store coloring prompt on the dimension
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
-        if (dims[dimName]) {
-          dims[dimName] = { ...dims[dimName]!, customColoringPrompt: ui.editingColoringPrompt };
-        }
-        return { ...conv, dimensions: dims };
-      }),
-    );
-
     try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
-      const conv = conversations.find((c) => c.id === id)!;
-      const ctx = buildBaseContext(conv);
-      const dims = ensureDimensions(ctx);
-      if (dims[dimName]) {
-        dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
-      }
-
-      await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, [dimName]);
+      await useConversationStore.getState().handleReprocessTarget(
+        id,
+        PipelineStep.Color,
+        (ctx) => {
+          const dims = ensureDimensions(ctx);
+          if (dims[dimName]) {
+            dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
+          }
+        },
+        {},
+        [dimName],
+      );
     } catch (error) {
       console.error("Failed to reprocess coloring:", error);
       updateConversation(id, { status: "failed", step: undefined, error: "Coloring reprocessing failed" });
