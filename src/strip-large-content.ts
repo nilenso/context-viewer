@@ -3,7 +3,7 @@ import type { Conversation, Message } from "./schema";
 /**
  * Truncate a string to a maximum length, adding an indicator if truncated
  */
-export function truncateContent(content: unknown, maxLength: number = 200): string {
+function truncateContent(content: unknown, maxLength: number = 200): string {
   const str = typeof content === "string" ? content : JSON.stringify(content);
   if (str.length <= maxLength) {
     return str;

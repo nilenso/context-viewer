@@ -34,7 +34,7 @@ export const DEFAULT_MESSAGE_FILTERS = new Set<MessageFilter>([
 ]);
 
 // Valid message filter options grouped by role
-const filterOptions = [
+export const filterOptions = [
   {
     role: "All",
     emoji: "🔍",

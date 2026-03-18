@@ -3,48 +3,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
 import { getAIConfig, type AIConfig } from "./ai-config";
-import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
-// Helper to log with optional conversation context
-function log(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "segmenting" as ProcessingPhase,
-      "info",
-      message,
-      data,
-    );
-  } else {
-    if (data !== undefined) {
-      console.log(`[Segmentation] ${message}`, data);
-    } else {
-      console.log(`[Segmentation] ${message}`);
-    }
-  }
-}
-
-function logError(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "segmenting" as ProcessingPhase,
-      "error",
-      message,
-      data,
-    );
-  } else {
-    console.error(`[Segmentation] ${message}`, data);
-  }
-}
+const log = createPhaseLogger("segmenting", "Segmentation");
+const logError = createPhaseLogger("segmenting", "Segmentation", "error");
 
 const DEFAULT_SEGMENTATION_THRESHOLD = 500;
 

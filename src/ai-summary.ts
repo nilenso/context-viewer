@@ -7,88 +7,12 @@ import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig } from "./ai-config";
-import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
-// Helper to log with optional conversation context
-function logSummary(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "summary" as ProcessingPhase,
-      "info",
-      message,
-      data,
-    );
-  } else {
-    if (data !== undefined) {
-      console.log(`[AI Summary] ${message}`, data);
-    } else {
-      console.log(`[AI Summary] ${message}`);
-    }
-  }
-}
-
-function logSummaryError(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "summary" as ProcessingPhase,
-      "error",
-      message,
-      data,
-    );
-  } else {
-    console.error(`[AI Summary] ${message}`, data);
-  }
-}
-
-function logAnalysis(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "analysis" as ProcessingPhase,
-      "info",
-      message,
-      data,
-    );
-  } else {
-    if (data !== undefined) {
-      console.log(`[Context Analysis] ${message}`, data);
-    } else {
-      console.log(`[Context Analysis] ${message}`);
-    }
-  }
-}
-
-function logAnalysisError(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "analysis" as ProcessingPhase,
-      "error",
-      message,
-      data,
-    );
-  } else {
-    console.error(`[Context Analysis] ${message}`, data);
-  }
-}
+const logSummary = createPhaseLogger("summary", "AI Summary");
+const logSummaryError = createPhaseLogger("summary", "AI Summary", "error");
+const logAnalysis = createPhaseLogger("analysis", "Context Analysis");
+const logAnalysisError = createPhaseLogger("analysis", "Context Analysis", "error");
 
 export interface ConversationStats {
   messageCount: number;
@@ -199,14 +123,12 @@ export async function generateContextAnalysis(
     allCSVData = generateComponentCSV(
       dim.componentTimeline,
       [...new Set(dim.components)],
-      conversation,
     );
   } else {
     // Fallback to legacy single-dimension data
     allCSVData = generateComponentCSV(
       componentTimeline,
       components,
-      conversation,
     );
   }
 

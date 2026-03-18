@@ -7,6 +7,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { getComponentBadgeStyles } from "@/lib/component-colors";
+import { getPartLabel, getPartEmoji } from "@/lib/part-type-config";
 import { cn } from "@/lib/utils";
 import type {
   TextPart,
@@ -47,43 +48,8 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
     setIsOpen(isExpanded);
   }, [isExpanded]);
 
-  const getPartLabel = () => {
-    switch (part.type) {
-      case "text":
-        return "Text";
-      case "reasoning":
-        return "Reasoning";
-      case "tool-call":
-        return "Tool Call";
-      case "tool-result":
-        return "Tool Result";
-      case "image":
-        return "Image";
-      case "file":
-        return "File";
-      default:
-        return "Unknown";
-    }
-  };
-
-  const getPartEmoji = () => {
-    switch (part.type) {
-      case "text":
-        return "💬";
-      case "reasoning":
-        return "💭";
-      case "tool-call":
-        return "📤";
-      case "tool-result":
-        return "📥";
-      case "image":
-        return "🖼️";
-      case "file":
-        return "📄";
-      default:
-        return "❓";
-    }
-  };
+  const partLabel = getPartLabel(part.type);
+  const partEmoji = getPartEmoji(part.type);
 
   const getTokenCount = () => {
     if ("token_count" in part && part.token_count !== undefined) {
@@ -205,9 +171,9 @@ export function MessagePartView({ part, isExpanded = false, componentMapping, co
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          <span className="text-sm">{getPartEmoji()}</span>
+          <span className="text-sm">{partEmoji}</span>
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {getPartLabel()}
+            {partLabel}
           </span>
           {tokenCount !== null && (
             <Badge variant="secondary" className="text-xs">

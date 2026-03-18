@@ -35,6 +35,7 @@ import {
   type GroupTab,
   ALL_MESSAGE_FILTERS,
 } from "@/lib/url-state";
+import { filterOptions } from "@/components/MessageTypeFilter";
 
 // Re-export types for URL state integration
 export type TabType = ConversationTab | GroupTab;
@@ -380,54 +381,6 @@ export function ConversationView({
     if (messageFiltersSet.size === 0) return "No Messages";
     return `${messageFiltersSet.size} Filter${messageFiltersSet.size !== 1 ? 's' : ''}`;
   };
-
-  // Valid message filter options grouped by role
-  const filterOptions: Array<{
-    role: string;
-    emoji: string;
-    filters: Array<{ key: MessageFilterWithAll; label: string; emoji: string }>;
-  }> = [
-    {
-      role: "All",
-      emoji: "🔍",
-      filters: [
-        { key: "all", label: "All Messages", emoji: "🔍" },
-      ]
-    },
-    {
-      role: "System",
-      emoji: "⚙️",
-      filters: [
-        { key: "system:text", label: "Text", emoji: "💬" },
-      ]
-    },
-    {
-      role: "User",
-      emoji: "👤",
-      filters: [
-        { key: "user:text", label: "Text", emoji: "💬" },
-        { key: "user:image", label: "Image", emoji: "🖼️" },
-        { key: "user:file", label: "File", emoji: "📄" },
-      ]
-    },
-    {
-      role: "Assistant",
-      emoji: "🤖",
-      filters: [
-        { key: "assistant:text", label: "Text", emoji: "💬" },
-        { key: "assistant:file", label: "File", emoji: "📄" },
-        { key: "assistant:reasoning", label: "Reasoning", emoji: "💭" },
-        { key: "assistant:tool-call", label: "Tool Call", emoji: "📤" },
-      ]
-    },
-    {
-      role: "Tool",
-      emoji: "🔧",
-      filters: [
-        { key: "tool:tool-result", label: "Tool Result", emoji: "📥" },
-      ]
-    },
-  ];
 
   // Helper function to get total tokens for a message
   const getMessageTokens = getMessageTokenCount;

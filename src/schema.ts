@@ -134,12 +134,6 @@ export const SourceInfoSchema = z.object({
 
 export type SourceInfo = z.infer<typeof SourceInfoSchema>;
 
-// Extended message with optional source info (for grouped conversations)
-export interface MessageWithSource {
-  message: Message;
-  sourceInfo?: SourceInfo;
-}
-
 // ============================================================================
 // Type Exports
 // ============================================================================

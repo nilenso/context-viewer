@@ -15,9 +15,7 @@ import {
   type CodexFunctionCallOutputPayload,
 } from "../input-schemas";
 
-// Simple ID generator
-let idCounter = 0;
-const generateId = () => `${++idCounter}`;
+import { generateId } from "../lib/id-generator";
 
 /**
  * Parser for Codex CLI transcript format (JSONL)

@@ -4,7 +4,7 @@ import type { Conversation } from "./schema";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
 import { getAIConfig, type AIConfig } from "./ai-config";
-import { workflowLog, type ProcessingPhase } from "./workflow-logger";
+import { createPhaseLogger } from "./lib/workflow-log-helpers";
 import {
   buildComponentTimeline as buildComponentTimelineCore,
   type ComponentTimelineSnapshot,
@@ -22,71 +22,11 @@ export {
   buildComponentTimeline as buildComponentTimelinePure,
   computeTupleTokens,
   computePercentages,
-  generateComponentCSV,
 } from "./aggregation";
 
-// Helper to log with optional conversation context
-function log(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "finding-components" as ProcessingPhase,
-      "info",
-      message,
-      data,
-    );
-  } else {
-    if (data !== undefined) {
-      console.log(`[Componentisation] ${message}`, data);
-    } else {
-      console.log(`[Componentisation] ${message}`);
-    }
-  }
-}
-
-function logError(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "finding-components" as ProcessingPhase,
-      "error",
-      message,
-      data,
-    );
-  } else {
-    console.error(`[Componentisation] ${message}`, data);
-  }
-}
-
-function logColoring(
-  conversationId: string | undefined,
-  message: string,
-  data?: unknown,
-) {
-  if (conversationId) {
-    workflowLog(
-      conversationId,
-      "coloring" as ProcessingPhase,
-      "info",
-      message,
-      data,
-    );
-  } else {
-    if (data !== undefined) {
-      console.log(`[Coloring] ${message}`, data);
-    } else {
-      console.log(`[Coloring] ${message}`);
-    }
-  }
-}
+const log = createPhaseLogger("finding-components", "Componentisation");
+const logError = createPhaseLogger("finding-components", "Componentisation", "error");
+const logColoring = createPhaseLogger("coloring", "Coloring");
 
 /**
  * Configuration for AI model used in componentisation

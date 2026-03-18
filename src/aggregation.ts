@@ -256,7 +256,6 @@ export function computePercentages(
 export function generateComponentCSV(
   componentTimeline: ComponentTimelineSnapshot[],
   components: string[],
-  _conversation: Conversation,
 ): string {
   const header = ["Message", "Total Tokens", ...components].join(",");
 

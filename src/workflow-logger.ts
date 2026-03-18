@@ -82,13 +82,6 @@ export function clearConversationLogs(conversationId: string): void {
 }
 
 /**
- * Clear all logs
- */
-export function clearAllLogs(): void {
-  conversationLogsStore.clear();
-}
-
-/**
  * Log a message for a specific conversation and phase
  */
 export function workflowLog(
@@ -205,7 +198,7 @@ export function formatTimestamp(date: Date): string {
 /**
  * Get logs for a specific phase
  */
-export function getLogsForPhase(
+function getLogsForPhase(
   conversationId: string,
   phase: ProcessingPhase,
 ): LogEntry[] {
@@ -235,15 +228,3 @@ export function createConversationLogger(conversationId: string) {
   };
 }
 
-/**
- * React hook for subscribing to conversation logs
- */
-export function useConversationLogs(conversationId: string | null) {
-  // This will be imported from React in the component that uses it
-  // For now, just export the subscribe function
-  return {
-    subscribe: subscribeToLogs,
-    getLogs: () =>
-      conversationId ? getConversationLogs(conversationId) : null,
-  };
-}

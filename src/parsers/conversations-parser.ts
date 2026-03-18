@@ -12,9 +12,7 @@ import {
   type ConversationItem,
 } from "../input-schemas";
 
-// Simple ID generator
-let idCounter = 0;
-const generateId = () => `${++idCounter}`;
+import { generateId } from "../lib/id-generator";
 
 /**
  * Parser for OpenAI Conversations API format
