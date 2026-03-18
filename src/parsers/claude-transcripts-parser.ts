@@ -11,6 +11,8 @@ import {
   type ClaudeTranscriptEntry,
   type ClaudeMessageEntry,
   type ClaudeContent,
+  type ClaudeToolUseContent,
+  type ClaudeImageContent,
 } from "../input-schemas";
 
 import { generateId } from "../lib/id-generator";
@@ -135,7 +137,8 @@ export class ClaudeTranscriptsParser implements Parser {
 
       for (const block of content) {
         if (block.type === "tool_use") {
-          toolCallMap.set(block.id, block.name);
+          const tu = block as ClaudeToolUseContent;
+          toolCallMap.set(tu.id, tu.name);
         }
       }
     }
@@ -294,15 +297,15 @@ export class ClaudeTranscriptsParser implements Parser {
           parts.push({
             id: generateId(),
             type: "text",
-            text: block.text,
+            text: (block as { text: string }).text,
           });
         } else if (block.type === "image") {
-          // Handle image content
+          const img = block as ClaudeImageContent;
           parts.push({
             id: generateId(),
             type: "image",
-            image: block.source.data,
-            mediaType: block.source.media_type,
+            image: img.source.data,
+            mediaType: img.source.media_type,
           });
         }
       }
@@ -365,12 +368,13 @@ export class ClaudeTranscriptsParser implements Parser {
     > = [];
 
     for (const block of content) {
+      const b = block as Record<string, unknown>;
       switch (block.type) {
         case "thinking":
           parts.push({
             id: generateId(),
             type: "reasoning",
-            text: block.thinking,
+            text: b.thinking as string,
           });
           break;
 
@@ -378,19 +382,21 @@ export class ClaudeTranscriptsParser implements Parser {
           parts.push({
             id: generateId(),
             type: "text",
-            text: block.text,
+            text: b.text as string,
           });
           break;
 
-        case "tool_use":
+        case "tool_use": {
+          const tu = block as ClaudeToolUseContent;
           parts.push({
             id: generateId(),
             type: "tool-call",
-            toolCallId: block.id,
-            toolName: block.name,
-            input: block.input,
+            toolCallId: tu.id,
+            toolName: tu.name,
+            input: tu.input,
           });
           break;
+        }
 
         // tool_result shouldn't appear in assistant messages, but skip if it does
       }

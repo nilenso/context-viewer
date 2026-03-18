@@ -168,7 +168,7 @@ export class CodexTranscriptsParser implements Parser {
     };
 
     for (const entry of entries) {
-      const payload = entry.payload;
+      const payload = entry.payload as Record<string, unknown>;
       const timestamp = entry.timestamp;
 
       switch (payload.type) {

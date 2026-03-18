@@ -115,7 +115,7 @@ export function GroupFileOrderEditor({
 
   const hasChanges = useCallback(() => {
     if (items.length !== memberFiles.length) return true;
-    return items.some((item, i) => item.id !== memberFiles[i].id);
+    return items.some((item, i) => item.id !== memberFiles[i]?.id);
   }, [items, memberFiles]);
 
   const willDissolve = items.length <= 1;

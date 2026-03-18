@@ -256,7 +256,6 @@ describe("Export → Import round-trip", () => {
         },
       },
       aiSummary: "A bug-fixing conversation",
-      analysis: null,
     };
 
     // Export
@@ -307,8 +306,8 @@ describe("Export → Import round-trip", () => {
     expect(metadata.dimensions!["error_types"]!.coloringPrompt).toBe("Use warm colors for errors");
 
     // Verify dimension part annotations survive parse (carried via passthrough)
-    const parsedParts = conversation.messages.flatMap((m) => m.parts);
-    const parsedP1 = parsedParts.find((p) => p.id === "p1")! as Record<string, unknown>;
+    const parsedParts = conversation.messages.flatMap((m) => m.parts as Array<Record<string, unknown>>);
+    const parsedP1 = parsedParts.find((p) => p.id === "p1")!;
     expect(parsedP1["dimensions"]).toEqual({ default: "identity", workflow: "identity", error_types: "setup" });
   });
 
@@ -368,7 +367,6 @@ describe("Session export", () => {
         componentMapping: { p1: "greeting" },
         componentColors: { greeting: "blue" },
         aiSummary: "Test",
-        analysis: null,
       },
       {
         id: "c2",
@@ -385,8 +383,6 @@ describe("Session export", () => {
         },
         componentMapping: { p2: "response" },
         componentColors: { response: "red" },
-        aiSummary: null,
-        analysis: null,
       },
     ];
 

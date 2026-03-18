@@ -33,7 +33,7 @@ function extractFilename(url: string): string {
 function getExtension(filename: string): string {
   const parts = filename.split(".");
   if (parts.length > 1) {
-    return "." + parts[parts.length - 1].toLowerCase();
+    return "." + parts[parts.length - 1]!.toLowerCase();
   }
   return "";
 }

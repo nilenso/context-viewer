@@ -57,7 +57,7 @@ export interface WorkflowState {
 
   // Tracking
   warnings?: string[];
-  stepTimings?: Partial<Record<ProcessingStep, number>>;
+  stepTimings?: Partial<Record<ProcessingStep | string, number>>;
   pausedAtStep?: ProcessingStep;
 
 }

@@ -3,7 +3,7 @@
  */
 
 import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModelV2 } from "ai";
+import type { LanguageModel } from "ai";
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
 export type AIApiMode = "responses" | "chat";
@@ -71,9 +71,9 @@ export function getAIConfig(label?: string): AIConfig | null {
 }
 
 /**
- * Create a LanguageModelV2 from AIConfig, using the configured API mode.
+ * Create a LanguageModel from AIConfig, using the configured API mode.
  */
-export function createModel(config: AIConfig): LanguageModelV2 {
+export function createModel(config: AIConfig): LanguageModel {
   const openai = createOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
