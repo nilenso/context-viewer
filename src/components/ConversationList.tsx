@@ -1111,29 +1111,6 @@ export function ConversationList() {
               isOpen={true}
               onClose={() => setExpandedConversationId(null)}
               conversationId={displayConv.id}
-              filename={displayConv.filename}
-              title={displayConv.title}
-              status={displayConv.status}
-              currentStep={displayConv.step}
-              stepTimings={displayConv.stepTimings}
-              aiSummary={displayConv.aiSummary}
-              warnings={displayConv.warnings}
-              onEditPrompt={(id, dimName) => openPromptEditor(id, dimName)}
-              onEditComponents={(id, dimName) => openComponentsEditor(id, dimName)}
-              onEditSegmentationPrompt={(id) => openSegmentationPromptEditor(id)}
-              onEditSummaryPrompt={(id) => openSummaryPromptEditor(id)}
-              onEditAnalysisPrompt={(id) => openAnalysisPromptEditor(id)}
-              onEditColoringPrompt={(id) => openColoringPromptEditor(id)}
-              onGenerateAnalysis={(id) => generateAnalysis(id, undefined)}
-              onGenerateSummary={(id) => generateSummary(id, undefined)}
-              dimensions={displayConv.dimensions}
-              onAddDimension={(name) => addDimension(displayConv.id, name)}
-              onRemoveDimension={(name) => removeDimension(displayConv.id, name)}
-              onRenameDimension={(oldName, newName) => renameDimension(displayConv.id, oldName, newName)}
-              onEditDimensionPrompt={(id, dimName) => openPromptEditor(id, dimName)}
-              isGrouped={isGroupEntry(displayConv.id)}
-              memberFiles={getMemberFiles(displayConv.id)}
-              onUpdateGroupSources={(newSources) => updateGroupSources(displayConv.id, newSources)}
             />
           );
         })()}

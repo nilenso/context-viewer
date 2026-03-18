@@ -41,6 +41,21 @@ import {
   formatDuration,
   formatTimestamp,
 } from "@/workflow-logger";
+import { useConversationStore } from "@/stores/conversation-store";
+import {
+  openPromptEditor,
+  openComponentsEditor,
+  openSegmentationPromptEditor,
+  openSummaryPromptEditor,
+  openAnalysisPromptEditor,
+  openColoringPromptEditor,
+  generateAnalysis,
+  generateSummary,
+  addDimension,
+  removeDimension,
+  renameDimension,
+  updateGroupSources,
+} from "@/hooks/useWorkflowActions";
 
 type ProcessingStep =
   | "parsing"
@@ -99,61 +114,33 @@ interface WorkflowDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   conversationId: string;
-  filename: string;
-  title?: string;
-  status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
-  currentStep?: ProcessingStep;
-  stepTimings?: Partial<Record<ProcessingStep, number>>;
-  aiSummary?: string;
-  warnings?: string[];
-  onEditPrompt?: (id: string, dimensionName?: string) => void;
-  onEditComponents?: (id: string, dimensionName?: string) => void;
-  onEditSegmentationPrompt?: (id: string) => void;
-  onEditSummaryPrompt?: (id: string) => void;
-  onEditAnalysisPrompt?: (id: string) => void;
-  onEditColoringPrompt?: (id: string) => void;
-  onGenerateAnalysis?: (id: string) => void;
-  onGenerateSummary?: (id: string) => void;
-  // Dimension management
-  dimensions?: Record<string, DimensionData>;
-  onAddDimension?: (name: string) => void;
-  onRemoveDimension?: (name: string) => void;
-  onRenameDimension?: (oldName: string, newName: string) => void;
-  onEditDimensionPrompt?: (id: string, dimensionName: string) => void;
-  // Grouped conversation support
-  isGrouped?: boolean;
-  memberFiles?: Array<{ id: string; filename: string; title?: string }>;
-  onUpdateGroupSources?: (newSources: Array<{ id: string; filename: string; title?: string }>) => void;
 }
 
 export function WorkflowDetailModal({
   isOpen,
   onClose,
   conversationId,
-  filename,
-  title,
-  status,
-  currentStep,
-  stepTimings,
-  aiSummary,
-  warnings,
-  onEditPrompt,
-  onEditComponents,
-  onEditSegmentationPrompt,
-  onEditSummaryPrompt,
-  onEditAnalysisPrompt,
-  onEditColoringPrompt,
-  onGenerateAnalysis,
-  onGenerateSummary,
-  dimensions,
-  onAddDimension,
-  onRemoveDimension,
-  onRenameDimension,
-  onEditDimensionPrompt,
-  isGrouped,
-  memberFiles,
-  onUpdateGroupSources,
 }: WorkflowDetailModalProps) {
+  // Read conversation data from store
+  const conv = useConversationStore((s) => s.conversations.find((c) => c.id === conversationId));
+  const group = useConversationStore((s) => s.groups[conversationId]);
+  const conversations = useConversationStore((s) => s.conversations);
+
+  const filename = conv?.filename ?? group?.name ?? conversationId;
+  const title = conv?.title ?? group?.title;
+  const status = conv?.status;
+  const currentStep = conv?.step;
+  const stepTimings = conv?.stepTimings;
+  const aiSummary = conv?.aiSummary;
+  const warnings = conv?.warnings;
+  const dimensions = conv?.dimensions;
+  const isGrouped = !!group;
+  const memberFiles = group
+    ? group.fileIds.flatMap((fid) => {
+        const c = conversations.find((cv) => cv.id === fid);
+        return c ? [{ id: c.id, filename: c.filename, title: c.title }] : [];
+      })
+    : undefined;
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<ProcessingStep>>(
     new Set(),
@@ -252,14 +239,13 @@ export function WorkflowDetailModal({
       status === "success" &&
       !currentStep &&
       stepTimings?.summary === undefined &&
-      onGenerateSummary;
+      true;
 
     const isAnalysisClickable =
       stepKey === "analysis" &&
       status === "success" &&
       !currentStep &&
-      stepTimings?.analysis === undefined &&
-      onGenerateAnalysis;
+      stepTimings?.analysis === undefined;
 
     if (isSummaryClickable || isAnalysisClickable) {
       return <Play className="h-4 w-4 text-blue-600" />;
@@ -338,15 +324,13 @@ export function WorkflowDetailModal({
                 step.key === "summary" &&
                 status === "success" &&
                 !currentStep &&
-                stepTimings?.summary === undefined &&
-                onGenerateSummary;
+                stepTimings?.summary === undefined;
 
               const isAnalysisClickable =
                 step.key === "analysis" &&
                 status === "success" &&
                 !currentStep &&
-                stepTimings?.analysis === undefined &&
-                onGenerateAnalysis;
+                stepTimings?.analysis === undefined;
 
               const isClickable = isSummaryClickable || isAnalysisClickable;
 
@@ -384,9 +368,9 @@ export function WorkflowDetailModal({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isSummaryClickable) {
-                                    onGenerateSummary!(conversationId);
+                                    generateSummary(conversationId, undefined);
                                   } else {
-                                    onGenerateAnalysis!(conversationId);
+                                    generateAnalysis(conversationId, undefined);
                                   }
                                 }}
                                 className="font-medium text-sm text-blue-600 hover:text-blue-700 hover:underline"
@@ -410,22 +394,22 @@ export function WorkflowDetailModal({
                             )}
 
                             {/* Edit prompt links in accordion header */}
-                            {isSegmentingStep && onEditSegmentationPrompt && (
+                            {isSegmentingStep && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditSegmentationPrompt(conversationId);
+                                  openSegmentationPromptEditor(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
                                 Edit prompt
                               </button>
                             )}
-                            {isSummaryStep && onEditSummaryPrompt && (
+                            {isSummaryStep && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditSummaryPrompt(conversationId);
+                                  openSummaryPromptEditor(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
@@ -433,22 +417,22 @@ export function WorkflowDetailModal({
                               </button>
                             )}
                             {/* Edit prompt/components buttons are per-dimension in the accordion below */}
-                            {isColoringStep && onEditColoringPrompt && (
+                            {isColoringStep && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditColoringPrompt(conversationId);
+                                  openColoringPromptEditor(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
                                 Edit prompt
                               </button>
                             )}
-                            {isAnalysisStep && onEditAnalysisPrompt && (
+                            {isAnalysisStep && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditAnalysisPrompt(conversationId);
+                                  openAnalysisPromptEditor(conversationId);
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline ml-2"
                               >
@@ -498,14 +482,14 @@ export function WorkflowDetailModal({
                         {isFindComponentsStep && (() => {
                           const dims = dimensions;
                           const dimNames = dims ? Object.keys(dims) : [];
-                          if (dimNames.length === 0 && !onAddDimension) return null;
+                          if (dimNames.length === 0) return null;
                           return (
                             <div className="mb-3 border rounded text-xs">
                               <div className="px-2 py-1.5 bg-muted/50 flex items-center justify-between">
                                 <span className="font-medium text-muted-foreground uppercase tracking-wide" style={{ fontSize: "10px" }}>
                                   Dimensions ({dimNames.length || 1})
                                 </span>
-                                {onAddDimension && (
+                                {(
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -532,7 +516,7 @@ export function WorkflowDetailModal({
                                     onKeyDown={(e) => {
                                       e.stopPropagation();
                                       if (e.key === "Enter" && newDimensionName.trim()) {
-                                        onAddDimension?.(newDimensionName.trim());
+                                        addDimension(conversationId, newDimensionName.trim());
                                         setNewDimensionName("");
                                         setAddingDimension(false);
                                       }
@@ -545,7 +529,7 @@ export function WorkflowDetailModal({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (newDimensionName.trim()) onAddDimension?.(newDimensionName.trim());
+                                      if (newDimensionName.trim()) addDimension(conversationId, newDimensionName.trim());
                                       setNewDimensionName("");
                                       setAddingDimension(false);
                                     }}
@@ -596,14 +580,14 @@ export function WorkflowDetailModal({
                                           onKeyDown={(e) => {
                                             e.stopPropagation();
                                             if (e.key === "Enter" && renameValue.trim()) {
-                                              onRenameDimension?.(dimName, renameValue.trim());
+                                              renameDimension(conversationId, dimName, renameValue.trim());
                                               setRenamingDimension(null);
                                             }
                                             if (e.key === "Escape") setRenamingDimension(null);
                                           }}
                                           onBlur={() => {
                                             if (renameValue.trim() && renameValue.trim() !== dimName) {
-                                              onRenameDimension?.(dimName, renameValue.trim());
+                                              renameDimension(conversationId, dimName, renameValue.trim());
                                             }
                                             setRenamingDimension(null);
                                           }}
@@ -616,11 +600,11 @@ export function WorkflowDetailModal({
                                         {new Set(dimData.components).size} components
                                       </span>
 
-                                      {onEditDimensionPrompt && (
+                                      {(
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onEditDimensionPrompt(conversationId, dimName);
+                                            openPromptEditor(conversationId, dimName);
                                           }}
                                           className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
                                           title="Edit prompt"
@@ -628,11 +612,11 @@ export function WorkflowDetailModal({
                                           <Pencil className="h-3 w-3" />
                                         </button>
                                       )}
-                                      {onEditComponents && (
+                                      {(
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onEditComponents(conversationId, dimName);
+                                            openComponentsEditor(conversationId, dimName);
                                           }}
                                           className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
                                           title="Edit components"
@@ -640,7 +624,7 @@ export function WorkflowDetailModal({
                                           <ListOrdered className="h-3 w-3" />
                                         </button>
                                       )}
-                                      {onRenameDimension && (
+                                      {(
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -654,11 +638,11 @@ export function WorkflowDetailModal({
                                           Aa
                                         </button>
                                       )}
-                                      {dimName !== "default" && onRemoveDimension && (
+                                      {dimName !== "default" && (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onRemoveDimension(dimName);
+                                            removeDimension(conversationId, dimName);
                                           }}
                                           className="text-muted-foreground hover:text-red-600 flex-shrink-0"
                                           title="Remove"
@@ -688,22 +672,18 @@ export function WorkflowDetailModal({
                                           })
                                         )}
                                         <div className="flex gap-3 pt-1.5 border-t mt-1.5">
-                                          {onEditDimensionPrompt && (
-                                            <button
-                                              onClick={() => onEditDimensionPrompt(conversationId, dimName)}
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                            >
-                                              Edit prompt
-                                            </button>
-                                          )}
-                                          {onEditComponents && (
-                                            <button
-                                              onClick={() => onEditComponents(conversationId, dimName)}
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                            >
-                                              Edit components
-                                            </button>
-                                          )}
+                                          <button
+                                            onClick={() => openPromptEditor(conversationId, dimName)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                          >
+                                            Edit prompt
+                                          </button>
+                                          <button
+                                            onClick={() => openComponentsEditor(conversationId, dimName)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                          >
+                                            Edit components
+                                          </button>
                                         </div>
                                       </div>
                                     )}
@@ -789,7 +769,7 @@ export function WorkflowDetailModal({
               );
             })}
 
-            {isGrouped && memberFiles && onUpdateGroupSources && (
+            {isGrouped && memberFiles && (
               <div className="border rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ListOrdered className="h-4 w-4" />
@@ -797,7 +777,7 @@ export function WorkflowDetailModal({
                 </div>
                 <GroupFileOrderEditor
                   memberFiles={memberFiles}
-                  onApply={onUpdateGroupSources}
+                  onApply={(newSources) => updateGroupSources(conversationId, newSources)}
                 />
               </div>
             )}
