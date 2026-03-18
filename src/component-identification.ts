@@ -3,7 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import type { AIConfig } from "./ai-config";
+import { getProviderOptions, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const log = createPhaseLogger("finding-components", "Identification");
@@ -41,6 +41,7 @@ export async function identifyComponents(
     const result = await generateText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     log(

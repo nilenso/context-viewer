@@ -3,7 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import type { AIConfig } from "./ai-config";
+import { getProviderOptions, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 import {
   buildComponentTimeline as buildComponentTimelineCore,
@@ -87,6 +87,7 @@ async function mapPartsBatch(
     const result = await generateText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     // Parse the JSON response

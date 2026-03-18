@@ -6,7 +6,7 @@ import type { DimensionData } from "./component-types";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import { getAIConfig } from "./ai-config";
+import { getAIConfig, getProviderOptions } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const logSummary = createPhaseLogger("summary", "AI Summary");
@@ -59,6 +59,7 @@ export async function generateConversationSummary(
     const result = streamText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     let fullText = "";
@@ -142,6 +143,7 @@ export async function generateContextAnalysis(
     const result = streamText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     let fullText = "";

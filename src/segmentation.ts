@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
-import { getAIConfig, type AIConfig } from "./ai-config";
+import { getAIConfig, getProviderOptions, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const log = createPhaseLogger("segmenting", "Segmentation");
@@ -74,6 +74,7 @@ async function segmentTextWithAI(
     const result = await generateText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     log(conversationId, `AI response: ${result.text.substring(0, 200)}...`);

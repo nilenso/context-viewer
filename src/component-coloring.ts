@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrompt } from "./prompts";
-import type { AIConfig } from "./ai-config";
+import { getProviderOptions, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const logColoring = createPhaseLogger("coloring", "Coloring");
@@ -48,6 +48,7 @@ export async function assignComponentColors(
     const result = await generateText({
       model: openai(config.model),
       prompt,
+      providerOptions: getProviderOptions(config),
     });
 
     logColoring(conversationId, `AI response for colors: ${result.text}`);
