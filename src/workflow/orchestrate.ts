@@ -84,7 +84,7 @@ export async function reprocessWithRunner(
   await runPipelineFrom(startFrom, ctx, notify, callbacks);
 }
 
-/** Apply prompts from one conversation to all others. */
+/** Apply prompts, component list, and colors from one conversation to all others. */
 export async function applyPromptsToAll(
   store: StoreAccessor,
   sourceId: string,
@@ -93,6 +93,7 @@ export async function applyPromptsToAll(
   const source = conversations.find((c) => c.id === sourceId);
   if (!source) return;
 
+  // Copy prompts
   const promptFields = {
     customPrompt: source.customPrompt,
     customSegmentationPrompt: source.customSegmentationPrompt,
@@ -101,6 +102,13 @@ export async function applyPromptsToAll(
     customColoringPrompt: source.customColoringPrompt,
     segmentationThreshold: source.segmentationThreshold,
   };
+
+  // Also copy component list and colors from the default dimension
+  const sourceDim = source.dimensions?.["default"];
+  const customComponents = sourceDim?.components?.length ? sourceDim.components : undefined;
+  const presetColors = sourceDim?.componentColors && Object.keys(sourceDim.componentColors).length > 0
+    ? sourceDim.componentColors
+    : undefined;
 
   const targets = conversations.filter(
     (c) => c.id !== sourceId && c.status === "success" && c.conversation,
@@ -129,6 +137,9 @@ export async function applyPromptsToAll(
       const notify: Notify = (id, update) => store.updateConversation(id, update);
       const ctx = buildBaseContext(conv);
       Object.assign(ctx, promptFields);
+      // Pass component list and colors so pipeline uses them directly
+      if (customComponents) ctx.customComponents = customComponents;
+      if (presetColors) ctx.presetColors = presetColors;
 
       await runPipelineFrom(startFrom, ctx, notify, {
         onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),

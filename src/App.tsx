@@ -109,100 +109,87 @@ export default function App() {
   const groups = useConversationStore((s) => s.groups);
   const selectedGroup = selectedId ? groups[selectedId] : undefined;
 
-  const selectedConversation = useMemo((): WorkflowState | undefined => {
-    if (conversations.length === 0) return undefined;
+  // Build group display data: virtual conversation + origin map from member files
+  const groupDisplayData = useMemo(() => {
+    if (!selectedGroup) return null;
 
-    // If a group is selected, build a virtual WorkflowState from member files
-    if (selectedGroup) {
-      const memberConvs = selectedGroup.fileIds
-        .map((fid) => conversations.find((c) => c.id === fid))
-        .filter((c): c is WorkflowState => !!c?.conversation);
+    const memberConvs = selectedGroup.fileIds
+      .map((fid) => conversations.find((c) => c.id === fid))
+      .filter((c): c is WorkflowState => !!c?.conversation);
 
-      if (memberConvs.length === 0) return undefined;
+    if (memberConvs.length === 0) return null;
 
-      // Concatenate messages with prefixed IDs (for display)
-      const allMessages: import("./schema").Message[] = [];
-      const messageOriginMap: Record<string, import("./schema").OriginInfo> = {};
+    const allMessages: import("./schema").Message[] = [];
+    const originMap: Record<string, import("./schema").OriginInfo> = {};
 
-      for (const conv of memberConvs) {
-        if (!conv.conversation) continue;
-        for (const msg of conv.conversation.messages) {
-          const newMsgId = `${conv.id}-${msg.id}`;
-          const newParts = msg.parts.map((part) => {
-            const newPartId = `${conv.id}-${part.id}`;
-            messageOriginMap[newPartId] = {
-              conversationId: conv.id,
-              filename: conv.filename,
-              title: conv.title,
-            };
-            return { ...part, id: newPartId };
-          });
-          messageOriginMap[newMsgId] = {
-            conversationId: conv.id,
-            filename: conv.filename,
-            title: conv.title,
-          };
-          allMessages.push({ ...msg, id: newMsgId, parts: newParts } as import("./schema").Message);
-        }
+    for (const conv of memberConvs) {
+      if (!conv.conversation) continue;
+      for (const msg of conv.conversation.messages) {
+        const newMsgId = `${conv.id}-${msg.id}`;
+        const newParts = msg.parts.map((part) => {
+          const newPartId = `${conv.id}-${part.id}`;
+          originMap[newPartId] = { conversationId: conv.id, filename: conv.filename, title: conv.title };
+          return { ...part, id: newPartId };
+        });
+        originMap[newMsgId] = { conversationId: conv.id, filename: conv.filename, title: conv.title };
+        allMessages.push({ ...msg, id: newMsgId, parts: newParts } as import("./schema").Message);
       }
-
-      // Merge dimensions across member files
-      const mergedDims: Record<string, import("./component-types").DimensionData> = {};
-      const allDimNames = new Set<string>();
-      for (const conv of memberConvs) {
-        if (conv.dimensions) {
-          for (const name of Object.keys(conv.dimensions)) allDimNames.add(name);
-        }
-      }
-      for (const dimName of allDimNames) {
-        const componentsSet = new Set<string>();
-        const mapping: Record<string, string> = {};
-        const colors: Record<string, string> = {};
-        for (const conv of memberConvs) {
-          const dim = conv.dimensions?.[dimName];
-          if (!dim) continue;
-          for (const c of dim.components) componentsSet.add(c);
-          for (const [partId, component] of Object.entries(dim.componentMapping)) {
-            mapping[`${conv.id}-${partId}`] = component;
-          }
-          Object.assign(colors, dim.componentColors);
-        }
-        mergedDims[dimName] = {
-          name: dimName,
-          components: [...componentsSet],
-          componentMapping: mapping,
-          componentTimeline: [],
-          componentColors: colors,
-        };
-      }
-
-      // Merge static components
-      const staticComponentsSet = new Set<string>();
-      const staticMapping: Record<string, string> = {};
-      for (const conv of memberConvs) {
-        if (conv.staticComponents) conv.staticComponents.forEach((c) => staticComponentsSet.add(c));
-        if (conv.staticMapping) {
-          for (const [partId, component] of Object.entries(conv.staticMapping)) {
-            staticMapping[`${conv.id}-${partId}`] = component;
-          }
-        }
-      }
-
-      return {
-        id: selectedGroup.id,
-        filename: selectedGroup.name,
-        title: selectedGroup.title,
-        status: "success",
-        conversation: { messages: allMessages },
-        dimensions: Object.keys(mergedDims).length > 0 ? mergedDims : undefined,
-        staticComponents: [...staticComponentsSet],
-        staticMapping,
-        messageOriginMap,
-      } as WorkflowState & { messageOriginMap: Record<string, import("./schema").OriginInfo> };
     }
 
+    // Merge dimensions
+    const mergedDims: Record<string, import("./component-types").DimensionData> = {};
+    for (const conv of memberConvs) {
+      if (!conv.dimensions) continue;
+      for (const [dimName, dim] of Object.entries(conv.dimensions)) {
+        if (!mergedDims[dimName]) {
+          mergedDims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+        }
+        const merged = mergedDims[dimName]!;
+        for (const c of dim.components) {
+          if (!merged.components.includes(c)) merged.components.push(c);
+        }
+        for (const [partId, component] of Object.entries(dim.componentMapping)) {
+          merged.componentMapping[`${conv.id}-${partId}`] = component;
+        }
+        Object.assign(merged.componentColors, dim.componentColors);
+      }
+    }
+
+    // Merge static components
+    const staticComponentsSet = new Set<string>();
+    const staticMapping: Record<string, string> = {};
+    for (const conv of memberConvs) {
+      if (conv.staticComponents) conv.staticComponents.forEach((c) => staticComponentsSet.add(c));
+      if (conv.staticMapping) {
+        for (const [partId, component] of Object.entries(conv.staticMapping)) {
+          staticMapping[`${conv.id}-${partId}`] = component;
+        }
+      }
+    }
+
+    const virtualState: WorkflowState = {
+      id: selectedGroup.id,
+      filename: selectedGroup.name,
+      title: selectedGroup.title,
+      status: "success",
+      conversation: { messages: allMessages },
+      dimensions: Object.keys(mergedDims).length > 0 ? mergedDims : undefined,
+      staticComponents: [...staticComponentsSet],
+      staticMapping,
+      aiSummary: selectedGroup.aiSummary,
+      analysis: selectedGroup.analysis,
+      customSummaryPrompt: selectedGroup.customSummaryPrompt,
+      customAnalysisPrompt: selectedGroup.customAnalysisPrompt,
+    };
+
+    return { virtualState, originMap };
+  }, [selectedGroup, conversations]);
+
+  const selectedConversation = useMemo((): WorkflowState | undefined => {
+    if (conversations.length === 0 && !groupDisplayData) return undefined;
+    if (groupDisplayData) return groupDisplayData.virtualState;
     return conversations.find((conv) => conv.id === selectedId) ?? conversations[0];
-  }, [conversations, selectedId, selectedGroup]);
+  }, [conversations, selectedId, groupDisplayData]);
 
   const memberComponentData = useMemo((): ConversationComponentData[] | undefined => {
     if (!selectedGroup) return undefined;
@@ -522,49 +509,78 @@ export default function App() {
   };
 
   const handleGenerateAnalysis = async (id: string, options: { customAnalysisPrompt?: string } = {}) => {
-    const conv = conversations.find((c) => c.id === id);
+    // For groups, use the virtual selectedConversation; for files, look up directly
+    const group = useConversationStore.getState().getGroup(id);
+    const conv = group ? selectedConversation : conversations.find((c) => c.id === id);
     if (!conv?.conversation) return;
 
     ui.setReprocessingId(id);
     try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
+      const notify: Notify = (rid, update) => {
+        if (group) {
+          // Store results on the group
+          useConversationStore.getState().updateGroup(id, {
+            analysis: update.analysis,
+            aiSummary: update.aiSummary ?? group.aiSummary,
+            customAnalysisPrompt: update.customAnalysisPrompt,
+          });
+        } else {
+          updateConversation(rid, update);
+        }
+      };
       const ctx: WorkflowState = {
         ...buildBaseContext(conv),
         analysis: "",
-        customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt,
+        customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
       };
 
       await generateAnalysisOnDemand(ctx, notify, {
-        onSummaryChunk,
-        onAnalysisChunk,
+        onSummaryChunk: group
+          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { aiSummary: (group.aiSummary || "") + chunk })
+          : onSummaryChunk,
+        onAnalysisChunk: group
+          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { analysis: (group.analysis || "") + chunk })
+          : onAnalysisChunk,
       });
     } catch (error) {
       console.error("Failed to generate analysis:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Analysis generation failed" });
+      if (!group) updateConversation(id, { status: "failed", step: undefined, error: "Analysis generation failed" });
     } finally {
       ui.setReprocessingId(null);
     }
   };
 
   const handleGenerateSummary = async (id: string, options: { customSummaryPrompt?: string } = {}) => {
-    const conv = conversations.find((c) => c.id === id);
+    const group = useConversationStore.getState().getGroup(id);
+    const conv = group ? selectedConversation : conversations.find((c) => c.id === id);
     if (!conv?.conversation) return;
 
     ui.setReprocessingId(id);
     try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
+      const notify: Notify = (rid, update) => {
+        if (group) {
+          useConversationStore.getState().updateGroup(id, {
+            aiSummary: update.aiSummary,
+            customSummaryPrompt: update.customSummaryPrompt,
+          });
+        } else {
+          updateConversation(rid, update);
+        }
+      };
       const ctx: WorkflowState = {
         ...buildBaseContext(conv),
         aiSummary: "",
-        customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt,
+        customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
       };
 
       await generateSummaryOnDemand(ctx, notify, {
-        onSummaryChunk,
+        onSummaryChunk: group
+          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { aiSummary: (group.aiSummary || "") + chunk })
+          : onSummaryChunk,
       });
     } catch (error) {
       console.error("Failed to generate summary:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Summary generation failed" });
+      if (!group) updateConversation(id, { status: "failed", step: undefined, error: "Summary generation failed" });
     } finally {
       ui.setReprocessingId(null);
     }
@@ -1046,7 +1062,7 @@ export default function App() {
                     warnings={selectedConversation.warnings}
                     onReprocessComponents={handleReprocessComponents}
                     isReprocessing={ui.reprocessingId === selectedConversation.id}
-                    messageOriginMap={selectedGroup ? (selectedConversation as any).messageOriginMap : undefined}
+                    messageOriginMap={groupDisplayData?.originMap}
                     isGrouped={!!selectedGroup}
                     groupTitle={selectedGroup?.title || selectedConversation.title}
                     onConversationClick={setSelectedId}

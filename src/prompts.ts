@@ -218,8 +218,9 @@ export function getDefaultColoringPrompt(): string {
   return `Given this list of components, assign a color to each component.
 Similar kinds of components should get the same color to make it easy to visually group them.
 
-Available colors: orange, emerald, purple, blue, slate, indigo, gray, cyan, teal, rose, amber, violet, lime, sky
+You MUST use ONLY these exact color names (no hex codes, no other values):
+orange, emerald, purple, blue, slate, indigo, gray, cyan, teal, rose, amber, violet, lime, sky
 
-Return ONLY a valid JSON object mapping each component to a color name.
-Example format: {"component_name": "orange", "another_component": "blue"}`;
+Return ONLY a valid JSON object mapping each component to one of the above color names.
+Example: {"component_name": "orange", "another_component": "blue"}`;
 }

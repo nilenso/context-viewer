@@ -80,6 +80,9 @@ export interface Group {
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
   segmentationThreshold?: number;
+  // Group-level AI outputs (generated from concatenated member content)
+  aiSummary?: string;
+  analysis?: string;
 }
 
 export interface WorkflowBatchResult {

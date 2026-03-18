@@ -1198,19 +1198,27 @@ export function ConversationList({
           const expandedConversation = conversations.find(
             (c) => c.id === expandedConversationId,
           );
-          if (!expandedConversation) return null;
+          // For groups, build a minimal WorkflowState from group metadata
+          const expandedGroup = groups[expandedConversationId];
+          const displayConv: WorkflowState | undefined = expandedConversation || (expandedGroup ? {
+            id: expandedGroup.id,
+            filename: expandedGroup.name,
+            title: expandedGroup.title,
+            status: "success" as const,
+          } : undefined);
+          if (!displayConv) return null;
           return (
             <WorkflowDetailModal
               isOpen={true}
               onClose={() => setExpandedConversationId(null)}
-              conversationId={expandedConversation.id}
-              filename={expandedConversation.filename}
-              title={expandedConversation.title}
-              status={expandedConversation.status}
-              currentStep={expandedConversation.step}
-              stepTimings={expandedConversation.stepTimings}
-              aiSummary={expandedConversation.aiSummary}
-              warnings={expandedConversation.warnings}
+              conversationId={displayConv.id}
+              filename={displayConv.filename}
+              title={displayConv.title}
+              status={displayConv.status}
+              currentStep={displayConv.step}
+              stepTimings={displayConv.stepTimings}
+              aiSummary={displayConv.aiSummary}
+              warnings={displayConv.warnings}
               onEditPrompt={onEditPrompt}
               onEditComponents={onEditComponents}
               onEditSegmentationPrompt={onEditSegmentationPrompt}
@@ -1219,16 +1227,16 @@ export function ConversationList({
               onEditColoringPrompt={onEditColoringPrompt}
               onGenerateAnalysis={onGenerateAnalysis}
               onGenerateSummary={onGenerateSummary}
-              dimensions={expandedConversation.dimensions}
+              dimensions={displayConv.dimensions}
               onAddDimension={onAddDimension}
               onRemoveDimension={onRemoveDimension}
               onRenameDimension={onRenameDimension}
               onEditDimensionPrompt={onEditDimensionPrompt}
-              isGrouped={isGroupEntry(expandedConversation.id)}
-              memberFiles={getMemberFiles(expandedConversation.id)}
+              isGrouped={isGroupEntry(displayConv.id)}
+              memberFiles={getMemberFiles(displayConv.id)}
               onUpdateGroupSources={
                 onUpdateGroupSources
-                  ? (newSources) => onUpdateGroupSources(expandedConversation.id, newSources)
+                  ? (newSources) => onUpdateGroupSources(displayConv.id, newSources)
                   : undefined
               }
             />
