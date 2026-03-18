@@ -211,30 +211,29 @@ export async function applyPromptsToAll(
 
       for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
         const targetDim = dims[dimName];
+
+        // Copy source dimension prompts/components into target
         dims[dimName] = {
           ...(targetDim || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
           prompt: sourceDim.prompt,
           customColoringPrompt: sourceDim.customColoringPrompt,
-          customComponents: sourceDim.customComponents,
+          customComponents: sourceDim.components?.length ? sourceDim.components : sourceDim.customComponents,
         };
 
-        if (sourceDim.prompt !== targetDim?.prompt ||
-            JSON.stringify(sourceDim.customComponents) !== JSON.stringify(targetDim?.customComponents)) {
+        const promptChanged = sourceDim.prompt !== targetDim?.prompt;
+        const componentsChanged =
+          JSON.stringify(sourceDim.components) !== JSON.stringify(targetDim?.components) ||
+          JSON.stringify(sourceDim.customComponents) !== JSON.stringify(targetDim?.customComponents);
+        const coloringChanged = sourceDim.customColoringPrompt !== targetDim?.customColoringPrompt;
+
+        if (promptChanged || componentsChanged) {
           identifyDims.push(dimName);
-        } else if (sourceDim.customColoringPrompt !== targetDim?.customColoringPrompt) {
+        } else if (coloringChanged) {
           colorDims.push(dimName);
         }
       }
 
       ctx.dimensions = dims;
-
-      for (const dimName of identifyDims) {
-        const sourceDim = source.dimensions![dimName];
-        if (!sourceDim) continue;
-        if (sourceDim.components?.length) {
-          dims[dimName]!.customComponents = sourceDim.components;
-        }
-      }
 
       if (identifyDims.length > 0) {
         await runPipelineFrom(PipelineStep.Identify, ctx, notify, {
