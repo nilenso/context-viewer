@@ -20,6 +20,7 @@ interface StackedBarChartViewProps {
   components?: string[];
   // Filters from conversation view
   messageTypeFilters?: Set<MessageTypeFilter>;
+  percentPrecision?: number;
 }
 
 export function StackedBarChartView({
@@ -29,6 +30,7 @@ export function StackedBarChartView({
   componentColors,
   components,
   messageTypeFilters,
+  percentPrecision = 1,
 }: StackedBarChartViewProps) {
   // Track selected component for filtering
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
@@ -205,7 +207,7 @@ export function StackedBarChartView({
                           {row.tokens.toLocaleString()}
                         </td>
                         <td className="text-right py-2 px-3 text-muted-foreground">
-                          {((row.tokens / displayData.totalTokens) * 100).toFixed(1)}%
+                          {((row.tokens / displayData.totalTokens) * 100).toFixed(percentPrecision)}%
                         </td>
                       </tr>
                     ))}

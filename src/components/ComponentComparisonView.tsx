@@ -110,6 +110,7 @@ interface ComponentComparisonViewProps {
   onColumnCountChange?: (cols: number) => void;
   squaresPerRow?: number;
   onSquaresPerRowChange?: (spr: number) => void;
+  percentPrecision?: number;
 }
 
 /**
@@ -419,7 +420,7 @@ function ComparisonLegend({
               {component}
             </span>
             <span className="text-muted-foreground tabular-nums [font-variant:small-caps]">
-              {percentage.toFixed(0)}%
+              {percentage.toFixed(percentPrecision)}%
             </span>
           </div>
         );
@@ -450,6 +451,7 @@ export function ComponentComparisonView({
   onColumnCountChange,
   squaresPerRow: controlledSquaresPerRow,
   onSquaresPerRowChange,
+  percentPrecision = 0,
 }: ComponentComparisonViewProps) {
   // Local state (used when props are not provided)
   const [localSortField, setLocalSortField] = useState<SortField>("tokens");

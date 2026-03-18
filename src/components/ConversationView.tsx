@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useUIStore } from "@/stores/ui-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -170,6 +171,8 @@ export function ConversationView({
     new Set(ALL_MESSAGE_FILTERS)
   );
   const [localSelectedComponents, setLocalSelectedComponents] = useState<Set<string>>(new Set());
+
+  const percentPrecision = useUIStore((s) => s.percentPrecision);
 
   // Local-only state (not URL-controlled)
   const [expandAll, setExpandAll] = useState(false);
@@ -1256,6 +1259,7 @@ export function ConversationView({
             componentColors={componentColors}
             components={components}
             messageTypeFilters={messageFiltersSet}
+            percentPrecision={percentPrecision}
           />
         </div>
       </TabsContent>
@@ -1280,6 +1284,7 @@ export function ConversationView({
             onColumnCountChange={onComparisonColumnCountChange}
             squaresPerRow={comparisonSquaresPerRow}
             onSquaresPerRowChange={onComparisonSquaresPerRowChange}
+            percentPrecision={percentPrecision}
           />
         </TabsContent>
       )}

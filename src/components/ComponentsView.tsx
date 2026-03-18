@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
+import { useUIStore } from "@/stores/ui-store";
 import { WaffleChart } from "./WaffleChart";
 import { CompactLegend } from "./ComponentComparisonView";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,9 @@ export function ComponentsView({
   filterByStaticComponent,
   messageTypeFilters,
 }: ComponentsViewProps) {
+  const percentPrecision = useUIStore((s) => s.percentPrecision);
+  const setPercentPrecision = useUIStore((s) => s.setPercentPrecision);
+
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -304,6 +308,15 @@ export function ComponentsView({
       </div>
 
       {/* Waffle Chart - tuple-based when multi-dimension, single when one dimension */}
+      <div className="flex justify-end mb-1">
+        <button
+          onClick={() => setPercentPrecision((percentPrecision + 1) % 3)}
+          className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-transparent hover:border-border"
+          title={`Percentage precision: ${percentPrecision} decimal places (click to cycle)`}
+        >
+          .{percentPrecision === 0 ? "0" : percentPrecision === 1 ? "0" : "00"}%
+        </button>
+      </div>
       {tupleData && getTupleColorStyles ? (
         <WaffleChart
           componentTokens={tupleData.tupleTokens}
@@ -311,6 +324,7 @@ export function ComponentsView({
           getColorStyles={getTupleColorStyles}
           getLabel={(tupleKey) => tupleKey}
           onComponentClick={handleComponentClick}
+          percentPrecision={percentPrecision}
         />
       ) : (
         <WaffleChart
@@ -319,6 +333,7 @@ export function ComponentsView({
           getColorStyles={(component) => getWaffleStylesForDimensions(component)}
           getLabel={(component) => component}
           onComponentClick={handleComponentClick}
+          percentPrecision={percentPrecision}
         />
       )}
 

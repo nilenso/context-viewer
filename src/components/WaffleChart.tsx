@@ -15,6 +15,7 @@ interface WaffleChartProps {
   getLabel: (component: string) => string;
   onComponentClick?: (component: string) => void;
   hideLegend?: boolean;
+  percentPrecision?: number;
 }
 
 /**
@@ -28,6 +29,7 @@ export function WaffleChart({
   getLabel,
   onComponentClick,
   hideLegend,
+  percentPrecision = 0,
 }: WaffleChartProps) {
   const [sortMode, setSortMode] = useState<SortMode>("tokens");
   const GRID_SIZE = 400; // 20x20 grid
@@ -127,7 +129,7 @@ export function WaffleChart({
                 {tokens.toLocaleString()}
               </span>
               <span className="text-muted-foreground tabular-nums w-10 text-right">
-                {percentage.toFixed(0)}%
+                {percentage.toFixed(percentPrecision)}%
               </span>
             </button>
           );

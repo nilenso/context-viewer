@@ -75,6 +75,10 @@ interface UIStore {
   // Reprocessing state
   reprocessingId: string | null;
   setReprocessingId: (id: string | null) => void;
+
+  // Display settings
+  percentPrecision: number; // 0, 1, or 2 decimal places
+  setPercentPrecision: (precision: number) => void;
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -143,4 +147,8 @@ export const useUIStore = create<UIStore>((set) => ({
   // Reprocessing state
   reprocessingId: null,
   setReprocessingId: (id) => set({ reprocessingId: id }),
+
+  // Display settings
+  percentPrecision: 0,
+  setPercentPrecision: (precision) => set({ percentPrecision: precision }),
 }));
