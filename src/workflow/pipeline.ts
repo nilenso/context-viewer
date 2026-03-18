@@ -82,15 +82,13 @@ export async function runPipelineFrom(
 
     if (startFrom <= PipelineStep.Classify) {
       startStep(notify, ctx, "finding-components");
-      let totalTiming = 0;
       if (startFrom <= PipelineStep.Identify) {
         const { timing } = await runIdentifyComponents(ctx);
-        totalTiming += timing;
+        ctx.stepTimings!["identifying-components" as any] = timing;
       }
       const { timing: classTiming } = await runClassifyComponents(ctx);
-      totalTiming += classTiming;
+      ctx.stepTimings!["classifying-components" as any] = classTiming;
       endStep(ctx, "finding-components");
-      ctx.stepTimings!["finding-components"] = totalTiming;
       updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
     }
 
@@ -164,9 +162,10 @@ export async function processNewFile(
 
     startStep(notify, ctx, "finding-components");
     const { timing: idTiming } = await runIdentifyComponents(ctx);
+    ctx.stepTimings!["identifying-components" as any] = idTiming;
     const { timing: classTiming } = await runClassifyComponents(ctx);
+    ctx.stepTimings!["classifying-components" as any] = classTiming;
     endStep(ctx, "finding-components");
-    ctx.stepTimings!["finding-components"] = idTiming + classTiming;
     updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
 
     await runAssignColors(ctx, notify);
@@ -195,9 +194,10 @@ export async function resumeFromPause(
 
     startStep(notify, ctx, "finding-components");
     const { timing: idTiming } = await runIdentifyComponents(ctx);
+    ctx.stepTimings!["identifying-components" as any] = idTiming;
     const { timing: classTiming } = await runClassifyComponents(ctx);
+    ctx.stepTimings!["classifying-components" as any] = classTiming;
     endStep(ctx, "finding-components");
-    ctx.stepTimings!["finding-components"] = idTiming + classTiming;
     updateState(notify, ctx, ["conversation", "dimensions"], "coloring");
 
     await runAssignColors(ctx, notify);

@@ -12,7 +12,9 @@ export type ProcessingPhase =
   | "counting-tokens"
   | "segmenting"
   | "summary"
-  | "finding-components"
+  | "identifying-components"
+  | "classifying-components"
+  | "finding-components" // composite UI label (covers both identify + classify)
   | "coloring"
   | "analysis";
 
