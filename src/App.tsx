@@ -5,7 +5,7 @@ import { useConversationStore, buildBaseContext } from "./stores/conversation-st
 import { useUIStore } from "./stores/ui-store";
 import type { WorkflowState } from "./workflow/types";
 import { WorkflowEvent } from "./workflow/types";
-import { WorkflowRunner } from "./workflow/runner";
+import type { Notify } from "./workflow/runner";
 import { processConversationWorkflow } from "./workflow/pipeline";
 import { ensureDimensions } from "./workflow/dimensions";
 import { getComponentisationConfig } from "./workflow/component-identification";
@@ -402,7 +402,7 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const ctx = buildBaseContext(selectedConversation);
       ctx.aiSummary = "";
       ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
@@ -414,7 +414,7 @@ export default function App() {
         ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
       };
 
-      await processConversationWorkflow(WorkflowEvent.SummaryPromptChanged, ctx, runner, {
+      await processConversationWorkflow(WorkflowEvent.SummaryPromptChanged, ctx, notify, {
         onSummaryChunk,
         onAnalysisChunk: shouldRegenerateAnalysis ? onAnalysisChunk : undefined,
       });
@@ -432,7 +432,7 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const ctx: WorkflowState = {
         ...buildBaseContext(conv),
         analysis: "",
@@ -442,7 +442,7 @@ export default function App() {
         messageSourceMap: conv.messageSourceMap,
       };
 
-      await processConversationWorkflow(WorkflowEvent.GenerateAnalysis, ctx, runner, {
+      await processConversationWorkflow(WorkflowEvent.GenerateAnalysis, ctx, notify, {
         onSummaryChunk,
         onAnalysisChunk,
       });
@@ -460,7 +460,7 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const ctx: WorkflowState = {
         ...buildBaseContext(conv),
         aiSummary: "",
@@ -470,7 +470,7 @@ export default function App() {
         messageSourceMap: conv.messageSourceMap,
       };
 
-      await processConversationWorkflow(WorkflowEvent.GenerateSummary, ctx, runner, {
+      await processConversationWorkflow(WorkflowEvent.GenerateSummary, ctx, notify, {
         onSummaryChunk,
       });
     } catch (error) {
@@ -532,7 +532,7 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const conv = conversations.find((c) => c.id === id)!;
       const ctx = buildBaseContext(conv);
 
@@ -550,7 +550,7 @@ export default function App() {
       ctx.targetDimension = dimName;
       ctx.customPrompt = dimName === "default" ? ui.editingPrompt : ctx.customPrompt;
 
-      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, runner, { onAnalysisChunk });
+      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, notify, { onAnalysisChunk });
     } catch (error) {
       console.error("Failed to reprocess dimension:", error);
     } finally {
@@ -596,14 +596,14 @@ export default function App() {
 
     ui.setReprocessingId(id);
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const conv = conversations.find((c) => c.id === id)!;
       const ctx = buildBaseContext(conv);
       const dims = ensureDimensions(ctx);
       if (dims[dimName]) dims[dimName]!.customComponents = components;
       ctx.targetDimension = dimName;
 
-      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, runner, { onAnalysisChunk });
+      await processConversationWorkflow(WorkflowEvent.ComponentPromptChanged, ctx, notify, { onAnalysisChunk });
     } catch (error) {
       console.error("Failed to reprocess dimension components:", error);
     } finally {
@@ -674,11 +674,11 @@ export default function App() {
     ui.setReprocessingId(id);
 
     try {
-      const runner = new WorkflowRunner((rid, update) => updateConversation(rid, update));
+      const notify: Notify = (rid, update) => updateConversation(rid, update);
       const ctx = buildBaseContext(selectedConversation);
       ctx.customColoringPrompt = ui.editingColoringPrompt;
 
-      await processConversationWorkflow(WorkflowEvent.ColoringPromptChanged, ctx, runner, {});
+      await processConversationWorkflow(WorkflowEvent.ColoringPromptChanged, ctx, notify, {});
       updateConversation(id, { customColoringPrompt: ui.editingColoringPrompt });
     } catch (error) {
       console.error("Failed to reprocess coloring:", error);

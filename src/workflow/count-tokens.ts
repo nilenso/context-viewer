@@ -1,53 +1,26 @@
 /**
- * Token counting + static componentisation workflow steps.
- * These run after parsing, before AI steps.
+ * Token counting + static componentisation.
+ * Run after parsing, before AI steps.
  */
 
-import type { WorkflowState, Activity } from "./types";
-import type { ComponentTimelineSnapshot } from "../componentisation";
-import { WorkflowRunner } from "./runner";
+import type { WorkflowState } from "./types";
+import { type Notify, startStep, endStep, timed } from "./runner";
 import { addTokenCounts } from "../add-token-counts";
 import { staticComponentise } from "../static-componentisation";
 
-// ---------------------------------------------------------------------------
-// Activities
-// ---------------------------------------------------------------------------
+export async function runCountTokens(ctx: WorkflowState, notify: Notify) {
+  startStep(notify, ctx, "counting-tokens");
+  const { result, timing } = await timed(() => addTokenCounts(ctx.conversation!));
+  endStep(ctx, "counting-tokens");
 
-const countTokensActivity: Activity<{
-  conversation: import("../schema").Conversation;
-}> = async (ctx) => {
-  const conversation = await addTokenCounts(ctx.conversation!);
-  return { conversation };
-};
-
-const staticComponentsActivity: Activity<{
-  staticComponents: string[];
-  staticMapping: Record<string, string>;
-  staticTimeline: ComponentTimelineSnapshot[];
-}> = async (ctx) => {
-  const result = staticComponentise(ctx.conversation!);
-  return {
-    staticComponents: result.components,
-    staticMapping: result.mapping,
-    staticTimeline: result.timeline,
-  };
-};
-
-// ---------------------------------------------------------------------------
-// Step runners
-// ---------------------------------------------------------------------------
-
-export async function runCountTokens(ctx: WorkflowState, runner: WorkflowRunner) {
-  runner.startStep(ctx, "counting-tokens");
-  const { result, timing } = await runner.runActivity(ctx, countTokensActivity, "counting-tokens");
-  ctx.conversation = result.conversation;
+  ctx.conversation = result;
   ctx.stepTimings!["counting-tokens"] = timing;
 }
 
-/** Instant (no AI) — doesn't call runner.startStep. */
-export async function runStaticComponents(ctx: WorkflowState, runner: WorkflowRunner) {
-  const { result } = await runner.runActivity(ctx, staticComponentsActivity);
-  ctx.staticComponents = result.staticComponents;
-  ctx.staticMapping = result.staticMapping;
-  ctx.staticTimeline = result.staticTimeline;
+/** Instant (no AI) — no startStep call. */
+export async function runStaticComponents(ctx: WorkflowState) {
+  const result = staticComponentise(ctx.conversation!);
+  ctx.staticComponents = result.components;
+  ctx.staticMapping = result.mapping;
+  ctx.staticTimeline = result.timeline;
 }

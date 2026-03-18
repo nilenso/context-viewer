@@ -103,11 +103,6 @@ export interface WorkflowCallbacks {
 }
 
 /**
- * Generic activity signature
- */
-export type Activity<TResult> = (ctx: Readonly<WorkflowState>) => Promise<TResult>;
-
-/**
  * Data fields on WorkflowState that can be selectively written back.
  */
 export type WorkflowDataField = Exclude<

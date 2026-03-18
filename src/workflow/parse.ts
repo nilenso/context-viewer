@@ -1,13 +1,12 @@
 /**
- * Parse workflow step: file → conversation + summary + metadata.
+ * Parse: file → conversation + summary + metadata.
  * Also handles restoring pre-processed Context Viewer exports.
  */
 
 import type { WorkflowState } from "./types";
-import type { Activity } from "./types";
 import type { ConversationMetadata } from "../parser";
 import type { Conversation } from "../schema";
-import { WorkflowRunner } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./runner";
 import { parserRegistry } from "../parser";
 import { summarizeConversation } from "../conversation-summary";
 import { parseFileContent } from "../lib/file-formats";
@@ -15,29 +14,17 @@ import { buildComponentTimeline } from "../componentisation";
 import { staticComponentise } from "../static-componentisation";
 import { syncLegacyFieldsFromDimensions } from "./dimensions";
 
-// ---------------------------------------------------------------------------
-// Activity (pure computation)
-// ---------------------------------------------------------------------------
+export async function runParse(ctx: WorkflowState, notify: Notify) {
+  startStep(notify, ctx, "parsing");
+  const { result, timing } = await timed(async () => {
+    const text = await ctx.file!.text();
+    const data = parseFileContent(text, ctx.file!.name);
+    const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
+    const summary = summarizeConversation(conversation);
+    return { conversation, summary, metadata };
+  });
+  endStep(ctx, "parsing");
 
-const parseActivity: Activity<{
-  conversation: Conversation;
-  summary: ReturnType<typeof summarizeConversation>;
-  metadata: ConversationMetadata;
-}> = async (ctx) => {
-  const text = await ctx.file!.text();
-  const data = parseFileContent(text, ctx.file!.name);
-  const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
-  const summary = summarizeConversation(conversation);
-  return { conversation, summary, metadata };
-};
-
-// ---------------------------------------------------------------------------
-// Step runner
-// ---------------------------------------------------------------------------
-
-export async function runParse(ctx: WorkflowState, runner: WorkflowRunner) {
-  runner.startStep(ctx, "parsing");
-  const { result, timing } = await runner.runActivity(ctx, parseActivity, "parsing");
   ctx.conversation = result.conversation;
   ctx.summary = result.summary;
   ctx.metadata = result.metadata;
@@ -48,10 +35,6 @@ export async function runParse(ctx: WorkflowState, runner: WorkflowRunner) {
 // Pre-processed import restoration
 // ---------------------------------------------------------------------------
 
-/**
- * Extract component mapping from parts that have an embedded component field.
- * Used when importing Context Viewer exports where component is stored on each part.
- */
 function extractComponentMappingFromParts(
   conversation: Conversation,
 ): Record<string, string> {
@@ -66,9 +49,6 @@ function extractComponentMappingFromParts(
   return mapping;
 }
 
-/**
- * Restore all data from a pre-processed Context Viewer export.
- */
 export function restorePreProcessedImport(
   ctx: WorkflowState,
   metadata: ConversationMetadata,
@@ -121,5 +101,4 @@ export function restorePreProcessedImport(
   }
 }
 
-// Re-exports used by other modules
 export { summarizeConversation } from "../conversation-summary";

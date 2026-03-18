@@ -6,72 +6,60 @@ import type {
   WorkflowBatchResult,
 } from "./types";
 import { WorkflowEvent } from "./types";
-import { WorkflowRunner } from "./runner";
+import {
+  type Notify,
+  startStep,
+  endStep,
+  updateState,
+  markComplete,
+  markFailed,
+  markPausedForApiKey,
+  timed,
+} from "./runner";
 import { hasApiKey } from "../ai-config";
 import { generateId } from "../lib/id-generator";
 
-// Domain imports — each file is a vertical slice (activity + step runner)
 import { runParse, restorePreProcessedImport } from "./parse";
 import { runCountTokens, runStaticComponents } from "./count-tokens";
 import { runSegment } from "./segment";
-import { identifyComponentsActivity } from "./component-identification";
-import { classifyComponentsActivity } from "./component-classification";
+import { runIdentifyComponents } from "./component-identification";
+import { runClassifyComponents } from "./component-classification";
 import { runAssignColors } from "./color";
 import { runSummary } from "./summarize";
 import { runAnalysis, runEnsureSummaryThenAnalysis, regenerateAnalysisIfNeeded, completionFieldsForReprocess } from "./analyze";
 import { getComponentisationConfig } from "./component-identification";
 
 // ---------------------------------------------------------------------------
-// Composite step: identify + classify components (single UI step)
+// Composite steps
 // ---------------------------------------------------------------------------
 
-async function runFindComponents(ctx: WorkflowState, runner: WorkflowRunner) {
-  runner.startStep(ctx, "finding-components");
-
-  // Step A: Identify component list per dimension
-  const { result: idResult, timing: idTiming } = await runner.runActivity(
-    ctx, identifyComponentsActivity, "finding-components",
-  );
-  ctx.dimensions = idResult.dimensions;
-  const defaultDim = idResult.dimensions["default"];
-  if (defaultDim) ctx.components = defaultDim.components;
-  if (idResult.error) ctx.warnings!.push(idResult.error);
-
-  // Step B: Classify each part into a component
-  const { result: classResult, timing: classTiming } = await runner.runActivity(
-    ctx, classifyComponentsActivity,
-  );
-  ctx.components = classResult.components;
-  ctx.componentMapping = classResult.mapping;
-  ctx.componentTimeline = classResult.timeline;
-  ctx.dimensions = classResult.dimensions;
-  if (classResult.error) ctx.warnings!.push(classResult.error);
-
+/** Identify + classify components (single UI step). */
+async function runFindComponents(ctx: WorkflowState, notify: Notify) {
+  startStep(notify, ctx, "finding-components");
+  const { timing: idTiming } = await runIdentifyComponents(ctx);
+  const { timing: classTiming } = await runClassifyComponents(ctx);
+  endStep(ctx, "finding-components");
   ctx.stepTimings!["finding-components"] = idTiming + classTiming;
 }
 
-// ---------------------------------------------------------------------------
-// Composite sequences
-// ---------------------------------------------------------------------------
-
 /** Find components then assign colors. */
-async function runComponentsAndColor(ctx: WorkflowState, runner: WorkflowRunner) {
-  await runFindComponents(ctx, runner);
-  runner.updateState(ctx, [
+async function runComponentsAndColor(ctx: WorkflowState, notify: Notify) {
+  await runFindComponents(ctx, notify);
+  updateState(notify, ctx, [
     "conversation", "components", "componentMapping", "componentTimeline", "dimensions",
   ], "coloring");
-  await runAssignColors(ctx, runner);
+  await runAssignColors(ctx, notify);
 }
 
-/** Segment, then find components, then assign colors. */
-async function runSegmentThenComponentsAndColor(ctx: WorkflowState, runner: WorkflowRunner) {
-  await runSegment(ctx, runner);
-  runner.updateState(ctx, ["conversation"], "finding-components");
-  await runComponentsAndColor(ctx, runner);
+/** Segment → find components → assign colors. */
+async function runSegmentThenComponentsAndColor(ctx: WorkflowState, notify: Notify) {
+  await runSegment(ctx, notify);
+  updateState(notify, ctx, ["conversation"], "finding-components");
+  await runComponentsAndColor(ctx, notify);
 }
 
 // ---------------------------------------------------------------------------
-// Field lists — what to write back for each event
+// Field lists
 // ---------------------------------------------------------------------------
 
 const NEW_FILE_COMPLETE: WorkflowDataField[] = [
@@ -104,7 +92,6 @@ const GROUPED_COMPLETE: WorkflowDataField[] = [
   "staticComponents", "staticMapping", "staticTimeline",
 ];
 
-/** Fields available after parsing + token counting + static components, before AI steps. */
 const PARSED_FIELDS: WorkflowDataField[] = [
   "conversation", "summary", "metadata",
   "staticComponents", "staticMapping", "staticTimeline",
@@ -114,92 +101,78 @@ const PARSED_FIELDS: WorkflowDataField[] = [
 // Event handlers
 // ---------------------------------------------------------------------------
 
-async function handleNewFile(
-  ctx: WorkflowState,
-  runner: WorkflowRunner,
-  callbacks: WorkflowCallbacks,
-) {
-  await runParse(ctx, runner);
-  runner.updateState(ctx, ["conversation", "summary", "metadata"], "counting-tokens");
+async function handleNewFile(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
+  await runParse(ctx, notify);
+  updateState(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
 
   if (ctx.metadata!.parserName === "Context Viewer") {
     restorePreProcessedImport(ctx, ctx.metadata!, ctx.conversation!);
-    runner.markComplete(ctx, PRE_PROCESSED_COMPLETE);
+    markComplete(notify, ctx, PRE_PROCESSED_COMPLETE);
     return;
   }
 
-  await runCountTokens(ctx, runner);
-  await runStaticComponents(ctx, runner);
+  await runCountTokens(ctx, notify);
+  await runStaticComponents(ctx);
 
   if (!hasApiKey()) {
-    runner.markPausedForApiKey(ctx, PARSED_FIELDS, "segmenting");
+    markPausedForApiKey(notify, ctx, PARSED_FIELDS, "segmenting");
     return;
   }
-  runner.updateState(ctx, PARSED_FIELDS, "segmenting");
+  updateState(notify, ctx, PARSED_FIELDS, "segmenting");
 
-  await runSegmentThenComponentsAndColor(ctx, runner);
-  runner.markComplete(ctx, NEW_FILE_COMPLETE);
+  await runSegmentThenComponentsAndColor(ctx, notify);
+  markComplete(notify, ctx, NEW_FILE_COMPLETE);
 }
 
-async function handleResumeFromApiKeyPause(ctx: WorkflowState, runner: WorkflowRunner) {
-  await runSegmentThenComponentsAndColor(ctx, runner);
-  runner.markComplete(ctx, RESUME_COMPLETE);
+async function handleResumeFromApiKeyPause(ctx: WorkflowState, notify: Notify) {
+  await runSegmentThenComponentsAndColor(ctx, notify);
+  markComplete(notify, ctx, RESUME_COMPLETE);
 }
 
-async function handleGroupedConversation(ctx: WorkflowState, runner: WorkflowRunner) {
-  runner.markComplete(ctx, GROUPED_COMPLETE);
+async function handleGroupedConversation(ctx: WorkflowState, notify: Notify) {
+  markComplete(notify, ctx, GROUPED_COMPLETE);
 }
 
-async function handleGenerateSummary(
-  ctx: WorkflowState, runner: WorkflowRunner, callbacks: WorkflowCallbacks,
-) {
-  await runSummary(ctx, runner, callbacks);
-  runner.markComplete(ctx, ["aiSummary", "customSummaryPrompt"]);
+async function handleGenerateSummary(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
+  await runSummary(ctx, notify, callbacks);
+  markComplete(notify, ctx, ["aiSummary", "customSummaryPrompt"]);
 }
 
-async function handleGenerateAnalysis(
-  ctx: WorkflowState, runner: WorkflowRunner, callbacks: WorkflowCallbacks,
-) {
-  await runEnsureSummaryThenAnalysis(ctx, runner, callbacks);
-  runner.markComplete(ctx, ["analysis", "aiSummary", "customAnalysisPrompt"]);
+async function handleGenerateAnalysis(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
+  await runEnsureSummaryThenAnalysis(ctx, notify, callbacks);
+  markComplete(notify, ctx, ["analysis", "aiSummary", "customAnalysisPrompt"]);
 }
 
-async function handleSummaryPromptChanged(
-  ctx: WorkflowState, runner: WorkflowRunner, callbacks: WorkflowCallbacks,
-) {
+async function handleSummaryPromptChanged(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
   ctx.aiSummary = "";
-  await runSummary(ctx, runner, callbacks);
+  await runSummary(ctx, notify, callbacks);
 
   const fields: WorkflowDataField[] = ["aiSummary", "customSummaryPrompt"];
   if (ctx.regenerateAnalysis) {
     ctx.analysis = "";
-    await runAnalysis(ctx, runner, callbacks);
+    await runAnalysis(ctx, notify, callbacks);
     fields.push("analysis");
   }
-  runner.markComplete(ctx, fields);
+  markComplete(notify, ctx, fields);
 }
 
-async function handleColoringPromptChanged(ctx: WorkflowState, runner: WorkflowRunner) {
-  await runAssignColors(ctx, runner);
-  runner.markComplete(ctx, ["componentColors", "dimensions", "customColoringPrompt"]);
+async function handleColoringPromptChanged(ctx: WorkflowState, notify: Notify) {
+  await runAssignColors(ctx, notify);
+  markComplete(notify, ctx, ["componentColors", "dimensions", "customColoringPrompt"]);
 }
 
-async function handleSegmentationPromptChanged(
-  ctx: WorkflowState, runner: WorkflowRunner, callbacks: WorkflowCallbacks,
-) {
-  await runSegment(ctx, runner);
-  runner.updateState(ctx, ["conversation", "customSegmentationPrompt", "segmentationThreshold"], "finding-components");
-  await runComponentsAndColor(ctx, runner);
-  const regenerated = await regenerateAnalysisIfNeeded(ctx, runner, callbacks);
-  runner.markComplete(ctx, completionFieldsForReprocess("segmentation", regenerated));
+async function handleSegmentationPromptChanged(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
+  await runSegment(ctx, notify);
+  updateState(notify, ctx, ["conversation", "customSegmentationPrompt", "segmentationThreshold"], "finding-components");
+  await runComponentsAndColor(ctx, notify);
+  const regenerated = await regenerateAnalysisIfNeeded(ctx, notify, callbacks);
+  markComplete(notify, ctx, completionFieldsForReprocess("segmentation", regenerated));
 }
 
-async function handleComponentPromptChanged(
-  ctx: WorkflowState, runner: WorkflowRunner, callbacks: WorkflowCallbacks,
-) {
-  await runComponentsAndColor(ctx, runner);
-  const regenerated = await regenerateAnalysisIfNeeded(ctx, runner, callbacks);
-  runner.markComplete(ctx, completionFieldsForReprocess("component", regenerated));
+async function handleComponentPromptChanged(ctx: WorkflowState, notify: Notify, callbacks: WorkflowCallbacks) {
+  await runComponentsAndColor(ctx, notify);
+  const regenerated = await regenerateAnalysisIfNeeded(ctx, notify, callbacks);
+  markComplete(notify, ctx, completionFieldsForReprocess("component", regenerated));
 }
 
 // ---------------------------------------------------------------------------
@@ -209,32 +182,32 @@ async function handleComponentPromptChanged(
 export async function processConversationWorkflow(
   event: WorkflowEvent,
   ctx: WorkflowState,
-  runner: WorkflowRunner,
+  notify: Notify,
   callbacks: WorkflowCallbacks,
 ): Promise<void> {
   try {
     switch (event) {
       case WorkflowEvent.NewFile:
-        return await handleNewFile(ctx, runner, callbacks);
+        return await handleNewFile(ctx, notify, callbacks);
       case WorkflowEvent.ResumeFromApiKeyPause:
-        return await handleResumeFromApiKeyPause(ctx, runner);
+        return await handleResumeFromApiKeyPause(ctx, notify);
       case WorkflowEvent.GroupedConversation:
-        return await handleGroupedConversation(ctx, runner);
+        return await handleGroupedConversation(ctx, notify);
       case WorkflowEvent.GenerateSummary:
-        return await handleGenerateSummary(ctx, runner, callbacks);
+        return await handleGenerateSummary(ctx, notify, callbacks);
       case WorkflowEvent.GenerateAnalysis:
-        return await handleGenerateAnalysis(ctx, runner, callbacks);
+        return await handleGenerateAnalysis(ctx, notify, callbacks);
       case WorkflowEvent.SummaryPromptChanged:
-        return await handleSummaryPromptChanged(ctx, runner, callbacks);
+        return await handleSummaryPromptChanged(ctx, notify, callbacks);
       case WorkflowEvent.ColoringPromptChanged:
-        return await handleColoringPromptChanged(ctx, runner);
+        return await handleColoringPromptChanged(ctx, notify);
       case WorkflowEvent.SegmentationPromptChanged:
-        return await handleSegmentationPromptChanged(ctx, runner, callbacks);
+        return await handleSegmentationPromptChanged(ctx, notify, callbacks);
       case WorkflowEvent.ComponentPromptChanged:
-        return await handleComponentPromptChanged(ctx, runner, callbacks);
+        return await handleComponentPromptChanged(ctx, notify, callbacks);
     }
   } catch (error: any) {
-    runner.markFailed(ctx.id, error.message);
+    markFailed(notify, ctx.id, error.message);
   }
 }
 
@@ -258,9 +231,9 @@ export async function runWorkflows(
 
       const id = fileIds.get(i) || generateId();
 
-      const runner = new WorkflowRunner((id, update) => {
+      const notify: Notify = (id, update) => {
         onFileComplete({ id, filename: file.name, ...update } as WorkflowState);
-      });
+      };
 
       const ctx: WorkflowState = {
         id,
@@ -276,7 +249,7 @@ export async function runWorkflows(
         customSegmentationPrompt: options?.customSegmentationPrompt,
       };
 
-      await processConversationWorkflow(WorkflowEvent.NewFile, ctx, runner, {
+      await processConversationWorkflow(WorkflowEvent.NewFile, ctx, notify, {
         onSummaryChunk: onAISummaryChunk,
         onAnalysisChunk,
       });

@@ -1,14 +1,10 @@
 /**
- * AI summary generation workflow step.
+ * AI summary generation.
  */
 
-import type { WorkflowState, WorkflowCallbacks, Activity } from "./types";
-import { WorkflowRunner } from "./runner";
+import type { WorkflowState, WorkflowCallbacks } from "./types";
+import { type Notify, startStep, endStep, timed } from "./runner";
 import { generateConversationSummary, type ConversationStats } from "../ai-summary";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function calculateConversationStats(conversation: {
   messages: Array<{ role: string; timestamp?: string }>;
@@ -38,42 +34,25 @@ function calculateConversationStats(conversation: {
   return { messageCount, turnCount, durationMs };
 }
 
-// ---------------------------------------------------------------------------
-// Activity factory
-// ---------------------------------------------------------------------------
-
-export const createSummaryActivity = (
-  onChunk?: (id: string, chunk: string) => void,
-): Activity<{ summary: string; error?: string }> => {
-  return async (ctx) => {
+export async function runSummary(
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks: WorkflowCallbacks,
+) {
+  startStep(notify, ctx, "summary");
+  const { result, timing } = await timed(async () => {
     const stats = calculateConversationStats(ctx.conversation!);
-    const result = await generateConversationSummary(
+    return generateConversationSummary(
       ctx.conversation!,
-      (chunk) => onChunk?.(ctx.id, chunk),
+      (chunk) => callbacks.onSummaryChunk?.(ctx.id, chunk),
       ctx.customSummaryPrompt,
       ctx.metadata,
       stats,
       ctx.id,
     );
-    return { summary: result.summary, error: result.error };
-  };
-};
+  });
+  endStep(ctx, "summary");
 
-// ---------------------------------------------------------------------------
-// Step runner
-// ---------------------------------------------------------------------------
-
-export async function runSummary(
-  ctx: WorkflowState,
-  runner: WorkflowRunner,
-  callbacks: WorkflowCallbacks,
-) {
-  runner.startStep(ctx, "summary");
-  const { result, timing } = await runner.runActivity(
-    ctx,
-    createSummaryActivity(callbacks.onSummaryChunk),
-    "summary",
-  );
   ctx.aiSummary = result.summary;
   if (result.error) ctx.warnings!.push(result.error);
   ctx.stepTimings!.summary = timing;

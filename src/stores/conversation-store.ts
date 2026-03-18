@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { WorkflowState, WorkflowCallbacks, WorkflowDataField, WorkflowOptions } from "../workflow/types";
 import { WorkflowEvent } from "../workflow/types";
-import { WorkflowRunner } from "../workflow/runner";
+import type { Notify } from "../workflow/runner";
 import { processConversationWorkflow, runWorkflows } from "../workflow/pipeline";
 import { getComponentisationConfig, buildComponentTimeline } from "../workflow/component-identification";
 import { summarizeConversation } from "../workflow/parse";
@@ -367,9 +367,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
     if (!idsToGroup) setSelectedId(groupId);
 
-    const runner = new WorkflowRunner((id, update) => {
-      get().updateConversation(id, update);
-    });
+    const notify: Notify = (id, update) => get().updateConversation(id, update);
 
     const ctx: WorkflowState = {
       id: groupId,
@@ -392,7 +390,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       staticTimeline: mergedStaticTimeline,
     };
 
-    await processConversationWorkflow(WorkflowEvent.GroupedConversation, ctx, runner, {
+    await processConversationWorkflow(WorkflowEvent.GroupedConversation, ctx, notify, {
       onSummaryChunk: (id, chunk) => get().appendSummaryChunk(id, chunk),
       onAnalysisChunk: (id, chunk) => get().appendAnalysisChunk(id, chunk),
     });
@@ -502,14 +500,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   },
 
   handleReprocessWithRunner: async (conv, event, contextModifier, callbacks) => {
-    const runner = new WorkflowRunner((id, update) => {
-      get().updateConversation(id, update);
-    });
+    const notify: Notify = (id, update) => get().updateConversation(id, update);
 
     const ctx = buildBaseContext(conv);
     contextModifier(ctx);
 
-    await processConversationWorkflow(event, ctx, runner, callbacks);
+    await processConversationWorkflow(event, ctx, notify, callbacks);
   },
 
   handleApplyPromptsToAll: async (sourceId) => {
@@ -550,9 +546,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
         if (!event) return;
 
-        const runner = new WorkflowRunner((id, update) => {
-          get().updateConversation(id, update);
-        });
+        const notify: Notify = (id, update) => get().updateConversation(id, update);
 
         const ctx = buildBaseContext(conv);
         ctx.customPrompt = promptFields.customPrompt;
@@ -562,7 +556,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         ctx.customColoringPrompt = promptFields.customColoringPrompt;
         ctx.segmentationThreshold = promptFields.segmentationThreshold;
 
-        await processConversationWorkflow(event, ctx, runner, {
+        await processConversationWorkflow(event, ctx, notify, {
           onAnalysisChunk: (id, chunk) => get().appendAnalysisChunk(id, chunk),
         });
       }),
@@ -627,9 +621,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     for (const conv of pausedWorkflows) {
       if (!conv.conversation) continue;
 
-      const runner = new WorkflowRunner((id, update) => {
-        get().updateConversation(id, update);
-      });
+      const notify: Notify = (id, update) => get().updateConversation(id, update);
 
       const ctx: WorkflowState = {
         id: conv.id,
@@ -646,7 +638,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         stepTimings: { ...conv.stepTimings },
       };
 
-      processConversationWorkflow(WorkflowEvent.ResumeFromApiKeyPause, ctx, runner, {
+      processConversationWorkflow(WorkflowEvent.ResumeFromApiKeyPause, ctx, notify, {
         onSummaryChunk: (id, chunk) => get().appendSummaryChunk(id, chunk),
         onAnalysisChunk: (id, chunk) => get().appendAnalysisChunk(id, chunk),
       });

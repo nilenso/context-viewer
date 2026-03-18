@@ -1,20 +1,19 @@
 /**
- * Context analysis workflow step + composite sequences involving analysis.
+ * Context analysis generation + composite sequences involving analysis.
  */
 
-import type { WorkflowState, WorkflowCallbacks, WorkflowDataField, Activity } from "./types";
-import { WorkflowRunner } from "./runner";
+import type { WorkflowState, WorkflowCallbacks, WorkflowDataField } from "./types";
+import { type Notify, startStep, endStep, timed, updateState } from "./runner";
 import { generateContextAnalysis } from "../ai-summary";
 import { runSummary } from "./summarize";
 
-// ---------------------------------------------------------------------------
-// Activity factory
-// ---------------------------------------------------------------------------
-
-export const createAnalysisActivity = (
-  onChunk?: (id: string, chunk: string) => void,
-): Activity<{ analysis: string; error?: string }> => {
-  return async (ctx) => {
+export async function runAnalysis(
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks: WorkflowCallbacks,
+) {
+  startStep(notify, ctx, "analysis");
+  const { result, timing } = await timed(async () => {
     const allComponents = new Set(ctx.components || []);
     if (ctx.dimensions) {
       for (const dim of Object.values(ctx.dimensions)) {
@@ -27,38 +26,22 @@ export const createAnalysisActivity = (
       if (!ctx.aiSummary) missing.push("aiSummary");
       if (allComponents.size === 0) missing.push("components");
       console.warn(`[analysis] Skipping: missing ${missing.join(", ")}`);
-      return { analysis: "" };
+      return { analysis: "", error: undefined as string | undefined };
     }
 
-    const result = await generateContextAnalysis(
+    return generateContextAnalysis(
       ctx.conversation!,
       ctx.componentTimeline || [],
       [...allComponents],
       ctx.aiSummary,
-      (chunk) => onChunk?.(ctx.id, chunk),
+      (chunk) => callbacks.onAnalysisChunk?.(ctx.id, chunk),
       ctx.customAnalysisPrompt,
       ctx.id,
       ctx.dimensions,
     );
-    return { analysis: result.analysis, error: result.error };
-  };
-};
+  });
+  endStep(ctx, "analysis");
 
-// ---------------------------------------------------------------------------
-// Step runner
-// ---------------------------------------------------------------------------
-
-export async function runAnalysis(
-  ctx: WorkflowState,
-  runner: WorkflowRunner,
-  callbacks: WorkflowCallbacks,
-) {
-  runner.startStep(ctx, "analysis");
-  const { result, timing } = await runner.runActivity(
-    ctx,
-    createAnalysisActivity(callbacks.onAnalysisChunk),
-    "analysis",
-  );
   ctx.analysis = result.analysis;
   if (result.error) ctx.warnings!.push(result.error);
   ctx.stepTimings!.analysis = timing;
@@ -71,30 +54,30 @@ export async function runAnalysis(
 /** Generate summary if missing, then generate analysis. */
 export async function runEnsureSummaryThenAnalysis(
   ctx: WorkflowState,
-  runner: WorkflowRunner,
+  notify: Notify,
   callbacks: WorkflowCallbacks,
 ) {
   if (!ctx.aiSummary) {
-    await runSummary(ctx, runner, callbacks);
+    await runSummary(ctx, notify, callbacks);
   }
-  await runAnalysis(ctx, runner, callbacks);
+  await runAnalysis(ctx, notify, callbacks);
 }
 
 /**
  * Re-generate analysis if it was previously generated.
- * Returns whether analysis was regenerated (needed for field list computation).
+ * Returns whether analysis was regenerated.
  */
 export async function regenerateAnalysisIfNeeded(
   ctx: WorkflowState,
-  runner: WorkflowRunner,
+  notify: Notify,
   callbacks: WorkflowCallbacks,
 ): Promise<boolean> {
   const hadAnalysis = !!ctx.analysis || ctx.stepTimings?.analysis !== undefined;
   if (!hadAnalysis) return false;
 
   ctx.analysis = "";
-  runner.updateState(ctx, ["analysis"], "analysis");
-  await runEnsureSummaryThenAnalysis(ctx, runner, callbacks);
+  updateState(notify, ctx, ["analysis"], "analysis");
+  await runEnsureSummaryThenAnalysis(ctx, notify, callbacks);
   return true;
 }
 

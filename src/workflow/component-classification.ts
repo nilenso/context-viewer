@@ -2,87 +2,82 @@
  * Component classification: map/classify each conversation part to a component.
  *
  * Takes the component list from identification and assigns each part to one.
- * Also builds the component timeline. This is the second half of componentisation.
+ * Also builds the component timeline.
  */
 
-import type { WorkflowState, Activity } from "./types";
-import type { DimensionData, ComponentTimelineSnapshot } from "../componentisation";
+import type { WorkflowState } from "./types";
 import {
   mapComponentsToIds,
   getComponentisationConfig,
   buildComponentTimeline,
 } from "../componentisation";
 import { getDefaultComponentIdentificationPrompt } from "../prompts";
+import { timed } from "./runner";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
-// ---------------------------------------------------------------------------
-// Activity
-// ---------------------------------------------------------------------------
+export async function runClassifyComponents(ctx: WorkflowState): Promise<{ timing: number }> {
+  const { result, timing } = await timed(async () => {
+    const dims = ensureDimensions(ctx);
+    const dimNames = ctx.targetDimension
+      ? [ctx.targetDimension]
+      : getDimensionNames(ctx).length > 0
+        ? getDimensionNames(ctx)
+        : ["default"];
 
-export const classifyComponentsActivity: Activity<{
-  components: string[];
-  mapping: Record<string, string>;
-  timeline: ComponentTimelineSnapshot[];
-  dimensions: Record<string, DimensionData>;
-  error?: string;
-}> = async (ctx) => {
-  const dims = ensureDimensions(ctx as any);
-  const dimNames = ctx.targetDimension
-    ? [ctx.targetDimension]
-    : getDimensionNames(ctx as any).length > 0
-      ? getDimensionNames(ctx as any)
-      : ["default"];
+    const config = getComponentisationConfig();
+    const errors: string[] = [];
 
-  const config = getComponentisationConfig();
-  const errors: string[] = [];
+    await Promise.all(
+      dimNames.map(async (dimName) => {
+        const dimData = dims[dimName];
+        if (!dimData || !config || !dimData.components?.length) return;
 
-  await Promise.all(
-    dimNames.map(async (dimName) => {
-      const dimData = dims[dimName];
-      if (!dimData || !config || !dimData.components?.length) return;
+        const prompt = dimData.prompt ?? ctx.customPrompt;
+        const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
 
-      const prompt = dimData.prompt ?? ctx.customPrompt;
-      const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
+        try {
+          const mapping = await mapComponentsToIds(
+            ctx.conversation!,
+            dimData.components,
+            config,
+            componentDescriptions,
+            ctx.id,
+          );
 
-      try {
-        const mapping = await mapComponentsToIds(
-          ctx.conversation!,
-          dimData.components,
-          config,
-          componentDescriptions,
-          ctx.id,
-        );
+          const totalParts = ctx.conversation!.messages.reduce(
+            (sum, msg) => sum + msg.parts.length, 0,
+          );
+          const mappedParts = Object.keys(mapping).length;
+          const finalComponents =
+            mappedParts < totalParts && !dimData.components.includes("other")
+              ? [...dimData.components, "other"]
+              : dimData.components;
 
-        // Add "other" component if there are unmapped parts
-        const totalParts = ctx.conversation!.messages.reduce(
-          (sum, msg) => sum + msg.parts.length, 0,
-        );
-        const mappedParts = Object.keys(mapping).length;
-        const finalComponents =
-          mappedParts < totalParts && !dimData.components.includes("other")
-            ? [...dimData.components, "other"]
-            : dimData.components;
+          const timeline = buildComponentTimeline(ctx.conversation!, mapping);
 
-        const timeline = buildComponentTimeline(ctx.conversation!, mapping);
+          dims[dimName] = {
+            ...dimData,
+            components: finalComponents,
+            componentMapping: mapping,
+            componentTimeline: timeline,
+          };
+        } catch (e: any) {
+          errors.push(`[${dimName}] Classification failed: ${e.message}`);
+        }
+      }),
+    );
 
-        dims[dimName] = {
-          ...dimData,
-          components: finalComponents,
-          componentMapping: mapping,
-          componentTimeline: timeline,
-        };
-      } catch (e: any) {
-        errors.push(`[${dimName}] Classification failed: ${e.message}`);
-      }
-    }),
-  );
+    return { dimensions: dims, errors };
+  });
 
-  const defaultDim = dims["default"];
-  return {
-    components: defaultDim?.components || [],
-    mapping: defaultDim?.componentMapping || {},
-    timeline: defaultDim?.componentTimeline || [],
-    dimensions: dims,
-    error: errors.length > 0 ? errors.join("; ") : undefined,
-  };
-};
+  ctx.dimensions = result.dimensions;
+  const defaultDim = result.dimensions["default"];
+  if (defaultDim) {
+    ctx.components = defaultDim.components;
+    ctx.componentMapping = defaultDim.componentMapping;
+    ctx.componentTimeline = defaultDim.componentTimeline;
+  }
+  if (result.errors.length > 0) ctx.warnings!.push(result.errors.join("; "));
+
+  return { timing };
+}
