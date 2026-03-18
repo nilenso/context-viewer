@@ -54,47 +54,25 @@ interface ConversationStore {
   removeGroup: (id: string) => void;
   updateGroup: (id: string, update: Partial<Group>) => void;
 
-  // ---- Complex Actions (thin wrappers around orchestrate.ts) ----
-  handleRunWorkflows: (
-    files: File[],
-    presetIds: Map<number, string> | undefined,
-    selectedId: string | null,
-    setSelectedId: (id: string | null) => void,
-    options?: WorkflowOptions,
-  ) => Promise<void>;
-
-  handleGroupConversations: (
-    idsToGroup: string[] | undefined,
-    setSelectedId: (id: string | null) => void,
-    groupName?: string,
-    existingGroupId?: string,
-    groupTitle?: string,
-  ) => void;
-
+  // ---- Actions (no navigation — callers handle selection) ----
+  runWorkflows: (files: File[], presetIds?: Map<number, string>, options?: WorkflowOptions) => Promise<void>;
+  groupConversations: (ids: string[], name?: string, existingId?: string, title?: string) => string;
   handleReprocessWithRunner: (
     conv: WorkflowState,
     startFrom: PipelineStep,
     contextModifier: (ctx: WorkflowState) => void,
     callbacks: WorkflowCallbacks,
   ) => Promise<void>;
-
   handleApplyPromptsToAll: (sourceId: string) => Promise<void>;
   handleExportPromptsAsPreset: (sourceId: string) => void;
   handleExportSession: () => void;
   handleResumeWorkflowsWithApiKey: () => void;
   setHasApiKeyState: (value: boolean) => void;
   processPendingGroups: () => void;
-
-  handleFileDrop: (
-    files: File[],
-    setSelectedId: (id: string | null) => void,
-    selectedId: string | null,
-    loadedPreset: any,
-  ) => Promise<void>;
+  processFileDrop: (files: File[], loadedPreset: any) => Promise<void>;
 }
 
 export const useConversationStore = create<ConversationStore>((set, get) => {
-  // Store accessor for orchestration functions
   const accessor: StoreAccessor = {
     getState: () => get(),
     updateConversation: (id, update) => get().updateConversation(id, update),
@@ -212,32 +190,26 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       });
     },
 
-    // ---- Complex Actions ----
+    // ---- Actions ----
 
-    handleRunWorkflows: async (files, presetIds, selectedId, setSelectedId, options) => {
-      const firstId = await runWorkflowMutation(accessor, files, presetIds, options);
-      if (!selectedId && firstId) setSelectedId(firstId);
+    runWorkflows: async (files, presetIds, options) => {
+      await runWorkflowMutation(accessor, files, presetIds, options);
     },
 
-    handleGroupConversations: (idsToGroup, setSelectedId, groupName, existingGroupId, groupTitle) => {
+    groupConversations: (ids, name, existingId, title) => {
       const store = get();
-      const ids = idsToGroup || [...store.selectedIds];
-      if (ids.length < 2) return;
-
       const validIds = ids.filter((id) => {
         const conv = store.conversations.find((c) => c.id === id);
         return conv?.conversation && conv.status === "success";
       });
-      if (validIds.length < 2) return;
+      if (validIds.length < 2) return "";
 
-      const name = groupName || `Grouped: ${validIds.map((id) => {
+      const groupName = name || `Grouped: ${validIds.map((id) => {
         const c = store.conversations.find((conv) => conv.id === id);
         return c?.filename || id;
       }).join(", ")}`;
 
-      const groupId = get().createGroup(validIds, name, existingGroupId, groupTitle);
-      if (!idsToGroup) set({ selectedIds: new Set() });
-      setSelectedId(groupId);
+      return get().createGroup(validIds, groupName, existingId, title);
     },
 
     handleReprocessWithRunner: async (conv, startFrom, contextModifier, callbacks) => {
@@ -292,7 +264,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       set({ pendingSessionImport: null, fileIdsRef: new Map() });
     },
 
-    handleFileDrop: async (files, setSelectedId, selectedId, loadedPreset) => {
+    processFileDrop: async (files, loadedPreset) => {
       const { filesToProcess, oldIdToIndex, sessionGroups } = await parseFileDropInput(files);
 
       if (sessionGroups.length > 0) {
@@ -316,11 +288,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             }
           : undefined;
 
-        await get().handleRunWorkflows(
+        await get().runWorkflows(
           filesToProcess,
           presetIds.size > 0 ? presetIds : undefined,
-          selectedId,
-          setSelectedId,
           options,
         );
       }

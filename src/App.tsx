@@ -57,7 +57,7 @@ export default function App() {
     handleResumeWorkflowsWithApiKey,
     setHasApiKeyState,
     processPendingGroups,
-    handleFileDrop: storeHandleFileDrop,
+    processFileDrop,
   } = useConversationStore();
 
   const ui = useUIStore();
@@ -396,7 +396,7 @@ export default function App() {
   // ---- Handlers ----
 
   const handleFileDrop = async (files: File[]) => {
-    await storeHandleFileDrop(files, setSelectedId, selectedId, ui.loadedPreset);
+    await processFileDrop(files, ui.loadedPreset);
   };
 
   // Streaming chunk callbacks
@@ -846,9 +846,15 @@ export default function App() {
   // API key change
   const handleApiKeyChange = (hasKey: boolean) => setHasApiKeyState(hasKey);
 
-  // Group/ungroup wrappers that pass setSelectedId
-  const handleGroupConversations = (idsToGroup?: string[], groupName?: string, existingGroupId?: string, groupTitle?: string) =>
-    useConversationStore.getState().handleGroupConversations(idsToGroup, setSelectedId, groupName, existingGroupId, groupTitle);
+  // Group/ungroup wrappers — store returns intent, App.tsx handles navigation
+  const handleGroupConversations = (idsToGroup?: string[], groupName?: string, existingGroupId?: string, groupTitle?: string) => {
+    const store = useConversationStore.getState();
+    const ids = idsToGroup || [...store.selectedIds];
+    if (ids.length < 2) return;
+    if (!idsToGroup) store.clearSelection();
+    const groupId = store.groupConversations(ids, groupName, existingGroupId, groupTitle);
+    if (groupId) setSelectedId(groupId);
+  };
 
   const handleUngroupConversation = (id: string) => {
     useConversationStore.getState().removeGroup(id);

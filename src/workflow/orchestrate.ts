@@ -29,7 +29,7 @@ export async function runWorkflowMutation(
   files: File[],
   presetIds: Map<number, string> | undefined,
   options?: WorkflowOptions,
-): Promise<string | null> {
+): Promise<void> {
   const fileIds = new Map<number, string>();
   const placeholders: WorkflowState[] = files.map((file, index) => {
     const id = presetIds?.get(index) || generateId();
@@ -41,8 +41,6 @@ export async function runWorkflowMutation(
     conversations: [...state.conversations, ...placeholders],
     fileIdsRef: fileIds,
   }));
-
-  const firstId = placeholders[0]?.id || null;
 
   const onFileComplete = (completed: WorkflowState) => {
     store.set((state: any) => ({
@@ -70,8 +68,6 @@ export async function runWorkflowMutation(
   } catch {
     store.set({ fileIdsRef: new Map() });
   }
-
-  return firstId;
 }
 
 /** Reprocess a conversation from a given pipeline step. */
