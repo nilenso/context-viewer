@@ -215,12 +215,15 @@ Keep your analysis practical and focused on improving context relevance. Use cle
  * This is the part shown in the UI without the components list
  */
 export function getDefaultColoringPrompt(): string {
-  return `Given this list of components, assign a color to each component.
-Similar kinds of components should get the same color to make it easy to visually group them.
+  return `Given this list of components, assign a distinct hex color to each component.
+Similar kinds of components should get similar colors to make it easy to visually group them.
+Use saturated, vibrant colors that are easy to distinguish. Avoid very dark or very light colors.
 
-You MUST use ONLY these exact color names (no hex codes, no other values):
-orange, emerald, purple, blue, slate, indigo, gray, cyan, teal, rose, amber, violet, lime, sky
+Here is a reference palette — you may use these or pick your own hex codes:
+  orange: #f97316, emerald: #34d399, purple: #c084fc, blue: #60a5fa,
+  slate: #94a3b8, indigo: #818cf8, cyan: #22d3ee, teal: #2dd4bf,
+  rose: #fb7185, amber: #fbbf24, violet: #8b5cf6, lime: #a3e635, sky: #38bdf8
 
-Return ONLY a valid JSON object mapping each component to one of the above color names.
-Example: {"component_name": "orange", "another_component": "blue"}`;
+Return ONLY a valid JSON object mapping each component to a hex color code.
+Example: {"component_name": "#f97316", "another_component": "#60a5fa"}`;
 }

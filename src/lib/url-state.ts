@@ -36,7 +36,7 @@ export type GroupTab = ConversationTab | "comparison";
 export type TabType = ConversationTab | GroupTab;
 
 // Sort options for conversation tab
-export type SortOption = "time-asc" | "time-desc" | "tokens-asc" | "tokens-desc";
+export type SortOption = "time-asc" | "time-desc" | "tokens-asc" | "tokens-desc" | "segments-asc" | "segments-desc";
 
 // Sort options for comparison tab
 export type ComparisonSortField = "tokens" | "name" | "category";
