@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
+import { useUIStore } from "@/stores/ui-store";
 import { WaffleChart } from "./WaffleChart";
 import {
   getStaticComponentWaffleStyles,
@@ -30,6 +31,8 @@ export function StaticComponentsView({
   onComponentSelect,
   messageTypeFilters,
 }: StaticComponentsViewProps) {
+  const percentPrecision = useUIStore((s) => s.percentPrecision);
+
   // Initialize slider to the last message
   const [currentMessageIndex, setCurrentMessageIndex] = useState(
     conversation.messages.length - 1
@@ -108,6 +111,7 @@ export function StaticComponentsView({
         getColorStyles={getStaticComponentWaffleStyles}
         getLabel={getStaticComponentLabel}
         onComponentClick={handleComponentClick}
+        percentPrecision={percentPrecision}
       />
     </div>
   );
