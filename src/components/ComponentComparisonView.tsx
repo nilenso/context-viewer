@@ -1,9 +1,10 @@
-import { useState } from "react";
 import { useUIStore } from "@/stores/ui-store";
+import { useUrlStore } from "@/stores/url-store";
 import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { ArrowUp, ArrowDown, LayoutGrid, Rows3 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { navigateToId } from "@/hooks/useWorkflowActions";
 
 type SortField = "tokens" | "name" | "category";
 type SortDirection = "asc" | "desc";
@@ -97,21 +98,6 @@ interface ComponentComparisonViewProps {
   componentColors?: Record<string, string>;
   hasActiveFilters?: boolean;
   groupTitle?: string;
-  onConversationClick?: (id: string) => void;
-  // Controlled state props (optional - falls back to local state if not provided)
-  viewMode?: ViewMode;
-  onViewModeChange?: (mode: ViewMode) => void;
-  legendMode?: LegendMode;
-  onLegendModeChange?: (mode: LegendMode) => void;
-  sortField?: SortField;
-  onSortFieldChange?: (field: SortField) => void;
-  sortDirection?: SortDirection;
-  onSortDirectionChange?: (dir: SortDirection) => void;
-  columnCount?: number;
-  onColumnCountChange?: (cols: number) => void;
-  squaresPerRow?: number;
-  onSquaresPerRowChange?: (spr: number) => void;
-  percentPrecision?: number;
 }
 
 /**
@@ -440,63 +426,22 @@ export function ComponentComparisonView({
   componentColors,
   hasActiveFilters,
   groupTitle,
-  onConversationClick,
-  // Controlled props
-  viewMode: controlledViewMode,
-  onViewModeChange,
-  legendMode: controlledLegendMode,
-  onLegendModeChange,
-  sortField: controlledSortField,
-  onSortFieldChange,
-  sortDirection: controlledSortDirection,
-  onSortDirectionChange,
-  columnCount: controlledColumnCount,
-  onColumnCountChange,
-  squaresPerRow: controlledSquaresPerRow,
-  onSquaresPerRowChange,
-  percentPrecision = 0,
 }: ComponentComparisonViewProps) {
-  // Local state (used when props are not provided)
-  const [localSortField, setLocalSortField] = useState<SortField>("tokens");
-  const [localSortDirection, setLocalSortDirection] = useState<SortDirection>("desc");
-  const [localColumnCount, setLocalColumnCount] = useState<number>(3);
-  const [localViewMode, setLocalViewMode] = useState<ViewMode>("tokens");
-  const [localSquaresPerRow, setLocalSquaresPerRow] = useState<number>(20);
-  const [localLegendMode, setLocalLegendMode] = useState<LegendMode>("expanded");
+  // Read state directly from stores
+  const viewMode = useUrlStore((s) => s.comparisonView) as ViewMode;
+  const legendMode = useUrlStore((s) => s.comparisonLegend) as LegendMode;
+  const sortField = useUrlStore((s) => s.comparisonSortBy) as SortField;
+  const sortDirection = useUrlStore((s) => s.comparisonSortDir) as SortDirection;
+  const columnCount = useUrlStore((s) => s.comparisonCols);
+  const squaresPerRow = useUrlStore((s) => s.comparisonSquaresPerRow);
+  const percentPrecision = useUIStore((s) => s.percentPrecision);
 
-  // Use controlled values if provided, otherwise use local state
-  const viewMode = controlledViewMode ?? localViewMode;
-  const legendMode = controlledLegendMode ?? localLegendMode;
-  const sortField = controlledSortField ?? localSortField;
-  const sortDirection = controlledSortDirection ?? localSortDirection;
-  const columnCount = controlledColumnCount ?? localColumnCount;
-  const squaresPerRow = controlledSquaresPerRow ?? localSquaresPerRow;
-
-  // Setters that call both local state and callback
-  const setViewMode = (mode: ViewMode) => {
-    setLocalViewMode(mode);
-    onViewModeChange?.(mode);
-  };
-  const setLegendMode = (mode: LegendMode) => {
-    setLocalLegendMode(mode);
-    onLegendModeChange?.(mode);
-  };
-  const setSortField = (field: SortField) => {
-    setLocalSortField(field);
-    onSortFieldChange?.(field);
-  };
-  const setSortDirection = (dir: SortDirection) => {
-    setLocalSortDirection(dir);
-    onSortDirectionChange?.(dir);
-  };
-  const setColumnCount = (cols: number) => {
-    setLocalColumnCount(cols);
-    onColumnCountChange?.(cols);
-  };
-  const setSquaresPerRow = (spr: number) => {
-    setLocalSquaresPerRow(spr);
-    onSquaresPerRowChange?.(spr);
-  };
+  const setViewMode = useUrlStore((s) => s.setComparisonView);
+  const setLegendMode = useUrlStore((s) => s.setComparisonLegend);
+  const setSortField = useUrlStore((s) => s.setComparisonSortBy);
+  const setSortDirection = useUrlStore((s) => s.setComparisonSortDir);
+  const setColumnCount = useUrlStore((s) => s.setComparisonCols);
+  const setSquaresPerRow = useUrlStore((s) => s.setComparisonSquaresPerRow);
 
   // Check if workflow view is available (any conversation has messageComponents)
   const hasWorkflowData = memberFiles.some(
@@ -740,7 +685,7 @@ export function ComponentComparisonView({
                 <div key={conv.id} className="flex flex-col items-center">
                   <div className="mb-1 text-center">
                     <button
-                      onClick={() => onConversationClick?.(conv.id)}
+                      onClick={() => navigateToId(conv.id)}
                       className="text-sm font-medium truncate max-w-[120px] block hover:underline text-left"
                       title={conv.title || conv.filename}
                     >
@@ -777,7 +722,7 @@ export function ComponentComparisonView({
             {/* Filename header */}
             <div className={viewMode === "tokens" && legendMode === "compact" ? "mb-2" : "mb-3"}>
               <button
-                onClick={() => onConversationClick?.(conv.id)}
+                onClick={() => navigateToId(conv.id)}
                 className="text-sm font-medium truncate block hover:underline text-left"
                 title={conv.title || conv.filename}
               >

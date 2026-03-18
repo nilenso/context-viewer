@@ -1,5 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useUIStore } from "@/stores/ui-store";
+import { useUrlStore } from "@/stores/url-store";
+import { navigateToId } from "@/hooks/useWorkflowActions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,10 +20,6 @@ import { MessagePartView } from "./MessagePartView";
 import {
   ComponentComparisonView,
   type ConversationComponentData,
-  type ViewMode as ComparisonViewMode,
-  type LegendMode as ComparisonLegendMode,
-  type SortField as ComparisonSortField,
-  type SortDirection as ComparisonSortDirection,
 } from "./ComponentComparisonView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,13 +63,6 @@ interface ConversationViewProps {
   components?: string[];
   // Multi-dimensional component data
   dimensions?: Record<string, DimensionData>;
-  activeDimensions?: Set<string>;
-  onActiveDimensionsChange?: (dims: Set<string>) => void;
-  // Dimension management
-  onAddDimension?: (name: string) => void;
-  onRemoveDimension?: (name: string) => void;
-  onRenameDimension?: (oldName: string, newName: string) => void;
-  onEditDimensionPrompt?: (dimensionName: string) => void;
   // Static componentisation (deterministic, no AI)
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
@@ -82,36 +73,9 @@ interface ConversationViewProps {
   messageOriginMap?: Record<string, OriginInfo>;
   isGrouped?: boolean;
   groupTitle?: string;
-  onConversationClick?: (id: string) => void;
   memberComponentData?: ConversationComponentData[];
   // Source workflow states for grouped conversations (for filtered comparison)
   memberWorkflowStates?: MemberWorkflowState[];
-
-  // URL-controlled state (optional - falls back to local state if not provided)
-  activeTab?: TabType;
-  onTabChange?: (tab: TabType) => void;
-  searchQuery?: string;
-  onSearchQueryChange?: (query: string) => void;
-  sortBy?: SortOption;
-  onSortByChange?: (sort: SortOption) => void;
-  messageFilters?: Set<MessageFilter>;
-  onMessageFiltersChange?: (filters: Set<MessageFilter>) => void;
-  selectedComponents?: Set<string>;
-  onSelectedComponentsChange?: (components: Set<string>) => void;
-
-  // Comparison tab controlled state
-  comparisonViewMode?: ComparisonViewMode;
-  onComparisonViewModeChange?: (mode: ComparisonViewMode) => void;
-  comparisonLegendMode?: ComparisonLegendMode;
-  onComparisonLegendModeChange?: (mode: ComparisonLegendMode) => void;
-  comparisonSortField?: ComparisonSortField;
-  onComparisonSortFieldChange?: (field: ComparisonSortField) => void;
-  comparisonSortDirection?: ComparisonSortDirection;
-  onComparisonSortDirectionChange?: (dir: ComparisonSortDirection) => void;
-  comparisonColumnCount?: number;
-  onComparisonColumnCountChange?: (cols: number) => void;
-  comparisonSquaresPerRow?: number;
-  onComparisonSquaresPerRowChange?: (spr: number) => void;
 }
 
 export function ConversationView({
@@ -121,12 +85,6 @@ export function ConversationView({
   componentColors,
   components,
   dimensions,
-  activeDimensions,
-  onActiveDimensionsChange,
-  onAddDimension,
-  onRemoveDimension,
-  onRenameDimension,
-  onEditDimensionPrompt,
   staticMapping,
   staticTimeline,
   warnings,
@@ -135,43 +93,26 @@ export function ConversationView({
   messageOriginMap,
   isGrouped,
   groupTitle,
-  onConversationClick,
   memberComponentData,
   memberWorkflowStates,
-  // URL-controlled state
-  activeTab: controlledActiveTab,
-  onTabChange,
-  searchQuery: controlledSearchQuery,
-  onSearchQueryChange,
-  sortBy: controlledSortBy,
-  onSortByChange,
-  messageFilters: controlledMessageFilters,
-  onMessageFiltersChange,
-  selectedComponents: controlledSelectedComponents,
-  onSelectedComponentsChange,
-  // Comparison tab controlled state
-  comparisonViewMode,
-  onComparisonViewModeChange,
-  comparisonLegendMode,
-  onComparisonLegendModeChange,
-  comparisonSortField,
-  onComparisonSortFieldChange,
-  comparisonSortDirection,
-  onComparisonSortDirectionChange,
-  comparisonColumnCount,
-  onComparisonColumnCountChange,
-  comparisonSquaresPerRow,
-  onComparisonSquaresPerRowChange,
 }: ConversationViewProps) {
-  // Local state (used when props are not provided)
-  const [localActiveTab, setLocalActiveTab] = useState<TabType>("conversation");
-  const [localSearchQuery, setLocalSearchQuery] = useState("");
-  const [localSortBy, setLocalSortBy] = useState<SortOption>("time-asc");
-  const [localMessageFilters, setLocalMessageFilters] = useState<Set<MessageFilter>>(
-    new Set(ALL_MESSAGE_FILTERS)
-  );
-  const [localSelectedComponents, setLocalSelectedComponents] = useState<Set<string>>(new Set());
+  // URL state (from Zustand store)
+  const activeTab = useUrlStore((s) => s.tab) as TabType;
+  const searchQuery = useUrlStore((s) => s.searchQuery);
+  const sortBy = useUrlStore((s) => s.sort) as SortOption;
+  const messageFiltersFromStore = useUrlStore((s) => s.messageFilters);
+  const selectedComponents = useUrlStore((s) => s.componentFilters);
 
+  const setActiveTab = useUrlStore((s) => s.navigateToTab);
+  const setSearchQuery = useUrlStore((s) => s.setSearchQuery);
+  const setSortBy = useUrlStore((s) => s.setSort);
+  const setMessageFilters = useUrlStore((s) => s.setMessageFilters);
+  const setSelectedComponents = useUrlStore((s) => s.setComponentFilters);
+
+  // Comparison state (from URL store)
+  // UI store
+  const activeDimensions = useUIStore((s) => s.activeDimensions);
+  const setActiveDimensions = useUIStore((s) => s.setActiveDimensions);
   const percentPrecision = useUIStore((s) => s.percentPrecision);
 
   // Local-only state (not URL-controlled)
@@ -180,12 +121,6 @@ export function ConversationView({
   const [selectedStaticComponent, setSelectedStaticComponent] = useState<string | null>(null);
   const [selectedAutoComponent, setSelectedAutoComponent] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"idle" | "processing" | "copied">("idle");
-
-  // Use controlled values if provided, otherwise use local state
-  const activeTab = controlledActiveTab ?? localActiveTab;
-  const searchQuery = controlledSearchQuery ?? localSearchQuery;
-  const sortBy = controlledSortBy ?? localSortBy;
-  const selectedComponents = controlledSelectedComponents ?? localSelectedComponents;
 
   // Keep the automatic component detail view aligned with the currently active dimension.
   // Falls back to the legacy single-dimension mapping when multi-dimension data is unavailable.
@@ -203,38 +138,8 @@ export function ConversationView({
     return (primaryDimName && dimensions[primaryDimName]?.componentMapping) || componentMapping || {};
   }, [dimensions, activeDimensions, componentMapping]);
 
-  // For message filters, we use the controlled version directly
-  // The "all" pseudo-filter is computed for display purposes
-  const messageFiltersSet = controlledMessageFilters ?? localMessageFilters;
-
-  // Setters that call both local state and callback
-  const handleTabChange = (tab: TabType) => {
-    setLocalActiveTab(tab);
-    onTabChange?.(tab);
-  };
-  const setSearchQuery = (query: string) => {
-    setLocalSearchQuery(query);
-    onSearchQueryChange?.(query);
-  };
-  const setSortBy = (sort: SortOption) => {
-    setLocalSortBy(sort);
-    onSortByChange?.(sort);
-  };
-  const setSelectedComponents = (comps: Set<string>) => {
-    setLocalSelectedComponents(comps);
-    onSelectedComponentsChange?.(comps);
-  };
-  const setMessageFiltersInternal = (filters: Set<MessageFilter>) => {
-    setLocalMessageFilters(filters);
-    onMessageFiltersChange?.(filters);
-  };
-
-  // Initialize selected components when components prop changes
-  useEffect(() => {
-    if (components && components.length > 0 && !controlledSelectedComponents) {
-      setLocalSelectedComponents(new Set(components));
-    }
-  }, [components, controlledSelectedComponents]);
+  // For message filters, use the store value directly
+  const messageFiltersSet = messageFiltersFromStore;
 
   // Helper to toggle a component filter
   const toggleComponent = (component: string) => {
@@ -322,14 +227,18 @@ export function ConversationView({
     return effectiveAutoComponentMapping[partId] === selected;
   }, [dimensions, effectiveAutoComponentMapping]);
 
+  const isSegmentSort = sortBy === "segments-asc" || sortBy === "segments-desc";
+
   // Get sort icon based on current sort
   const getSortIcon = () => {
     switch (sortBy) {
       case "time-asc":
       case "tokens-asc":
+      case "segments-asc":
         return <ArrowUpNarrowWide className="h-4 w-4" />;
       case "time-desc":
       case "tokens-desc":
+      case "segments-desc":
         return <ArrowDownNarrowWide className="h-4 w-4" />;
     }
   };
@@ -345,6 +254,10 @@ export function ConversationView({
         return "Tokens (Low to High)";
       case "tokens-desc":
         return "Tokens (High to Low)";
+      case "segments-asc":
+        return "Segments (Smallest First)";
+      case "segments-desc":
+        return "Segments (Largest First)";
     }
   };
 
@@ -362,9 +275,9 @@ export function ConversationView({
     if (filter === "all") {
       // Toggle all on/off
       if (hasAllFilters) {
-        setMessageFiltersInternal(new Set());
+        setMessageFilters(new Set());
       } else {
-        setMessageFiltersInternal(new Set(ALL_MESSAGE_FILTERS));
+        setMessageFilters(new Set(ALL_MESSAGE_FILTERS));
       }
     } else {
       // Toggle individual filter
@@ -374,7 +287,7 @@ export function ConversationView({
       } else {
         newSet.add(filter);
       }
-      setMessageFiltersInternal(newSet);
+      setMessageFilters(newSet);
     }
   };
 
@@ -640,6 +553,26 @@ export function ConversationView({
       case "tokens-desc":
         sorted.sort((a, b) => b.tokens - a.tokens);
         break;
+      case "segments-asc":
+      case "segments-desc": {
+        // Flatten messages into individual parts, sorted by token count
+        const dir = sortBy === "segments-asc" ? 1 : -1;
+        const flatParts: typeof sorted = [];
+        for (const m of filtered) {
+          for (const part of m.message.parts) {
+            const partTokens = getPartTokenCount(part);
+            // Create a single-part message wrapper for rendering
+            flatParts.push({
+              message: { ...m.message, parts: [part] },
+              originalIndex: m.originalIndex,
+              tokens: partTokens,
+              hasVisibleParts: true,
+            });
+          }
+        }
+        flatParts.sort((a, b) => (a.tokens - b.tokens) * dir);
+        return flatParts;
+      }
     }
 
     return sorted;
@@ -669,6 +602,8 @@ export function ConversationView({
         "time-desc": "Time (Newest First)",
         "tokens-asc": "Tokens (Low to High)",
         "tokens-desc": "Tokens (High to Low)",
+        "segments-asc": "Segments (Smallest First)",
+        "segments-desc": "Segments (Largest First)",
       };
 
       // Get unique filenames from messages
@@ -802,7 +737,7 @@ export function ConversationView({
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(value) => handleTabChange(value as TabType)}
+      onValueChange={(value) => setActiveTab(value as TabType)}
       className="flex flex-col h-full"
     >
       {/* Warnings Banner */}
@@ -1033,6 +968,28 @@ export function ConversationView({
                       </div>
                       <span className="text-sm">Tokens (High to Low)</span>
                     </label>
+                    <div className="border-t my-1" />
+                    <div className="text-xs font-medium text-muted-foreground mb-1">
+                      Sort Segments
+                    </div>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("segments-asc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "segments-asc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "segments-asc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Segments (Smallest First)</span>
+                    </label>
+                    <label
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-sm transition-colors"
+                      onClick={() => setSortBy("segments-desc")}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${sortBy === "segments-desc" ? "border-primary" : "border-muted-foreground"}`}>
+                        {sortBy === "segments-desc" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="text-sm">Segments (Largest First)</span>
+                    </label>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -1093,7 +1050,7 @@ export function ConversationView({
                     Started: {conversationStartTime.toLocaleString()}
                   </span>
                 )}
-                <span>Showing {filteredAndSortedMessages.length} of {conversation.messages.length}</span>
+                <span>Showing {filteredAndSortedMessages.length} {isSegmentSort ? "segments" : "messages"}{!isSegmentSort ? ` of ${conversation.messages.length}` : ""}</span>
               </div>
             </div>
           </div>
@@ -1101,9 +1058,9 @@ export function ConversationView({
 
         <ScrollArea className="h-full border rounded-lg p-4 bg-white">
           <div className="space-y-3">
-            {filteredAndSortedMessages.map(({ message, originalIndex }) => (
+            {filteredAndSortedMessages.map(({ message, originalIndex }, idx) => (
               <MessageView
-                key={originalIndex}
+                key={isSegmentSort ? `${originalIndex}-${message.parts[0]?.id ?? idx}` : originalIndex}
                 message={message as Message}
                 index={originalIndex}
                 isExpanded={expandAll}
@@ -1156,7 +1113,7 @@ export function ConversationView({
               componentColors={componentColors}
               dimensions={dimensions}
               activeDimensions={activeDimensions}
-              onActiveDimensionsChange={onActiveDimensionsChange}
+              onActiveDimensionsChange={setActiveDimensions}
               selectedComponent={selectedAutoComponent}
               onComponentSelect={(comp) => {
                 setSelectedAutoComponent(comp);
@@ -1271,20 +1228,6 @@ export function ConversationView({
             componentColors={componentColors}
             hasActiveFilters={!hasAllFilters}
             groupTitle={groupTitle}
-            onConversationClick={onConversationClick}
-            viewMode={comparisonViewMode}
-            onViewModeChange={onComparisonViewModeChange}
-            legendMode={comparisonLegendMode}
-            onLegendModeChange={onComparisonLegendModeChange}
-            sortField={comparisonSortField}
-            onSortFieldChange={onComparisonSortFieldChange}
-            sortDirection={comparisonSortDirection}
-            onSortDirectionChange={onComparisonSortDirectionChange}
-            columnCount={comparisonColumnCount}
-            onColumnCountChange={onComparisonColumnCountChange}
-            squaresPerRow={comparisonSquaresPerRow}
-            onSquaresPerRowChange={onComparisonSquaresPerRowChange}
-            percentPrecision={percentPrecision}
           />
         </TabsContent>
       )}

@@ -9,8 +9,8 @@ import { getStaticComponentLabel } from "@/lib/static-component-colors";
 import type { Conversation } from "@/schema";
 import type { DimensionData } from "@/component-types";
 import { computeTupleTokens, TUPLE_SEPARATOR, aggregateComponentTokens, type ComponentTimelineSnapshot } from "@/aggregation";
+import { partPassesMessageTypeFilter, hasActiveMessageTypeFilters } from "@/lib/message-filters";
 
-// Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
 
 interface ComponentsViewProps {
@@ -88,12 +88,8 @@ export function ComponentsView({
     return dimensions[primaryDimName]?.componentColors || componentColors || {};
   }, [dimensions, dimensionsDataKey, primaryDimName, componentColors]);
 
-  // Helper to check if a part passes the message type filter
-  const partPassesMessageTypeFilter = (part: { type: string }, msgRole: string): boolean => {
-    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
-    const filterKey = `${msgRole}:${part.type}`;
-    return messageTypeFilters.has(filterKey);
-  };
+  const partPassesFilter = (part: { type: string }, msgRole: string): boolean =>
+    partPassesMessageTypeFilter(messageTypeFilters, part.type, msgRole);
 
   // Get the set of part IDs that match the static component filter
   const filteredPartIds = useMemo(() => {
@@ -119,7 +115,7 @@ export function ComponentsView({
       {
         maxMessageIndex: currentMessageIndex,
         filteredPartIds,
-        partFilter: (part, msgRole) => partPassesMessageTypeFilter(part, msgRole),
+        partFilter: (part, msgRole) => partPassesFilter(part, msgRole),
       },
     );
   }, [dimensions, dimensionsDataKey, activeDimensionsKey, conversation.messages, currentMessageIndex, filteredPartIds, messageTypeFilters]);
@@ -157,7 +153,7 @@ export function ComponentsView({
       if (msgIndex <= currentMessageIndex) {
         let messageComponent: string | null = null;
         for (const part of message.parts) {
-          if (!partPassesMessageTypeFilter(part, message.role)) continue;
+          if (!partPassesFilter(part, message.role)) continue;
           if (filteredPartIds && !filteredPartIds.has(part.id)) continue;
 
           if (isMultiDim && activeDimNames) {
@@ -210,7 +206,7 @@ export function ComponentsView({
   const { componentTokens: componentTokensForOverview, totalTokens: filteredTokensTotal } =
     aggregateComponentTokens(conversation, effectiveMapping, {
       maxMessageIndex: currentMessageIndex,
-      partFilter: (part, msgRole) => partPassesMessageTypeFilter(part, msgRole),
+      partFilter: (part, msgRole) => partPassesFilter(part, msgRole),
       filteredPartIds,
       unmappedLabel: null,
     });
@@ -221,7 +217,7 @@ export function ComponentsView({
   };
 
   // Check if message type filters are active
-  const hasMessageTypeFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
+  const hasMessageTypeFilters = hasActiveMessageTypeFilters(messageTypeFilters);
 
   // Helper to get blended waffle styles for multi-dimension view
   const getWaffleStylesForDimensions = (component: string) => {

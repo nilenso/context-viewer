@@ -8,8 +8,8 @@ import { MessagePartView } from "./MessagePartView";
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/aggregation";
 import { buildComponentTimeline as buildTimelinePure } from "@/aggregation";
+import { partPassesMessageTypeFilter, hasActiveMessageTypeFilters } from "@/lib/message-filters";
 
-// Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
 
 interface StackedBarChartViewProps {
@@ -39,15 +39,10 @@ export function StackedBarChartView({
   // Track pinned message (when user clicks a bar)
   const [pinnedMessageIndex, setPinnedMessageIndex] = useState<number | null>(null);
 
-  // Helper to check if a part passes the message type filter
-  const partPassesFilter = (part: { type: string }, msgRole: string): boolean => {
-    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
-    const filterKey = `${msgRole}:${part.type}`;
-    return messageTypeFilters.has(filterKey);
-  };
+  const partPassesFilter = (part: { type: string }, msgRole: string): boolean =>
+    partPassesMessageTypeFilter(messageTypeFilters, part.type, msgRole);
 
-  // Check if filters are active
-  const hasActiveFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
+  const hasActiveFilters = hasActiveMessageTypeFilters(messageTypeFilters);
 
   if (!componentMapping || Object.keys(componentMapping).length === 0) {
     return (

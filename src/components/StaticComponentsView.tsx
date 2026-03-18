@@ -9,8 +9,8 @@ import {
 import type { Conversation } from "@/schema";
 import type { ComponentTimelineSnapshot } from "@/aggregation";
 import { aggregateComponentTokens } from "@/aggregation";
+import { partPassesMessageTypeFilter, hasActiveMessageTypeFilters } from "@/lib/message-filters";
 
-// Message type filter in format "role:type" (e.g., "assistant:tool-call")
 type MessageTypeFilter = string;
 
 interface StaticComponentsViewProps {
@@ -38,12 +38,8 @@ export function StaticComponentsView({
     conversation.messages.length - 1
   );
 
-  // Helper to check if a part passes the message type filter
-  const partPassesFilter = (part: { type: string }, msgRole: string): boolean => {
-    if (!messageTypeFilters || messageTypeFilters.has("all")) return true;
-    const filterKey = `${msgRole}:${part.type}`;
-    return messageTypeFilters.has(filterKey);
-  };
+  const partPassesFilter = (part: { type: string }, msgRole: string): boolean =>
+    partPassesMessageTypeFilter(messageTypeFilters, part.type, msgRole);
 
   if (!staticMapping || Object.keys(staticMapping).length === 0) {
     return (
@@ -72,8 +68,7 @@ export function StaticComponentsView({
     onComponentSelect?.(newSelection);
   };
 
-  // Check if filters are active
-  const hasActiveFilters = messageTypeFilters && !messageTypeFilters.has("all") && messageTypeFilters.size > 0;
+  const hasActiveFilters = hasActiveMessageTypeFilters(messageTypeFilters);
 
   return (
     <div className="p-4">

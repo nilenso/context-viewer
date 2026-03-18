@@ -1,0 +1,603 @@
+/**
+ * useWorkflowActions — consolidates the complex multi-step handler functions
+ * that were previously scattered across App.tsx (~400 lines).
+ *
+ * These are operations that combine conversation-store mutations,
+ * UI-store updates, pipeline calls, and/or navigation.
+ *
+ * Components import this hook directly instead of receiving callbacks via props.
+ */
+import { useCallback } from "react";
+import { useConversationStore, buildBaseContext } from "@/stores/conversation-store";
+import { useUIStore } from "@/stores/ui-store";
+import { useUrlStore } from "@/stores/url-store";
+import type { WorkflowState, WorkflowCallbacks } from "@/workflow/types";
+import { PipelineStep } from "@/workflow/types";
+import type { Notify } from "@/workflow/runner";
+import {
+  runPipelineFrom,
+  generateSummaryOnDemand,
+  generateAnalysisOnDemand,
+  rerunSummary,
+} from "@/workflow/pipeline";
+import { ensureDimensions } from "@/workflow/dimensions";
+import {
+  getDefaultComponentIdentificationPrompt,
+  getDefaultSegmentationPrompt,
+  getDefaultSummaryPrompt,
+  getDefaultAnalysisPrompt,
+  getDefaultColoringPrompt,
+} from "@/prompts";
+import { DEFAULT_SEGMENTATION_THRESHOLD } from "@/segmentation";
+
+// ---- Helpers (no hooks, pure store access) ----
+
+function navigateToId(id: string | null) {
+  if (id === null) {
+    const basePath = import.meta.env.BASE_URL || "/";
+    window.history.replaceState({}, "", basePath);
+    // Also clear the store state
+    useUrlStore.getState()._syncFromUrl();
+  } else {
+    const isGroup = !!useConversationStore.getState().groups[id];
+    useUrlStore.getState().navigateToConversation(id, isGroup);
+  }
+}
+
+function getOnAnalysisChunk() {
+  return (id: string, chunk: string) =>
+    useConversationStore.getState().appendAnalysisChunk(id, chunk);
+}
+
+function getOnSummaryChunk() {
+  return (id: string, chunk: string) =>
+    useConversationStore.getState().appendSummaryChunk(id, chunk);
+}
+
+// ---- Reprocessing actions ----
+
+export async function reprocessComponents(
+  selectedConversation: WorkflowState,
+  selectedGroupFileIds: string[] | undefined,
+  options: { customPrompt?: string; customComponents?: string[] } = {},
+) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  const conversations = store.conversations;
+  const id = selectedConversation.id;
+  const dimName = ui.editingDimensionName || "default";
+  ui.setReprocessingId(id);
+
+  const seedDimension = (ctx: WorkflowState) => {
+    const dims = ensureDimensions(ctx);
+    if (!dims[dimName]) {
+      dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+    }
+    if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
+    if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
+  };
+
+  try {
+    if (selectedGroupFileIds) {
+      const memberConvs = selectedGroupFileIds
+        .map((fid) => conversations.find((c) => c.id === fid))
+        .filter((c): c is WorkflowState => !!c?.conversation);
+
+      await Promise.all(
+        memberConvs.map((conv) =>
+          store.handleReprocessWithRunner(conv, PipelineStep.Identify, seedDimension, { onAnalysisChunk: getOnAnalysisChunk() }, [dimName]),
+        ),
+      );
+      return;
+    }
+
+    await store.handleReprocessWithRunner(
+      selectedConversation,
+      PipelineStep.Identify,
+      seedDimension,
+      { onAnalysisChunk: getOnAnalysisChunk() },
+      [dimName],
+    );
+  } catch (error) {
+    console.error("Failed to reprocess:", error);
+    store.updateConversation(id, { status: "failed", step: undefined, error: "Component reprocessing failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function reprocessSegmentation(
+  selectedConversation: WorkflowState,
+  selectedGroupFileIds: string[] | undefined,
+  options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {},
+) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  const conversations = store.conversations;
+  const id = selectedConversation.id;
+  ui.setReprocessingId(id);
+
+  const modifier = (ctx: WorkflowState) => {
+    ctx.customSegmentationPrompt = options.customSegmentationPrompt;
+    ctx.segmentationThreshold = options.segmentationThreshold;
+  };
+
+  try {
+    if (selectedGroupFileIds) {
+      const memberConvs = selectedGroupFileIds
+        .map((fid) => conversations.find((c) => c.id === fid))
+        .filter((c): c is WorkflowState => !!c?.conversation);
+      await Promise.all(
+        memberConvs.map((conv) =>
+          store.handleReprocessWithRunner(conv, PipelineStep.Segment, modifier, { onAnalysisChunk: getOnAnalysisChunk() }),
+        ),
+      );
+      return;
+    }
+    await store.handleReprocessWithRunner(
+      selectedConversation,
+      PipelineStep.Segment,
+      modifier,
+      { onAnalysisChunk: getOnAnalysisChunk() },
+    );
+  } catch (error) {
+    console.error("Failed to reprocess segmentation:", error);
+    store.updateConversation(id, { status: "failed", step: undefined, error: "Segmentation reprocessing failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function reprocessSummary(
+  selectedConversation: WorkflowState,
+  options: { customSummaryPrompt?: string } = {},
+) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  const id = selectedConversation.id;
+  const shouldRegenerateAnalysis =
+    !!selectedConversation.analysis || selectedConversation.stepTimings?.analysis !== undefined;
+
+  ui.setReprocessingId(id);
+  try {
+    const notify: Notify = (rid, update) => store.updateConversation(rid, update);
+    const ctx = buildBaseContext(selectedConversation);
+    ctx.aiSummary = "";
+    ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
+    ctx.customSummaryPrompt = options.customSummaryPrompt;
+    ctx.regenerateAnalysis = shouldRegenerateAnalysis;
+    ctx.stepTimings = {
+      ...ctx.stepTimings,
+      summary: undefined,
+      ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
+    };
+
+    await rerunSummary(ctx, notify, {
+      onSummaryChunk: getOnSummaryChunk(),
+      onAnalysisChunk: shouldRegenerateAnalysis ? getOnAnalysisChunk() : undefined,
+    });
+  } catch (error) {
+    console.error("Failed to reprocess summary:", error);
+    store.updateConversation(id, { status: "failed", step: undefined, error: "Summary reprocessing failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function generateAnalysis(
+  id: string,
+  selectedConversation: WorkflowState | undefined,
+  options: { customAnalysisPrompt?: string } = {},
+) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  const group = store.getGroup(id);
+  const conv = group ? selectedConversation : store.conversations.find((c) => c.id === id);
+  if (!conv?.conversation) return;
+
+  ui.setReprocessingId(id);
+  try {
+    const notify: Notify = (rid, update) => {
+      if (group) {
+        store.updateGroup(id, {
+          analysis: update.analysis,
+          aiSummary: update.aiSummary ?? group.aiSummary,
+          customAnalysisPrompt: update.customAnalysisPrompt,
+        });
+      } else {
+        store.updateConversation(rid, update);
+      }
+    };
+    const ctx: WorkflowState = {
+      ...buildBaseContext(conv),
+      analysis: "",
+      customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
+    };
+
+    await generateAnalysisOnDemand(ctx, notify, {
+      onSummaryChunk: group
+        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getGroup(id)?.aiSummary || "") + chunk })
+        : getOnSummaryChunk(),
+      onAnalysisChunk: group
+        ? (_, chunk) => store.updateGroup(id, { analysis: (store.getGroup(id)?.analysis || "") + chunk })
+        : getOnAnalysisChunk(),
+    });
+  } catch (error) {
+    console.error("Failed to generate analysis:", error);
+    if (!group) store.updateConversation(id, { status: "failed", step: undefined, error: "Analysis generation failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function generateSummary(
+  id: string,
+  selectedConversation: WorkflowState | undefined,
+  options: { customSummaryPrompt?: string } = {},
+) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  const group = store.getGroup(id);
+  const conv = group ? selectedConversation : store.conversations.find((c) => c.id === id);
+  if (!conv?.conversation) return;
+
+  ui.setReprocessingId(id);
+  try {
+    const notify: Notify = (rid, update) => {
+      if (group) {
+        store.updateGroup(id, {
+          aiSummary: update.aiSummary,
+          customSummaryPrompt: update.customSummaryPrompt,
+        });
+      } else {
+        store.updateConversation(rid, update);
+      }
+    };
+    const ctx: WorkflowState = {
+      ...buildBaseContext(conv),
+      aiSummary: "",
+      customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
+    };
+
+    await generateSummaryOnDemand(ctx, notify, {
+      onSummaryChunk: group
+        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getGroup(id)?.aiSummary || "") + chunk })
+        : getOnSummaryChunk(),
+    });
+  } catch (error) {
+    console.error("Failed to generate summary:", error);
+    if (!group) store.updateConversation(id, { status: "failed", step: undefined, error: "Summary generation failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+// ---- Prompt editor openers ----
+
+export function openPromptEditor(id: string, dimensionName?: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const dimName = dimensionName || "default";
+  const ui = useUIStore.getState();
+  ui.setEditingDimensionName(dimName);
+
+  const dimPrompt = conv?.dimensions?.[dimName]?.prompt;
+  const currentPrompt =
+    dimPrompt ||
+    ui.loadedPreset?.componentIdentificationPrompt ||
+    getDefaultComponentIdentificationPrompt();
+  ui.setEditingPrompt(currentPrompt);
+  ui.setIsPromptDialogOpen(true);
+}
+
+export function openComponentsEditor(id: string, dimensionName?: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const dimName = dimensionName || "default";
+  const ui = useUIStore.getState();
+  ui.setEditingDimensionName(dimName);
+
+  const currentComponents = conv?.dimensions?.[dimName]?.components || [];
+  ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
+  ui.setIsComponentsDialogOpen(true);
+}
+
+export function openSegmentationPromptEditor(id: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const ui = useUIStore.getState();
+  ui.setEditingSegmentationPrompt(conv?.customSegmentationPrompt || getDefaultSegmentationPrompt());
+  ui.setEditingSegmentationThreshold(conv?.segmentationThreshold ?? DEFAULT_SEGMENTATION_THRESHOLD);
+  ui.setIsSegmentationPromptDialogOpen(true);
+}
+
+export function openSummaryPromptEditor(id: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const ui = useUIStore.getState();
+  ui.setEditingSummaryPrompt(conv?.customSummaryPrompt || getDefaultSummaryPrompt());
+  ui.setIsSummaryPromptDialogOpen(true);
+}
+
+export function openAnalysisPromptEditor(id: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const ui = useUIStore.getState();
+  ui.setEditingAnalysisPrompt(conv?.customAnalysisPrompt || getDefaultAnalysisPrompt());
+  ui.setIsAnalysisPromptDialogOpen(true);
+}
+
+export function openColoringPromptEditor(id: string, dimensionName?: string) {
+  navigateToId(id);
+  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const ui = useUIStore.getState();
+  const dimName = dimensionName || ui.editingDimensionName || "default";
+  ui.setEditingDimensionName(dimName);
+  const dimPrompt = conv?.dimensions?.[dimName]?.customColoringPrompt;
+  ui.setEditingColoringPrompt(dimPrompt || getDefaultColoringPrompt());
+  ui.setIsColoringPromptDialogOpen(true);
+}
+
+// ---- Prompt apply actions ----
+
+export async function applyPrompt(selectedConversation: WorkflowState | undefined) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  ui.setIsPromptDialogOpen(false);
+  if (!selectedConversation?.conversation) return;
+
+  const dimName = ui.editingDimensionName || "default";
+  const id = selectedConversation.id;
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== id) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      if (dims[dimName]) {
+        dims[dimName] = { ...dims[dimName]!, prompt: ui.editingPrompt };
+      } else {
+        dims[dimName] = {
+          name: dimName,
+          prompt: ui.editingPrompt,
+          components: [],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        };
+      }
+      return { ...conv, dimensions: dims };
+    }),
+  );
+
+  ui.setReprocessingId(id);
+  try {
+    const notify: Notify = (rid, update) => store.updateConversation(rid, update);
+    const conv = store.conversations.find((c) => c.id === id)!;
+    const ctx = buildBaseContext(conv);
+
+    const dims = ensureDimensions(ctx);
+    if (!dims[dimName]) {
+      dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+    }
+    dims[dimName]!.prompt = ui.editingPrompt;
+
+    await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk: getOnAnalysisChunk() }, [dimName]);
+  } catch (error) {
+    console.error("Failed to reprocess dimension:", error);
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function applyComponents(selectedConversation: WorkflowState | undefined) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  ui.setIsComponentsDialogOpen(false);
+  if (!selectedConversation?.conversation) return;
+
+  const components = ui.editingComponents
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (components.length === 0) return;
+
+  const dimName = ui.editingDimensionName || "default";
+  const id = selectedConversation.id;
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== id) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      if (dims[dimName]) {
+        dims[dimName] = { ...dims[dimName]!, customComponents: components };
+      }
+      return { ...conv, dimensions: dims };
+    }),
+  );
+
+  ui.setReprocessingId(id);
+  try {
+    const notify: Notify = (rid, update) => store.updateConversation(rid, update);
+    const conv = store.conversations.find((c) => c.id === id)!;
+    const ctx = buildBaseContext(conv);
+    const dims = ensureDimensions(ctx);
+    if (dims[dimName]) dims[dimName]!.customComponents = components;
+
+    await runPipelineFrom(PipelineStep.Identify, ctx, notify, { onAnalysisChunk: getOnAnalysisChunk() }, [dimName]);
+  } catch (error) {
+    console.error("Failed to reprocess dimension components:", error);
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function applySegmentationPrompt(
+  selectedConversation: WorkflowState | undefined,
+  selectedGroupFileIds: string[] | undefined,
+) {
+  const ui = useUIStore.getState();
+  ui.setIsSegmentationPromptDialogOpen(false);
+  if (selectedConversation?.conversation) {
+    await reprocessSegmentation(selectedConversation, selectedGroupFileIds, {
+      customSegmentationPrompt: ui.editingSegmentationPrompt,
+      segmentationThreshold: ui.editingSegmentationThreshold,
+    });
+  }
+}
+
+export async function applySummaryPrompt(selectedConversation: WorkflowState | undefined) {
+  const ui = useUIStore.getState();
+  ui.setIsSummaryPromptDialogOpen(false);
+  if (selectedConversation?.conversation) {
+    await reprocessSummary(selectedConversation, { customSummaryPrompt: ui.editingSummaryPrompt });
+  }
+}
+
+export async function applyAnalysisPrompt(selectedConversation: WorkflowState | undefined) {
+  const ui = useUIStore.getState();
+  ui.setIsAnalysisPromptDialogOpen(false);
+  if (selectedConversation?.conversation) {
+    await generateAnalysis(selectedConversation.id, selectedConversation, {
+      customAnalysisPrompt: ui.editingAnalysisPrompt,
+    });
+  }
+}
+
+export async function applyColoringPrompt(selectedConversation: WorkflowState | undefined) {
+  const ui = useUIStore.getState();
+  const store = useConversationStore.getState();
+  ui.setIsColoringPromptDialogOpen(false);
+  if (!selectedConversation?.conversation) return;
+
+  const id = selectedConversation.id;
+  const dimName = ui.editingDimensionName || "default";
+  ui.setReprocessingId(id);
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== id) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      if (dims[dimName]) {
+        dims[dimName] = { ...dims[dimName]!, customColoringPrompt: ui.editingColoringPrompt };
+      }
+      return { ...conv, dimensions: dims };
+    }),
+  );
+
+  try {
+    const notify: Notify = (rid, update) => store.updateConversation(rid, update);
+    const conv = store.conversations.find((c) => c.id === id)!;
+    const ctx = buildBaseContext(conv);
+    const dims = ensureDimensions(ctx);
+    if (dims[dimName]) {
+      dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
+    }
+
+    await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, [dimName]);
+  } catch (error) {
+    console.error("Failed to reprocess coloring:", error);
+    store.updateConversation(id, { status: "failed", step: undefined, error: "Coloring reprocessing failed" });
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+// ---- Dimension management ----
+
+export function addDimension(selectedConversationId: string, name: string) {
+  const store = useConversationStore.getState();
+  const ui = useUIStore.getState();
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== selectedConversationId) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      dims[name] = { name, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+      return { ...conv, dimensions: dims };
+    }),
+  );
+
+  ui.setActiveDimensions(new Set([...ui.activeDimensions, name]));
+  ui.setEditingDimensionName(name);
+  ui.setEditingPrompt(getDefaultComponentIdentificationPrompt());
+  ui.setIsPromptDialogOpen(true);
+}
+
+export function removeDimension(selectedConversationId: string, name: string) {
+  if (name === "default") return;
+  const store = useConversationStore.getState();
+  const ui = useUIStore.getState();
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== selectedConversationId) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      delete dims[name];
+      return { ...conv, dimensions: dims };
+    }),
+  );
+  const next = new Set(ui.activeDimensions);
+  next.delete(name);
+  ui.setActiveDimensions(next);
+}
+
+export function renameDimension(selectedConversationId: string, oldName: string, newName: string) {
+  const store = useConversationStore.getState();
+  const ui = useUIStore.getState();
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (conv.id !== selectedConversationId) return conv;
+      const dims = { ...(conv.dimensions || {}) };
+      if (!dims[oldName]) return conv;
+      dims[newName] = { ...dims[oldName]!, name: newName };
+      delete dims[oldName];
+      return { ...conv, dimensions: dims };
+    }),
+  );
+  const next = new Set(ui.activeDimensions);
+  if (next.has(oldName)) {
+    next.delete(oldName);
+    next.add(newName);
+  }
+  ui.setActiveDimensions(next);
+}
+
+// ---- Navigation wrappers ----
+
+export function groupConversations(
+  idsToGroup?: string[],
+  groupName?: string,
+  existingGroupId?: string,
+  groupTitle?: string,
+) {
+  const store = useConversationStore.getState();
+  const ids = idsToGroup || [...store.selectedIds];
+  if (ids.length < 2) return;
+  if (!idsToGroup) store.clearSelection();
+  const groupId = store.groupConversations(ids, groupName, existingGroupId, groupTitle);
+  if (groupId) navigateToId(groupId);
+}
+
+export function ungroupConversation(id: string) {
+  const currentId = useUrlStore.getState().conversationId;
+  useConversationStore.getState().removeGroup(id);
+  if (currentId === id) navigateToId(null);
+}
+
+export function deleteConversation(id: string) {
+  const currentId = useUrlStore.getState().conversationId;
+  useConversationStore.getState().deleteConversation(id);
+  if (currentId === id) navigateToId(null);
+}
+
+export function updateGroupSources(groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) {
+  const newFileIds = newSources.map((s) => s.id);
+  if (newFileIds.length <= 1) {
+    ungroupConversation(groupId);
+  } else {
+    useConversationStore.getState().updateGroup(groupId, { fileIds: newFileIds });
+  }
+}
+
+export { navigateToId };

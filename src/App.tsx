@@ -1,61 +1,44 @@
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import "./parsers";
-import { useConversationStore, buildBaseContext } from "./stores/conversation-store";
+import { useConversationStore } from "./stores/conversation-store";
 import { useUIStore } from "./stores/ui-store";
+import { useUrlStore } from "./stores/url-store";
+import type { InsightsTab } from "./stores/url-store";
 import type { WorkflowState } from "./workflow/types";
-import { PipelineStep } from "./workflow/types";
-import type { Notify } from "./workflow/runner";
-import { generateSummaryOnDemand, generateAnalysisOnDemand, rerunSummary } from "./workflow/pipeline";
-import { ensureDimensions, getDefaultDimension, getAllComponents } from "./workflow/dimensions";
+import { getDefaultDimension, getAllComponents } from "./workflow/dimensions";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { aggregateComponentTokens } from "./aggregation";
 import { ConversationList } from "./components/ConversationList";
-import {
-  ConversationView,
-  type TabType,
-  type SortOption,
-} from "./components/ConversationView";
+import { ConversationView } from "./components/ConversationView";
 import { AISummary } from "./components/AISummary";
 import { Card } from "./components/ui/card";
 import { PromptEditorDialog } from "./components/PromptEditorDialog";
 import { Clock, Loader2, Upload, AlertCircle, Star, Github } from "lucide-react";
 import { cn } from "./lib/utils";
-import {
-  getDefaultComponentIdentificationPrompt,
-  getDefaultSegmentationPrompt,
-  getDefaultSummaryPrompt,
-  getDefaultAnalysisPrompt,
-  getDefaultColoringPrompt,
-} from "./prompts";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "./segmentation";
 import { loadPresetIndex, loadPreset } from "./lib/preset-loader";
 import { PresetSelector } from "./components/PresetSelector";
 import { UrlImport } from "./components/UrlImport";
 import { createFileValidator, SUPPORTED_EXTENSIONS_TEXT } from "./lib/file-formats";
 import { fetchFileFromUrl } from "./lib/url-fetch";
-import { useUrlState } from "./hooks/useUrlState";
-import type { InsightsTab } from "./lib/url-state";
+import {
+  navigateToId,
+  reprocessComponents,
+  applyPrompt,
+  applyComponents,
+  applySegmentationPrompt,
+  applySummaryPrompt,
+  applyAnalysisPrompt,
+  applyColoringPrompt,
+  generateAnalysis,
+  generateSummary,
+} from "./hooks/useWorkflowActions";
 
 export default function App() {
   // ---- Stores ----
   const conversations = useConversationStore((s) => s.conversations);
-  const selectedIds = useConversationStore((s) => s.selectedIds);
-  const hasApiKeyState = useConversationStore((s) => s.hasApiKeyState);
-
   const {
-    updateConversation,
-    appendSummaryChunk,
-    appendAnalysisChunk,
-    toggleSelect: handleToggleSelection,
-    clearSelection: handleClearSelection,
-    selectAll: handleSelectAll,
-    renameConversation: handleRenameConversation,
-    handleApplyPromptsToAll,
-    handleExportPromptsAsPreset,
-    handleExportSession,
-    handleResumeWorkflowsWithApiKey,
-    setHasApiKeyState,
     processPendingGroups,
     processFileDrop,
   } = useConversationStore();
@@ -63,49 +46,13 @@ export default function App() {
   const ui = useUIStore();
 
   // ---- URL state ----
-  const {
-    state: urlState,
-    navigateToConversation,
-    navigateToTab,
-    setInsightsTab,
-    setSidebarCollapsed,
-    setInsightsCollapsed,
-    setSearchQuery,
-    setSort,
-    setMessageFilters,
-    setComponentFilters,
-    setComparisonView,
-    setComparisonLegend,
-    setComparisonSortBy,
-    setComparisonSortDir,
-    setComparisonCols,
-    setComparisonSquaresPerRow,
-  } = useUrlState();
-
-  const selectedId = urlState.conversationId;
-  const insightsTab = urlState.insightsTab;
-  const isSidebarCollapsed = urlState.sidebarCollapsed;
-  const isInsightsPanelCollapsed = urlState.insightsCollapsed;
-
-  const setSelectedId = useCallback(
-    (id: string | null) => {
-      if (id === null) {
-        const basePath = import.meta.env.BASE_URL || "/";
-        window.history.replaceState({}, "", basePath);
-      } else {
-        const isGroup = !!useConversationStore.getState().groups[id];
-        navigateToConversation(id, isGroup);
-      }
-    },
-    [navigateToConversation],
-  );
+  const selectedId = useUrlStore((s) => s.conversationId);
+  const insightsTab = useUrlStore((s) => s.insightsTab);
+  const isSidebarCollapsed = useUrlStore((s) => s.sidebarCollapsed);
+  const isInsightsPanelCollapsed = useUrlStore((s) => s.insightsCollapsed);
+  const importUrl = useUrlStore((s) => s.importUrl);
 
   // ---- Derived state ----
-  const pausedWorkflowCount = useMemo(
-    () => conversations.filter((c) => c.status === "paused-for-api-key").length,
-    [conversations],
-  );
-
   const groups = useConversationStore((s) => s.groups);
   const selectedGroup = selectedId ? groups[selectedId] : undefined;
 
@@ -301,16 +248,16 @@ export default function App() {
   // Ensure selection is valid
   useEffect(() => {
     if (conversations.length === 0) {
-      if (!urlState.importUrl) setSelectedId(null);
+      if (!importUrl) navigateToId(null);
       return;
     }
     const [firstConversation] = conversations;
     if (!firstConversation) {
-      setSelectedId(null);
+      navigateToId(null);
       return;
     }
     if (!selectedId) {
-      setSelectedId(firstConversation.id);
+      navigateToId(firstConversation.id);
       return;
     }
     if (!conversations.some((conv) => conv.id === selectedId)) {
@@ -318,7 +265,7 @@ export default function App() {
       if (useConversationStore.getState().groups[selectedId]) return;
       const pendingGroups = useConversationStore.getState().pendingSessionImport?.groups;
       if (pendingGroups?.some((g) => g.id === selectedId)) return;
-      setSelectedId(firstConversation.id);
+      navigateToId(firstConversation.id);
     }
   }, [conversations, selectedId]);
 
@@ -330,7 +277,7 @@ export default function App() {
   // Switch to analysis tab when analysis starts streaming
   useEffect(() => {
     if (selectedConversation?.status === "processing" && selectedConversation.step === "analysis") {
-      setInsightsTab("analysis");
+      useUrlStore.getState().setInsightsTab("analysis");
     }
   }, [selectedConversation?.status, selectedConversation?.step]);
 
@@ -362,7 +309,6 @@ export default function App() {
   // URL auto-import
   const importInProgressRef = useRef(false);
   useEffect(() => {
-    const { importUrl } = urlState;
     if (!importUrl || importInProgressRef.current) return;
     if (conversations.length > 0) return;
 
@@ -378,489 +324,12 @@ export default function App() {
       ui.setIsUrlImporting(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlState.importUrl]);
+  }, [importUrl]);
 
   // ---- Handlers ----
 
   const handleFileDrop = async (files: File[]) => {
     await processFileDrop(files, ui.loadedPreset);
-  };
-
-  // Streaming chunk callbacks
-  const onAnalysisChunk = (id: string, chunk: string) => appendAnalysisChunk(id, chunk);
-  const onSummaryChunk = (id: string, chunk: string) => appendSummaryChunk(id, chunk);
-
-  // Reprocess handlers
-  const handleReprocessComponents = async (options: { customPrompt?: string; customComponents?: string[] } = {}) => {
-    if (!selectedConversation?.conversation) return;
-    const id = selectedConversation.id;
-    const dimName = ui.editingDimensionName || "default";
-    ui.setReprocessingId(id);
-
-    try {
-      await useConversationStore.getState().handleReprocessTarget(
-        id,
-        PipelineStep.Identify,
-        (ctx) => {
-          const dims = ensureDimensions(ctx);
-          if (!dims[dimName]) {
-            dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
-          }
-          if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
-          if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
-        },
-        { onAnalysisChunk },
-        [dimName],
-      );
-    } catch (error) {
-      console.error("Failed to reprocess:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Component reprocessing failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleReprocessSegmentation = async (options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {}) => {
-    if (!selectedConversation?.conversation) return;
-    const id = selectedConversation.id;
-    ui.setReprocessingId(id);
-    try {
-      await useConversationStore.getState().handleReprocessTarget(
-        id,
-        PipelineStep.Segment,
-        (ctx) => {
-          ctx.customSegmentationPrompt = options.customSegmentationPrompt;
-          ctx.segmentationThreshold = options.segmentationThreshold;
-        },
-        { onAnalysisChunk },
-      );
-    } catch (error) {
-      console.error("Failed to reprocess segmentation:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Segmentation reprocessing failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleReprocessSummary = async (options: { customSummaryPrompt?: string } = {}) => {
-    if (!selectedConversation?.conversation) return;
-    const id = selectedConversation.id;
-    const shouldRegenerateAnalysis =
-      !!selectedConversation.analysis || selectedConversation.stepTimings?.analysis !== undefined;
-
-    ui.setReprocessingId(id);
-    try {
-      const notify: Notify = (rid, update) => updateConversation(rid, update);
-      const ctx = buildBaseContext(selectedConversation);
-      ctx.aiSummary = "";
-      ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
-      ctx.customSummaryPrompt = options.customSummaryPrompt;
-      ctx.regenerateAnalysis = shouldRegenerateAnalysis;
-      ctx.stepTimings = {
-        ...ctx.stepTimings,
-        summary: undefined,
-        ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
-      };
-
-      await rerunSummary(ctx, notify, {
-        onSummaryChunk,
-        onAnalysisChunk: shouldRegenerateAnalysis ? onAnalysisChunk : undefined,
-      });
-    } catch (error) {
-      console.error("Failed to reprocess summary:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Summary reprocessing failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleGenerateAnalysis = async (id: string, options: { customAnalysisPrompt?: string } = {}) => {
-    // For groups, use the virtual selectedConversation; for files, look up directly
-    const group = useConversationStore.getState().getGroup(id);
-    const conv = group ? selectedConversation : conversations.find((c) => c.id === id);
-    if (!conv?.conversation) return;
-
-    ui.setReprocessingId(id);
-    try {
-      const notify: Notify = (rid, update) => {
-        if (group) {
-          // Store results on the group
-          useConversationStore.getState().updateGroup(id, {
-            analysis: update.analysis,
-            aiSummary: update.aiSummary ?? group.aiSummary,
-            customAnalysisPrompt: update.customAnalysisPrompt,
-          });
-        } else {
-          updateConversation(rid, update);
-        }
-      };
-      const ctx: WorkflowState = {
-        ...buildBaseContext(conv),
-        analysis: "",
-        customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
-      };
-
-      await generateAnalysisOnDemand(ctx, notify, {
-        onSummaryChunk: group
-          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { aiSummary: (group.aiSummary || "") + chunk })
-          : onSummaryChunk,
-        onAnalysisChunk: group
-          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { analysis: (group.analysis || "") + chunk })
-          : onAnalysisChunk,
-      });
-    } catch (error) {
-      console.error("Failed to generate analysis:", error);
-      if (!group) updateConversation(id, { status: "failed", step: undefined, error: "Analysis generation failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleGenerateSummary = async (id: string, options: { customSummaryPrompt?: string } = {}) => {
-    const group = useConversationStore.getState().getGroup(id);
-    const conv = group ? selectedConversation : conversations.find((c) => c.id === id);
-    if (!conv?.conversation) return;
-
-    ui.setReprocessingId(id);
-    try {
-      const notify: Notify = (rid, update) => {
-        if (group) {
-          useConversationStore.getState().updateGroup(id, {
-            aiSummary: update.aiSummary,
-            customSummaryPrompt: update.customSummaryPrompt,
-          });
-        } else {
-          updateConversation(rid, update);
-        }
-      };
-      const ctx: WorkflowState = {
-        ...buildBaseContext(conv),
-        aiSummary: "",
-        customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
-      };
-
-      await generateSummaryOnDemand(ctx, notify, {
-        onSummaryChunk: group
-          ? (_, chunk) => useConversationStore.getState().updateGroup(id, { aiSummary: (group.aiSummary || "") + chunk })
-          : onSummaryChunk,
-      });
-    } catch (error) {
-      console.error("Failed to generate summary:", error);
-      if (!group) updateConversation(id, { status: "failed", step: undefined, error: "Summary generation failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  // Prompt editor open handlers
-  const handleOpenPromptEditor = (id: string, dimensionName?: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    const dimName = dimensionName || "default";
-    ui.setEditingDimensionName(dimName);
-
-    const dimPrompt = conv?.dimensions?.[dimName]?.prompt;
-    const currentPrompt =
-      dimPrompt ||
-      ui.loadedPreset?.componentIdentificationPrompt ||
-      getDefaultComponentIdentificationPrompt();
-    ui.setEditingPrompt(currentPrompt);
-    ui.setIsPromptDialogOpen(true);
-  };
-
-  const handleApplyPrompt = async () => {
-    ui.setIsPromptDialogOpen(false);
-    if (!selectedConversation?.conversation) return;
-
-    const dimName = ui.editingDimensionName || "default";
-    const id = selectedConversation.id;
-
-    // Update dimension prompt in state
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
-        if (dims[dimName]) {
-          dims[dimName] = { ...dims[dimName]!, prompt: ui.editingPrompt };
-        } else {
-          dims[dimName] = {
-            name: dimName,
-            prompt: ui.editingPrompt,
-            components: [],
-            componentMapping: {},
-            componentTimeline: [],
-            componentColors: {},
-          };
-        }
-        return {
-          ...conv,
-          dimensions: dims,
-        };
-      }),
-    );
-
-    ui.setReprocessingId(id);
-    try {
-      await useConversationStore.getState().handleReprocessTarget(
-        id,
-        PipelineStep.Identify,
-        (ctx) => {
-          const dims = ensureDimensions(ctx);
-          if (!dims[dimName]) {
-            dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
-          }
-          dims[dimName]!.prompt = ui.editingPrompt;
-        },
-        { onAnalysisChunk },
-        [dimName],
-      );
-    } catch (error) {
-      console.error("Failed to reprocess dimension:", error);
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleOpenComponentsEditor = (id: string, dimensionName?: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    const dimName = dimensionName || "default";
-    ui.setEditingDimensionName(dimName);
-
-    const currentComponents = conv?.dimensions?.[dimName]?.components || [];
-    ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
-    ui.setIsComponentsDialogOpen(true);
-  };
-
-  const handleApplyComponents = async () => {
-    ui.setIsComponentsDialogOpen(false);
-    if (!selectedConversation?.conversation) return;
-
-    const components = ui.editingComponents
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    if (components.length === 0) return;
-
-    const dimName = ui.editingDimensionName || "default";
-    const id = selectedConversation.id;
-
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
-        if (dims[dimName]) {
-          dims[dimName] = { ...dims[dimName]!, customComponents: components };
-        }
-        return { ...conv, dimensions: dims };
-      }),
-    );
-
-    ui.setReprocessingId(id);
-    try {
-      await useConversationStore.getState().handleReprocessTarget(
-        id,
-        PipelineStep.Identify,
-        (ctx) => {
-          const dims = ensureDimensions(ctx);
-          if (dims[dimName]) dims[dimName]!.customComponents = components;
-        },
-        { onAnalysisChunk },
-        [dimName],
-      );
-    } catch (error) {
-      console.error("Failed to reprocess dimension components:", error);
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  const handleOpenSegmentationPromptEditor = (id: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    ui.setEditingSegmentationPrompt(conv?.customSegmentationPrompt || getDefaultSegmentationPrompt());
-    ui.setEditingSegmentationThreshold(conv?.segmentationThreshold ?? DEFAULT_SEGMENTATION_THRESHOLD);
-    ui.setIsSegmentationPromptDialogOpen(true);
-  };
-
-  const handleApplySegmentationPrompt = async () => {
-    ui.setIsSegmentationPromptDialogOpen(false);
-    if (selectedConversation?.conversation) {
-      await handleReprocessSegmentation({
-        customSegmentationPrompt: ui.editingSegmentationPrompt,
-        segmentationThreshold: ui.editingSegmentationThreshold,
-      });
-    }
-  };
-
-  const handleOpenSummaryPromptEditor = (id: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    ui.setEditingSummaryPrompt(conv?.customSummaryPrompt || getDefaultSummaryPrompt());
-    ui.setIsSummaryPromptDialogOpen(true);
-  };
-
-  const handleApplySummaryPrompt = async () => {
-    ui.setIsSummaryPromptDialogOpen(false);
-    if (selectedConversation?.conversation) {
-      await handleReprocessSummary({ customSummaryPrompt: ui.editingSummaryPrompt });
-    }
-  };
-
-  const handleOpenAnalysisPromptEditor = (id: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    ui.setEditingAnalysisPrompt(conv?.customAnalysisPrompt || getDefaultAnalysisPrompt());
-    ui.setIsAnalysisPromptDialogOpen(true);
-  };
-
-  const handleApplyAnalysisPrompt = async () => {
-    ui.setIsAnalysisPromptDialogOpen(false);
-    if (selectedConversation?.conversation) {
-      await handleGenerateAnalysis(selectedConversation.id, {
-        customAnalysisPrompt: ui.editingAnalysisPrompt,
-      });
-    }
-  };
-
-  const handleOpenColoringPromptEditor = (id: string, dimensionName?: string) => {
-    setSelectedId(id);
-    const conv = conversations.find((c) => c.id === id);
-    const dimName = dimensionName || ui.editingDimensionName || "default";
-    ui.setEditingDimensionName(dimName);
-    const dimPrompt = conv?.dimensions?.[dimName]?.customColoringPrompt;
-    ui.setEditingColoringPrompt(dimPrompt || getDefaultColoringPrompt());
-    ui.setIsColoringPromptDialogOpen(true);
-  };
-
-  const handleApplyColoringPrompt = async () => {
-    ui.setIsColoringPromptDialogOpen(false);
-    if (!selectedConversation?.conversation) return;
-
-    const id = selectedConversation.id;
-    const dimName = ui.editingDimensionName || "default";
-    ui.setReprocessingId(id);
-
-    try {
-      await useConversationStore.getState().handleReprocessTarget(
-        id,
-        PipelineStep.Color,
-        (ctx) => {
-          const dims = ensureDimensions(ctx);
-          if (dims[dimName]) {
-            dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
-          }
-        },
-        {},
-        [dimName],
-      );
-    } catch (error) {
-      console.error("Failed to reprocess coloring:", error);
-      updateConversation(id, { status: "failed", step: undefined, error: "Coloring reprocessing failed" });
-    } finally {
-      ui.setReprocessingId(null);
-    }
-  };
-
-  // Dimension management
-  const handleAddDimension = async (name: string) => {
-    if (!selectedConversation?.conversation) return;
-    const id = selectedConversation.id;
-
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        let dims = { ...(conv.dimensions || {}) };
-        dims[name] = {
-          name,
-          components: [],
-          componentMapping: {},
-          componentTimeline: [],
-          componentColors: {},
-        };
-        return { ...conv, dimensions: dims };
-      }),
-    );
-
-    ui.setActiveDimensions(new Set([...ui.activeDimensions, name]));
-    ui.setEditingDimensionName(name);
-    ui.setEditingPrompt(getDefaultComponentIdentificationPrompt());
-    ui.setIsPromptDialogOpen(true);
-  };
-
-  const handleRemoveDimension = (name: string) => {
-    if (name === "default" || !selectedConversation) return;
-    const id = selectedConversation.id;
-
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
-        delete dims[name];
-        return { ...conv, dimensions: dims };
-      }),
-    );
-    const next = new Set(ui.activeDimensions);
-    next.delete(name);
-    ui.setActiveDimensions(next);
-  };
-
-  const handleRenameDimension = (oldName: string, newName: string) => {
-    if (!selectedConversation) return;
-    const id = selectedConversation.id;
-
-    useConversationStore.getState().setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== id) return conv;
-        const dims = { ...(conv.dimensions || {}) };
-        if (!dims[oldName]) return conv;
-        dims[newName] = { ...dims[oldName]!, name: newName };
-        delete dims[oldName];
-        return { ...conv, dimensions: dims };
-      }),
-    );
-    const next = new Set(ui.activeDimensions);
-    if (next.has(oldName)) {
-      next.delete(oldName);
-      next.add(newName);
-    }
-    ui.setActiveDimensions(next);
-  };
-
-  // Sidebar toggle handlers
-  const handleToggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
-  const handleToggleInsightsPanel = () => setInsightsCollapsed(!isInsightsPanelCollapsed);
-
-  // API key change
-  const handleApiKeyChange = (hasKey: boolean) => setHasApiKeyState(hasKey);
-
-  // Group/ungroup wrappers — store returns intent, App.tsx handles navigation
-  const handleGroupConversations = (idsToGroup?: string[], groupName?: string, existingGroupId?: string, groupTitle?: string) => {
-    const store = useConversationStore.getState();
-    const ids = idsToGroup || [...store.selectedIds];
-    if (ids.length < 2) return;
-    if (!idsToGroup) store.clearSelection();
-    const groupId = store.groupConversations(ids, groupName, existingGroupId, groupTitle);
-    if (groupId) setSelectedId(groupId);
-  };
-
-  const handleUngroupConversation = (id: string) => {
-    useConversationStore.getState().removeGroup(id);
-    if (selectedId === id) setSelectedId(null);
-  };
-
-  const handleDeleteConversation = (id: string) => {
-    useConversationStore.getState().deleteConversation(id);
-    if (selectedId === id) setSelectedId(null);
-  };
-
-  const handleUpdateGroupSources = (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => {
-    const newFileIds = newSources.map((s) => s.id);
-    if (newFileIds.length <= 1) {
-      handleUngroupConversation(groupId);
-    } else {
-      useConversationStore.getState().updateGroup(groupId, { fileIds: newFileIds });
-    }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -920,7 +389,7 @@ export default function App() {
                 <div className="text-center p-12">
                   <Loader2 className="h-20 w-20 mx-auto mb-6 text-muted-foreground/50 animate-spin" />
                   <h2 className="text-2xl font-semibold text-muted-foreground mb-3">Importing from URL...</h2>
-                  <p className="text-sm text-muted-foreground break-all max-w-lg">{urlState.importUrl}</p>
+                  <p className="text-sm text-muted-foreground break-all max-w-lg">{importUrl}</p>
                 </div>
               </div>
             ) : (
@@ -940,7 +409,7 @@ export default function App() {
                       <AlertCircle className="h-20 w-20 mx-auto mb-6 text-destructive/50" />
                       <h2 className="text-2xl font-semibold text-destructive mb-3">Import failed</h2>
                       <p className="text-sm text-destructive mb-2">{ui.importError}</p>
-                      <p className="text-xs text-muted-foreground break-all max-w-lg mb-6">{urlState.importUrl}</p>
+                      <p className="text-xs text-muted-foreground break-all max-w-lg mb-6">{importUrl}</p>
                       <p className="text-muted-foreground mb-2">Drop conversation files here or click to browse</p>
                     </>
                   ) : (
@@ -978,42 +447,7 @@ export default function App() {
           >
             {/* Sidebar */}
             <aside className="relative">
-              <ConversationList
-                conversations={conversations}
-                groups={groups}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                selectedIds={selectedIds}
-                onToggleSelection={handleToggleSelection}
-                onGroupConversations={handleGroupConversations}
-                onClearSelection={handleClearSelection}
-                onSelectAll={handleSelectAll}
-                onUngroupConversation={handleUngroupConversation}
-                onDeleteConversation={handleDeleteConversation}
-                onRename={handleRenameConversation}
-                onGenerateAnalysis={handleGenerateAnalysis}
-                onGenerateSummary={handleGenerateSummary}
-                onFilesSelected={(files) => handleFileDrop(files)}
-                onEditPrompt={handleOpenPromptEditor}
-                onEditComponents={handleOpenComponentsEditor}
-                onEditSegmentationPrompt={handleOpenSegmentationPromptEditor}
-                onEditSummaryPrompt={handleOpenSummaryPromptEditor}
-                onEditAnalysisPrompt={handleOpenAnalysisPromptEditor}
-                onEditColoringPrompt={handleOpenColoringPromptEditor}
-                onAddDimension={handleAddDimension}
-                onRemoveDimension={handleRemoveDimension}
-                onRenameDimension={handleRenameDimension}
-                onEditDimensionPrompt={(id, dimName) => handleOpenPromptEditor(id, dimName)}
-                onApplyPromptsToAll={handleApplyPromptsToAll}
-                onExportPromptsAsPreset={handleExportPromptsAsPreset}
-                onExportSession={handleExportSession}
-                onUpdateGroupSources={handleUpdateGroupSources}
-                isCollapsed={isSidebarCollapsed}
-                onToggleCollapse={handleToggleSidebar}
-                pausedWorkflowCount={pausedWorkflowCount}
-                onApiKeyChange={handleApiKeyChange}
-                onResumeWorkflows={handleResumeWorkflowsWithApiKey}
-              />
+              <ConversationList />
             </aside>
 
             {/* Main Panel */}
@@ -1027,45 +461,16 @@ export default function App() {
                     componentColors={getDefaultDimension(selectedConversation)?.componentColors}
                     components={getAllComponents(selectedConversation)}
                     dimensions={selectedConversation.dimensions}
-                    activeDimensions={ui.activeDimensions}
-                    onActiveDimensionsChange={ui.setActiveDimensions}
                     staticMapping={selectedConversation.staticMapping}
                     staticTimeline={selectedConversation.staticTimeline}
                     warnings={selectedConversation.warnings}
-                    onReprocessComponents={handleReprocessComponents}
+                    onReprocessComponents={(options) => reprocessComponents(selectedConversation, selectedGroup?.fileIds, options)}
                     isReprocessing={ui.reprocessingId === selectedConversation.id}
                     messageOriginMap={groupDisplayData?.originMap}
                     isGrouped={!!selectedGroup}
                     groupTitle={selectedGroup?.title || selectedConversation.title}
-                    onConversationClick={setSelectedId}
                     memberComponentData={memberComponentData}
                     memberWorkflowStates={memberWorkflowStates}
-                    onAddDimension={handleAddDimension}
-                    onRemoveDimension={handleRemoveDimension}
-                    onRenameDimension={handleRenameDimension}
-                    onEditDimensionPrompt={(dimName) => handleOpenPromptEditor(selectedConversation.id, dimName)}
-                    activeTab={urlState.tab as TabType}
-                    onTabChange={(tab) => navigateToTab(tab)}
-                    searchQuery={urlState.searchQuery}
-                    onSearchQueryChange={setSearchQuery}
-                    sortBy={urlState.sort as SortOption}
-                    onSortByChange={setSort}
-                    messageFilters={urlState.messageFilters}
-                    onMessageFiltersChange={setMessageFilters}
-                    selectedComponents={urlState.componentFilters}
-                    onSelectedComponentsChange={setComponentFilters}
-                    comparisonViewMode={urlState.comparisonView}
-                    onComparisonViewModeChange={setComparisonView}
-                    comparisonLegendMode={urlState.comparisonLegend}
-                    onComparisonLegendModeChange={setComparisonLegend}
-                    comparisonSortField={urlState.comparisonSortBy}
-                    onComparisonSortFieldChange={setComparisonSortBy}
-                    comparisonSortDirection={urlState.comparisonSortDir}
-                    onComparisonSortDirectionChange={setComparisonSortDir}
-                    comparisonColumnCount={urlState.comparisonCols}
-                    onComparisonColumnCountChange={setComparisonCols}
-                    comparisonSquaresPerRow={urlState.comparisonSquaresPerRow}
-                    onComparisonSquaresPerRowChange={setComparisonSquaresPerRow}
                   />
                 ) : selectedConversation.status === "pending" ? (
                   <Card className="p-12 text-center">
@@ -1110,18 +515,18 @@ export default function App() {
                     selectedConversation.status === "processing" && selectedConversation.step === "analysis"
                   }
                   activeTab={insightsTab}
-                  onTabChange={(tab) => setInsightsTab(tab as InsightsTab)}
+                  onTabChange={(tab) => useUrlStore.getState().setInsightsTab(tab as InsightsTab)}
                   isCollapsed={isInsightsPanelCollapsed}
-                  onToggleCollapse={handleToggleInsightsPanel}
+                  onToggleCollapse={() => useUrlStore.getState().setInsightsCollapsed(!isInsightsPanelCollapsed)}
                   metadata={selectedConversation.metadata}
                   conversation={selectedConversation.conversation}
-                  onGenerateSummary={() => handleGenerateSummary(selectedConversation.id)}
+                  onGenerateSummary={() => generateSummary(selectedConversation.id, selectedConversation)}
                   canGenerateSummary={
                     selectedConversation.status === "success" &&
                     !!selectedConversation.conversation &&
                     !selectedConversation.aiSummary
                   }
-                  onGenerateAnalysis={() => handleGenerateAnalysis(selectedConversation.id)}
+                  onGenerateAnalysis={() => generateAnalysis(selectedConversation.id, selectedConversation)}
                   canGenerateAnalysis={
                     selectedConversation.status === "success" &&
                     !!getAllComponents(selectedConversation).length &&
@@ -1131,7 +536,7 @@ export default function App() {
               ) : (
                 <AISummary
                   isCollapsed={isInsightsPanelCollapsed}
-                  onToggleCollapse={handleToggleInsightsPanel}
+                  onToggleCollapse={() => useUrlStore.getState().setInsightsCollapsed(!isInsightsPanelCollapsed)}
                 />
               )}
             </aside>
@@ -1147,7 +552,7 @@ export default function App() {
         description="Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components."
         value={ui.editingPrompt}
         onChange={ui.setEditingPrompt}
-        onApply={handleApplyPrompt}
+        onApply={() => applyPrompt(selectedConversation)}
         placeholder="Enter your component identification prompt..."
         warningText={
           ui.editingDimensionName && ui.editingDimensionName !== "default"
@@ -1163,7 +568,7 @@ export default function App() {
         description="Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components."
         value={ui.editingComponents}
         onChange={ui.setEditingComponents}
-        onApply={handleApplyComponents}
+        onApply={() => applyComponents(selectedConversation)}
         placeholder="Enter components (one per line)..."
         warningText={
           ui.editingDimensionName && ui.editingDimensionName !== "default"
@@ -1179,7 +584,7 @@ export default function App() {
         description="Customize the prompt used to segment large text parts into smaller semantic chunks. The AI will use this prompt to identify where to split long content."
         value={ui.editingSegmentationPrompt}
         onChange={ui.setEditingSegmentationPrompt}
-        onApply={handleApplySegmentationPrompt}
+        onApply={() => applySegmentationPrompt(selectedConversation, selectedGroup?.fileIds)}
         placeholder="Enter your segmentation prompt..."
         warningText="This will re-run segmentation, component identification and classification, visualization, and analysis"
         threshold={ui.editingSegmentationThreshold}
@@ -1194,7 +599,7 @@ export default function App() {
         description="Customize the prompt used to generate the AI summary. The summary feeds into context analysis."
         value={ui.editingSummaryPrompt}
         onChange={ui.setEditingSummaryPrompt}
-        onApply={handleApplySummaryPrompt}
+        onApply={() => applySummaryPrompt(selectedConversation)}
         placeholder="Enter your summary prompt..."
         warningText="This will re-run the AI summary and any dependent analysis"
       />
@@ -1206,7 +611,7 @@ export default function App() {
         description="Customize the prompt used to generate context analysis. The analysis identifies patterns, redundancy, and optimization opportunities."
         value={ui.editingAnalysisPrompt}
         onChange={ui.setEditingAnalysisPrompt}
-        onApply={handleApplyAnalysisPrompt}
+        onApply={() => applyAnalysisPrompt(selectedConversation)}
         placeholder="Enter your analysis prompt..."
         warningText="This will re-run the context analysis"
       />
@@ -1218,7 +623,7 @@ export default function App() {
         description="Customize the prompt used to assign colors to components. Similar components should get the same color for visual grouping."
         value={ui.editingColoringPrompt}
         onChange={ui.setEditingColoringPrompt}
-        onApply={handleApplyColoringPrompt}
+        onApply={() => applyColoringPrompt(selectedConversation)}
         placeholder="Enter your coloring prompt..."
         warningText="This will re-run color assignment for components"
       />

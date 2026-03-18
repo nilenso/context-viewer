@@ -29,7 +29,6 @@ import {
   Plus,
   Pencil,
 } from "lucide-react";
-import type { DimensionData } from "@/component-types";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { cn } from "@/lib/utils";
 import { ApiKeyInput } from "./ApiKeyInput";
@@ -38,119 +37,46 @@ import {
   createFileValidator,
   SUPPORTED_EXTENSIONS_TEXT,
 } from "@/lib/file-formats";
+import type { WorkflowState, Group, ProcessingStep } from "@/workflow/types";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useUrlStore } from "@/stores/url-store";
+import { useUIStore } from "@/stores/ui-store";
+import {
+  navigateToId,
+  openPromptEditor,
+  openComponentsEditor,
+  openSegmentationPromptEditor,
+  openSummaryPromptEditor,
+  openAnalysisPromptEditor,
+  openColoringPromptEditor,
+  generateAnalysis,
+  generateSummary,
+  addDimension,
+  removeDimension,
+  renameDimension,
+  groupConversations,
+  ungroupConversation,
+  deleteConversation,
+  updateGroupSources,
+} from "@/hooks/useWorkflowActions";
 
-type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
-type ProcessingStep =
-  | "parsing"
-  | "counting-tokens"
-  | "segmenting"
-  | "summary"
-  | "finding-components"
-  | "coloring"
-  | "analysis";
+export function ConversationList() {
+  // Stores
+  const conversations = useConversationStore((s) => s.conversations);
+  const groups = useConversationStore((s) => s.groups);
+  const selectedIds = useConversationStore((s) => s.selectedIds);
+  const hasApiKeyState = useConversationStore((s) => s.hasApiKeyState);
 
-/**
- * Represents the persisted state of a workflow execution.
- * Minimal subset needed for the conversation list display.
- */
-interface WorkflowState {
-  id: string;
-  filename: string;
-  title?: string;
-  status?: ConversationStatus;
-  step?: ProcessingStep;
-  summary?: {
-    totalMessages: number;
-  };
-  aiSummary?: string;
-  error?: string;
-  warnings?: string[];
-  stepTimings?: Partial<Record<ProcessingStep, number>>;
-  pausedAtStep?: ProcessingStep;
-  dimensions?: Record<string, DimensionData>;
-}
+  const selectedId = useUrlStore((s) => s.conversationId);
+  const isCollapsed = useUrlStore((s) => s.sidebarCollapsed);
 
-interface Group {
-  id: string;
-  name: string;
-  title?: string;
-  fileIds: string[];
-}
+  // Computed
+  const pausedWorkflowCount = conversations.filter((c) => c.status === "paused-for-api-key").length;
 
-interface ConversationListProps {
-  conversations: WorkflowState[];
-  groups: Record<string, Group>;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  selectedIds: Set<string>;
-  onToggleSelection: (id: string, isSelected: boolean) => void;
-  onGroupConversations: () => void;
-  onClearSelection: () => void;
-  onSelectAll: (ids: string[]) => void;
-  onUngroupConversation: (id: string) => void;
-  onDeleteConversation?: (id: string) => void;
-  onRename?: (id: string, newTitle: string) => void;
-  onGenerateAnalysis?: (id: string) => void;
-  onGenerateSummary?: (id: string) => void;
-  onFilesSelected: (files: File[]) => void;
-  onEditPrompt?: (id: string, dimensionName?: string) => void;
-  onEditComponents?: (id: string, dimensionName?: string) => void;
-  onEditSegmentationPrompt?: (id: string) => void;
-  onEditSummaryPrompt?: (id: string) => void;
-  onEditAnalysisPrompt?: (id: string) => void;
-  onEditColoringPrompt?: (id: string) => void;
-  // Dimension management
-  onAddDimension?: (name: string) => void;
-  onRemoveDimension?: (name: string) => void;
-  onRenameDimension?: (oldName: string, newName: string) => void;
-  onEditDimensionPrompt?: (id: string, dimensionName: string) => void;
-  onApplyPromptsToAll?: (id: string) => void;
-  onExportPromptsAsPreset?: (id: string) => void;
-  onExportSession?: () => void;
-  onUpdateGroupSources?: (groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) => void;
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
-  pausedWorkflowCount?: number;
-  onApiKeyChange?: (hasKey: boolean) => void;
-  onResumeWorkflows?: () => void;
-}
+  // Local handlers
+  const handleToggleCollapse = () => useUrlStore.getState().setSidebarCollapsed(!isCollapsed);
+  const handleFilesSelected = (files: File[]) => useConversationStore.getState().processFileDrop(files, useUIStore.getState().loadedPreset);
 
-export function ConversationList({
-  conversations,
-  groups,
-  selectedId,
-  onSelect,
-  selectedIds,
-  onToggleSelection,
-  onGroupConversations,
-  onClearSelection,
-  onSelectAll,
-  onUngroupConversation,
-  onDeleteConversation,
-  onRename,
-  onGenerateAnalysis,
-  onGenerateSummary,
-  onFilesSelected,
-  onEditPrompt,
-  onEditComponents,
-  onEditSegmentationPrompt,
-  onEditSummaryPrompt,
-  onEditAnalysisPrompt,
-  onEditColoringPrompt,
-  onAddDimension,
-  onRemoveDimension,
-  onRenameDimension,
-  onEditDimensionPrompt,
-  onApplyPromptsToAll,
-  onExportPromptsAsPreset,
-  onExportSession,
-  onUpdateGroupSources,
-  isCollapsed = false,
-  onToggleCollapse,
-  pausedWorkflowCount = 0,
-  onApiKeyChange,
-  onResumeWorkflows,
-}: ConversationListProps) {
   // Initialize with all conversations expanded by default
   const [collapsedProgress, setCollapsedProgress] = useState<Set<string>>(
     new Set(),
@@ -210,9 +136,7 @@ export function ConversationList({
 
   // Save title and exit editing mode
   const handleSaveTitle = (id: string) => {
-    if (onRename) {
-      onRename(id, editingTitle.trim());
-    }
+    useConversationStore.getState().renameConversation(id, editingTitle.trim());
     setEditingId(null);
     setEditingTitle("");
   };
@@ -220,11 +144,11 @@ export function ConversationList({
   // Exit selection mode when selection is cleared
   const handleExitSelectionMode = () => {
     setIsSelectionMode(false);
-    onClearSelection();
+    useConversationStore.getState().clearSelection();
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: onFilesSelected,
+    onDrop: handleFilesSelected,
     validator: createFileValidator(),
     multiple: true,
     noClick: conversations.length > 0, // Disable click when there are conversations
@@ -307,7 +231,7 @@ export function ConversationList({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onToggleCollapse}
+            onClick={handleToggleCollapse}
             className="h-8 w-8 p-0"
             title="Open conversations panel"
           >
@@ -326,17 +250,15 @@ export function ConversationList({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Conversations</h2>
-          {onToggleCollapse && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 p-0"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         </div>
         <Card
           {...getRootProps()}
@@ -391,28 +313,26 @@ export function ConversationList({
             </Button>
           )}
           {/* Export button */}
-          {onExportSession && selectableConversations.length > 0 && (
+          {selectableConversations.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onExportSession}
+              onClick={() => useConversationStore.getState().handleExportSession()}
               className="h-8 w-8 p-0"
               title="Export session"
             >
               <Download className="h-4 w-4" />
             </Button>
           )}
-          {onToggleCollapse && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 p-0"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleCollapse}
+            className="h-8 w-8 p-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -426,9 +346,9 @@ export function ConversationList({
             }
             onCheckedChange={(checked) => {
               if (checked) {
-                onSelectAll(selectableConversations.map((c) => c.id));
+                useConversationStore.getState().selectAll(selectableConversations.map((c) => c.id));
               } else {
-                onClearSelection();
+                useConversationStore.getState().clearSelection();
               }
             }}
             className="shrink-0"
@@ -440,7 +360,7 @@ export function ConversationList({
             variant="default"
             size="sm"
             onClick={() => {
-              onGroupConversations();
+              groupConversations();
               setIsSelectionMode(false);
             }}
             disabled={!canGroup}
@@ -484,9 +404,9 @@ export function ConversationList({
                     key={conversation.id}
                     onClick={() => {
                       if (isSelectionMode && isSelectable) {
-                        onToggleSelection(conversation.id, !isSelected);
+                        useConversationStore.getState().toggleSelect(conversation.id, !isSelected);
                       } else {
-                        onSelect(conversation.id);
+                        navigateToId(conversation.id);
                       }
                     }}
                     className={cn(
@@ -514,9 +434,9 @@ export function ConversationList({
                           toggleProgress(conversation.id);
                         }
                         if (isSelectionMode && isSelectable) {
-                          onToggleSelection(conversation.id, !isSelected);
+                          useConversationStore.getState().toggleSelect(conversation.id, !isSelected);
                         } else {
-                          onSelect(conversation.id);
+                          navigateToId(conversation.id);
                         }
                       }}
                     >
@@ -527,7 +447,7 @@ export function ConversationList({
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={(checked) => {
-                                onToggleSelection(conversation.id, !!checked);
+                                useConversationStore.getState().toggleSelect(conversation.id, !!checked);
                               }}
                               onClick={(e) => e.stopPropagation()}
                               className="shrink-0"
@@ -590,11 +510,9 @@ export function ConversationList({
                               className="font-medium text-sm truncate flex-1 min-w-0 cursor-pointer hover:underline"
                               title={conversation.title || conversation.filename}
                               onClick={(e) => {
-                                if (onRename) {
-                                  e.stopPropagation();
-                                  setEditingId(conversation.id);
-                                  setEditingTitle(conversation.title || (isGroupEntry(conversation.id) ? "" : conversation.filename));
-                                }
+                                e.stopPropagation();
+                                setEditingId(conversation.id);
+                                setEditingTitle(conversation.title || (isGroupEntry(conversation.id) ? "" : conversation.filename));
                               }}
                             >
                               {isGroupEntry(conversation.id)
@@ -624,7 +542,7 @@ export function ConversationList({
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onUngroupConversation(conversation.id);
+                                  ungroupConversation(conversation.id);
                                 }}
                                 className="shrink-0 p-0.5 hover:bg-accent rounded cursor-pointer"
                                 title="Ungroup"
@@ -745,15 +663,13 @@ export function ConversationList({
                                 isSummaryStep &&
                                 conversation.status === "success" &&
                                 !conversation.step &&
-                                timing === undefined &&
-                                onGenerateSummary;
+                                timing === undefined;
                               // Analysis step is clickable when conversation is complete but analysis wasn't run
                               const isAnalysisClickable =
                                 isAnalysisStep &&
                                 conversation.status === "success" &&
                                 !conversation.step &&
-                                timing === undefined &&
-                                onGenerateAnalysis;
+                                timing === undefined;
                               const isClickable = isSummaryClickable || isAnalysisClickable;
                               return (
                                 <div key={step.key}>
@@ -780,9 +696,9 @@ export function ConversationList({
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           if (isSummaryClickable) {
-                                            onGenerateSummary!(conversation.id);
+                                            generateSummary(conversation.id, undefined);
                                           } else {
-                                            onGenerateAnalysis!(conversation.id);
+                                            generateAnalysis(conversation.id, undefined);
                                           }
                                         }}
                                         className="flex-1 text-left text-blue-600 hover:text-blue-700 hover:underline"
@@ -814,13 +730,12 @@ export function ConversationList({
                                       )}
                                   </div>
                                   {/* Edit prompt link - show below "Segment content" step */}
-                                  {isSegmentingStep &&
-                                    onEditSegmentationPrompt && (
+                                  {isSegmentingStep && (
                                       <div className="flex gap-2 ml-5 mt-0.5">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onEditSegmentationPrompt(conversation.id);
+                                            openSegmentationPromptEditor(conversation.id);
                                           }}
                                           className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                         >
@@ -829,12 +744,12 @@ export function ConversationList({
                                       </div>
                                     )}
                                   {/* Edit prompt link - show below "Generate summary" step */}
-                                  {isSummaryStep && onEditSummaryPrompt && (
+                                  {isSummaryStep && (
                                     <div className="flex gap-2 ml-5 mt-0.5">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditSummaryPrompt(conversation.id);
+                                          openSummaryPromptEditor(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -849,24 +764,21 @@ export function ConversationList({
                                       {(() => {
                                         const dims = conversation.dimensions;
                                         const dimNames = dims ? Object.keys(dims) : [];
-                                        if (dimNames.length === 0 && !onAddDimension) return null;
                                         return (
                                           <div className="ml-5 mt-2 border rounded text-xs">
                                             <div className="px-2 py-1 bg-muted/50 flex items-center justify-between">
                                               <span className="font-medium text-muted-foreground uppercase tracking-wide" style={{ fontSize: "10px" }}>
                                                 Dimensions ({dimNames.length || 1})
                                               </span>
-                                              {onAddDimension && (
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setAddingDimension(true);
-                                                  }}
-                                                  className="text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
-                                                >
-                                                  <Plus className="h-3 w-3" /> Add
-                                                </button>
-                                              )}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setAddingDimension(true);
+                                                }}
+                                                className="text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
+                                              >
+                                                <Plus className="h-3 w-3" /> Add
+                                              </button>
                                             </div>
 
                                             {/* Add dimension input */}
@@ -883,7 +795,7 @@ export function ConversationList({
                                                   onKeyDown={(e) => {
                                                     e.stopPropagation();
                                                     if (e.key === "Enter" && newDimensionName.trim()) {
-                                                      onAddDimension?.(newDimensionName.trim());
+                                                      addDimension(conversation.id, newDimensionName.trim());
                                                       setNewDimensionName("");
                                                       setAddingDimension(false);
                                                     }
@@ -896,7 +808,7 @@ export function ConversationList({
                                                 <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (newDimensionName.trim()) onAddDimension?.(newDimensionName.trim());
+                                                    if (newDimensionName.trim()) addDimension(conversation.id, newDimensionName.trim());
                                                     setNewDimensionName("");
                                                     setAddingDimension(false);
                                                   }}
@@ -947,14 +859,14 @@ export function ConversationList({
                                                         onKeyDown={(e) => {
                                                           e.stopPropagation();
                                                           if (e.key === "Enter" && renameValue.trim()) {
-                                                            onRenameDimension?.(dimName, renameValue.trim());
+                                                            renameDimension(conversation.id, dimName, renameValue.trim());
                                                             setRenamingDimension(null);
                                                           }
                                                           if (e.key === "Escape") setRenamingDimension(null);
                                                         }}
                                                         onBlur={() => {
                                                           if (renameValue.trim() && renameValue.trim() !== dimName) {
-                                                            onRenameDimension?.(dimName, renameValue.trim());
+                                                            renameDimension(conversation.id, dimName, renameValue.trim());
                                                           }
                                                           setRenamingDimension(null);
                                                         }}
@@ -967,37 +879,33 @@ export function ConversationList({
                                                       {new Set(dimData.components).size}
                                                     </span>
 
-                                                    {onEditDimensionPrompt && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openPromptEditor(conversation.id, dimName);
+                                                      }}
+                                                      className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
+                                                      title="Edit prompt"
+                                                    >
+                                                      <Pencil className="h-2.5 w-2.5" />
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRenamingDimension(dimName);
+                                                        setRenameValue(dimName);
+                                                      }}
+                                                      className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                                                      title="Rename"
+                                                      style={{ fontSize: "9px" }}
+                                                    >
+                                                      Aa
+                                                    </button>
+                                                    {dimName !== "default" && (
                                                       <button
                                                         onClick={(e) => {
                                                           e.stopPropagation();
-                                                          onEditDimensionPrompt(conversation.id, dimName);
-                                                        }}
-                                                        className="text-muted-foreground hover:text-blue-600 flex-shrink-0"
-                                                        title="Edit prompt"
-                                                      >
-                                                        <Pencil className="h-2.5 w-2.5" />
-                                                      </button>
-                                                    )}
-                                                    {onRenameDimension && (
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setRenamingDimension(dimName);
-                                                          setRenameValue(dimName);
-                                                        }}
-                                                        className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                                                        title="Rename"
-                                                        style={{ fontSize: "9px" }}
-                                                      >
-                                                        Aa
-                                                      </button>
-                                                    )}
-                                                    {dimName !== "default" && onRemoveDimension && (
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          onRemoveDimension(dimName);
+                                                          removeDimension(conversation.id, dimName);
                                                         }}
                                                         className="text-muted-foreground hover:text-red-600 flex-shrink-0"
                                                         title="Remove"
@@ -1026,32 +934,26 @@ export function ConversationList({
                                                           );
                                                         })
                                                       )}
-                                                      {(onEditDimensionPrompt || onEditComponents) && (
-                                                        <div className="flex gap-3 pt-1.5 border-t mt-1.5">
-                                                          {onEditDimensionPrompt && (
-                                                            <button
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onEditDimensionPrompt(conversation.id, dimName);
-                                                              }}
-                                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                                            >
-                                                              Edit prompt
-                                                            </button>
-                                                          )}
-                                                          {onEditComponents && (
-                                                            <button
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onEditComponents(conversation.id, dimName);
-                                                              }}
-                                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                                            >
-                                                              Edit components
-                                                            </button>
-                                                          )}
-                                                        </div>
-                                                      )}
+                                                      <div className="flex gap-3 pt-1.5 border-t mt-1.5">
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openPromptEditor(conversation.id, dimName);
+                                                          }}
+                                                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                                        >
+                                                          Edit prompt
+                                                        </button>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openComponentsEditor(conversation.id, dimName);
+                                                          }}
+                                                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                                        >
+                                                          Edit components
+                                                        </button>
+                                                      </div>
                                                     </div>
                                                   )}
                                                 </div>
@@ -1070,12 +972,12 @@ export function ConversationList({
                                     </>
                                   )}
                                   {/* Edit prompt link - show below "Assign colors" step */}
-                                  {isColoringStep && onEditColoringPrompt && (
+                                  {isColoringStep && (
                                     <div className="flex gap-2 ml-5 mt-0.5">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditColoringPrompt(conversation.id);
+                                          openColoringPromptEditor(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -1084,12 +986,12 @@ export function ConversationList({
                                     </div>
                                   )}
                                   {/* Edit prompt link - show below "Generate analysis" step */}
-                                  {isAnalysisStep && onEditAnalysisPrompt && (
+                                  {isAnalysisStep && (
                                     <div className="flex gap-2 ml-5 mt-0.5">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          onEditAnalysisPrompt(conversation.id);
+                                          openAnalysisPromptEditor(conversation.id);
                                         }}
                                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                                       >
@@ -1107,8 +1009,7 @@ export function ConversationList({
                     {/* Action buttons at bottom of card */}
                     {conversation.status === "success" && !conversation.step && (
                       <div className="px-3 pb-2 pt-1 border-t flex items-center gap-3">
-                        {onApplyPromptsToAll &&
-                          !isGroupEntry(conversation.id) &&
+                        {!isGroupEntry(conversation.id) &&
                           conversations.filter(
                             (c) =>
                               c.id !== conversation.id &&
@@ -1119,7 +1020,7 @@ export function ConversationList({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onApplyPromptsToAll(conversation.id);
+                                useConversationStore.getState().handleApplyPromptsToAll(conversation.id);
                               }}
                               className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
                             >
@@ -1127,11 +1028,11 @@ export function ConversationList({
                               <span>Apply prompts to all</span>
                             </button>
                           )}
-                        {onExportPromptsAsPreset && !isGroupEntry(conversation.id) && (
+                        {!isGroupEntry(conversation.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onExportPromptsAsPreset(conversation.id);
+                              useConversationStore.getState().handleExportPromptsAsPreset(conversation.id);
                             }}
                             className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
                           >
@@ -1139,11 +1040,11 @@ export function ConversationList({
                             <span>Export preset</span>
                           </button>
                         )}
-                        {onDeleteConversation && canDelete(conversation.id) && (
+                        {canDelete(conversation.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDeleteConversation(conversation.id);
+                              deleteConversation(conversation.id);
                             }}
                             className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
                           >
@@ -1184,13 +1085,11 @@ export function ConversationList({
       </div>
 
       {/* API Key Input */}
-      {onApiKeyChange && onResumeWorkflows && (
-        <ApiKeyInput
-          onApiKeyChange={onApiKeyChange}
-          pausedWorkflowCount={pausedWorkflowCount}
-          onResumeWorkflows={onResumeWorkflows}
-        />
-      )}
+      <ApiKeyInput
+        onApiKeyChange={(hasKey) => useConversationStore.getState().setHasApiKeyState(hasKey)}
+        pausedWorkflowCount={pausedWorkflowCount}
+        onResumeWorkflows={() => useConversationStore.getState().handleResumeWorkflowsWithApiKey()}
+      />
 
       {/* Workflow Detail Modal */}
       {expandedConversationId &&
@@ -1219,26 +1118,22 @@ export function ConversationList({
               stepTimings={displayConv.stepTimings}
               aiSummary={displayConv.aiSummary}
               warnings={displayConv.warnings}
-              onEditPrompt={onEditPrompt}
-              onEditComponents={onEditComponents}
-              onEditSegmentationPrompt={onEditSegmentationPrompt}
-              onEditSummaryPrompt={onEditSummaryPrompt}
-              onEditAnalysisPrompt={onEditAnalysisPrompt}
-              onEditColoringPrompt={onEditColoringPrompt}
-              onGenerateAnalysis={onGenerateAnalysis}
-              onGenerateSummary={onGenerateSummary}
+              onEditPrompt={(id, dimName) => openPromptEditor(id, dimName)}
+              onEditComponents={(id, dimName) => openComponentsEditor(id, dimName)}
+              onEditSegmentationPrompt={(id) => openSegmentationPromptEditor(id)}
+              onEditSummaryPrompt={(id) => openSummaryPromptEditor(id)}
+              onEditAnalysisPrompt={(id) => openAnalysisPromptEditor(id)}
+              onEditColoringPrompt={(id) => openColoringPromptEditor(id)}
+              onGenerateAnalysis={(id) => generateAnalysis(id, undefined)}
+              onGenerateSummary={(id) => generateSummary(id, undefined)}
               dimensions={displayConv.dimensions}
-              onAddDimension={onAddDimension}
-              onRemoveDimension={onRemoveDimension}
-              onRenameDimension={onRenameDimension}
-              onEditDimensionPrompt={onEditDimensionPrompt}
+              onAddDimension={(name) => addDimension(displayConv.id, name)}
+              onRemoveDimension={(name) => removeDimension(displayConv.id, name)}
+              onRenameDimension={(oldName, newName) => renameDimension(displayConv.id, oldName, newName)}
+              onEditDimensionPrompt={(id, dimName) => openPromptEditor(id, dimName)}
               isGrouped={isGroupEntry(displayConv.id)}
               memberFiles={getMemberFiles(displayConv.id)}
-              onUpdateGroupSources={
-                onUpdateGroupSources
-                  ? (newSources) => onUpdateGroupSources(displayConv.id, newSources)
-                  : undefined
-              }
+              onUpdateGroupSources={(newSources) => updateGroupSources(displayConv.id, newSources)}
             />
           );
         })()}
