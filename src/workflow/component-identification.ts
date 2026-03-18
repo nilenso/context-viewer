@@ -7,7 +7,7 @@
 
 import type { WorkflowState } from "./types";
 import type { DimensionData } from "../component-types";
-import { timed } from "./runner";
+import { timed } from "./notify";
 import { identifyComponents } from "../component-identification";
 import { getAIConfig } from "../ai-config";
 import { ensureDimensions, getDimensionNames } from "./dimensions";

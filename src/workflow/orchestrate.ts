@@ -1,15 +1,34 @@
 /**
- * Workflow orchestration functions extracted from the store.
- * These accept a store accessor to read/write state.
+ * Workflow orchestration: who runs what, on which files/dimensions,
+ * and where the results go.
+ *
+ * Pipeline steps live in pipeline.ts. This file wires them to the store.
  */
 
-import type { WorkflowState, WorkflowCallbacks, WorkflowOptions, Group } from "./types";
+import type {
+  WorkflowState,
+  WorkflowCallbacks,
+  WorkflowDataField,
+  WorkflowOptions,
+  WorkflowBatchResult,
+  Group,
+} from "./types";
 import { PipelineStep } from "./types";
-import type { Notify } from "./runner";
-import { runPipelineFrom, resumeFromPause, runWorkflows } from "./pipeline";
+import {
+  type Notify,
+  markComplete,
+  markFailed,
+} from "./notify";
+import { runDimensionSteps, processNewFile, resumeFromPause } from "./pipeline";
+import { runSummary } from "./summarize";
+import { runAnalysis, runEnsureSummaryThenAnalysis, regenerateAnalysisIfNeeded } from "./analyze";
 import { getAIConfig } from "../ai-config";
 import { generateId } from "../lib/id-generator";
 import { buildBaseContext } from "./context";
+
+// ---------------------------------------------------------------------------
+// Store accessor
+// ---------------------------------------------------------------------------
 
 /** Minimal store interface for orchestration functions. */
 export interface StoreAccessor {
@@ -19,59 +38,66 @@ export interface StoreAccessor {
     pendingSessionImport: any;
   };
   updateConversation: (id: string, update: Partial<WorkflowState>) => void;
+  updateGroup: (id: string, update: Partial<Group>) => void;
   appendSummaryChunk: (id: string, chunk: string) => void;
   appendAnalysisChunk: (id: string, chunk: string) => void;
   set: (update: any) => void;
 }
 
-/** Run workflows for dropped files, creating placeholders and processing. Returns first placeholder ID. */
-export async function runWorkflowMutation(
-  store: StoreAccessor,
-  files: File[],
-  presetIds: Map<number, string> | undefined,
-  options?: WorkflowOptions,
+// ---------------------------------------------------------------------------
+// Field computation
+// ---------------------------------------------------------------------------
+
+/** Collect all data fields affected by running the pipeline from `startFrom`. */
+function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = false): WorkflowDataField[] {
+  const fields = new Set<WorkflowDataField>();
+
+  if (startFrom <= PipelineStep.Segment) {
+    fields.add("conversation");
+    fields.add("customSegmentationPrompt");
+    fields.add("segmentationThreshold");
+  }
+  if (startFrom <= PipelineStep.Color) {
+    fields.add("dimensions");
+  }
+
+  if (includeAnalysis) {
+    fields.add("analysis");
+    fields.add("aiSummary");
+  }
+
+  return [...fields];
+}
+
+// ---------------------------------------------------------------------------
+// Core reprocess
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the pipeline from `startFrom`, with error handling and store write-back.
+ * This is the main reprocess entrypoint for prompt changes.
+ */
+async function runPipelineFrom(
+  startFrom: PipelineStep,
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks?: WorkflowCallbacks,
+  dimNames?: string[],
 ): Promise<void> {
-  const fileIds = new Map<number, string>();
-  const placeholders: WorkflowState[] = files.map((file, index) => {
-    const id = presetIds?.get(index) || generateId();
-    fileIds.set(index, id);
-    return { id, filename: file.name, status: "pending" };
-  });
-
-  store.set((state: any) => ({
-    conversations: [...state.conversations, ...placeholders],
-    fileIdsRef: fileIds,
-  }));
-
-  const onFileComplete = (completed: WorkflowState) => {
-    store.set((state: any) => ({
-      conversations: state.conversations.map((conv: WorkflowState) =>
-        conv.id === completed.id
-          ? {
-              ...conv,
-              ...completed,
-              aiSummary: completed.aiSummary || conv.aiSummary,
-              analysis: completed.analysis || conv.analysis,
-            }
-          : conv,
-      ),
-    }));
-  };
-
-  const onSummaryChunk = (id: string, chunk: string) => store.appendSummaryChunk(id, chunk);
-  const onAnalysisChunk = (id: string, chunk: string) => store.appendAnalysisChunk(id, chunk);
-
   try {
-    await runWorkflows(files, fileIds, onFileComplete, onSummaryChunk, onAnalysisChunk, options);
-    if (!store.getState().pendingSessionImport) {
-      store.set({ fileIdsRef: new Map() });
-    }
-  } catch {
-    store.set({ fileIdsRef: new Map() });
+    await runDimensionSteps(startFrom, ctx, notify, dimNames);
+
+    const regenerated = callbacks
+      ? await regenerateAnalysisIfNeeded(ctx, notify, callbacks)
+      : false;
+
+    markComplete(notify, ctx, collectFieldsFrom(startFrom, regenerated));
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
   }
 }
 
-/** Reprocess a conversation from a given pipeline step. */
+/** Reprocess a single conversation from a given pipeline step. */
 export async function reprocessWithRunner(
   store: StoreAccessor,
   conv: WorkflowState,
@@ -118,6 +144,10 @@ export async function reprocessTarget(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Apply prompts to all
+// ---------------------------------------------------------------------------
+
 /** Apply prompts, component list, and colors from one conversation to all others. */
 export async function applyPromptsToAll(
   store: StoreAccessor,
@@ -127,7 +157,6 @@ export async function applyPromptsToAll(
   const source = conversations.find((c) => c.id === sourceId);
   if (!source) return;
 
-  // Conversation-level prompt fields
   const convPrompts = {
     customSegmentationPrompt: source.customSegmentationPrompt,
     customSummaryPrompt: source.customSummaryPrompt,
@@ -143,20 +172,16 @@ export async function applyPromptsToAll(
 
   await Promise.all(
     targets.map(async (conv) => {
-      // Check if segmentation changed (conversation-level)
       const segChanged =
         convPrompts.customSegmentationPrompt !== conv.customSegmentationPrompt ||
         convPrompts.segmentationThreshold !== conv.segmentationThreshold;
 
-      // Copy conversation-level prompts
       store.updateConversation(conv.id, convPrompts);
 
       if (segChanged) {
-        // Segmentation changed — reprocess all dimensions from Segment
         const notify: Notify = (id, update) => store.updateConversation(id, update);
         const ctx = buildBaseContext(conv);
         Object.assign(ctx, convPrompts);
-        // Copy source dimensions into ctx so they carry the new prompts
         if (source.dimensions) {
           const dims = ctx.dimensions || {};
           for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
@@ -175,21 +200,17 @@ export async function applyPromptsToAll(
         return;
       }
 
-      // No segmentation change — diff per-dimension and reprocess only what changed
       if (!source.dimensions) return;
 
       const notify: Notify = (id, update) => store.updateConversation(id, update);
       const ctx = buildBaseContext(conv);
       const dims = ctx.dimensions || {};
 
-      // Track which dims need reprocessing at which step
       const identifyDims: string[] = [];
       const colorDims: string[] = [];
 
       for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
         const targetDim = dims[dimName];
-
-        // Copy source dimension prompts/components into target
         dims[dimName] = {
           ...(targetDim || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
           prompt: sourceDim.prompt,
@@ -207,7 +228,6 @@ export async function applyPromptsToAll(
 
       ctx.dimensions = dims;
 
-      // Copy component lists as presets for dims being reprocessed
       for (const dimName of identifyDims) {
         const sourceDim = source.dimensions![dimName];
         if (!sourceDim) continue;
@@ -216,19 +236,282 @@ export async function applyPromptsToAll(
         }
       }
 
-      // Run identify+classify+color for dims with prompt changes
       if (identifyDims.length > 0) {
         await runPipelineFrom(PipelineStep.Identify, ctx, notify, {
           onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
         }, identifyDims);
       }
 
-      // Run color-only for dims with only coloring prompt changes
       if (colorDims.length > 0) {
         await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, colorDims);
       }
     }),
   );
+}
+
+// ---------------------------------------------------------------------------
+// On-demand summary / analysis
+// ---------------------------------------------------------------------------
+
+export async function generateSummaryOnDemand(
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks: WorkflowCallbacks,
+): Promise<void> {
+  try {
+    await runSummary(ctx, notify, callbacks);
+    markComplete(notify, ctx, ["aiSummary", "customSummaryPrompt"]);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+export async function generateAnalysisOnDemand(
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks: WorkflowCallbacks,
+): Promise<void> {
+  try {
+    await runEnsureSummaryThenAnalysis(ctx, notify, callbacks);
+    markComplete(notify, ctx, ["analysis", "aiSummary", "customAnalysisPrompt"]);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+export async function rerunSummary(
+  ctx: WorkflowState,
+  notify: Notify,
+  callbacks: WorkflowCallbacks,
+): Promise<void> {
+  try {
+    ctx.aiSummary = "";
+    await runSummary(ctx, notify, callbacks);
+
+    const fields: WorkflowDataField[] = ["aiSummary", "customSummaryPrompt"];
+    if (ctx.regenerateAnalysis) {
+      ctx.analysis = "";
+      await runAnalysis(ctx, notify, callbacks);
+      fields.push("analysis");
+    }
+    markComplete(notify, ctx, fields);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Batch processing
+// ---------------------------------------------------------------------------
+
+export async function runWorkflows(
+  files: File[],
+  fileIds: Map<number, string>,
+  onFileComplete: (conversation: WorkflowState) => void,
+  onAISummaryChunk: (id: string, chunk: string) => void,
+  onAnalysisChunk: (id: string, chunk: string) => void,
+  options?: WorkflowOptions,
+): Promise<WorkflowBatchResult> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const workflowStates = await Promise.all(
+    files.map(async (file, i) => {
+      if (!file) return null;
+
+      const id = fileIds.get(i) || generateId();
+
+      const notify: Notify = (id, update) => {
+        onFileComplete({ id, filename: file.name, ...update } as WorkflowState);
+      };
+
+      const ctx: WorkflowState = {
+        id,
+        filename: file.name,
+        file,
+        conversation: null as any,
+        warnings: [],
+        stepTimings: {},
+        config: getAIConfig("Componentisation"),
+        presetColors: options?.presetColors,
+        customSegmentationPrompt: options?.customSegmentationPrompt,
+        dimensions: (options?.customPrompt || options?.customComponents) ? {
+          default: {
+            name: "default",
+            prompt: options?.customPrompt,
+            customComponents: options?.customComponents,
+            components: [],
+            componentMapping: {},
+            componentTimeline: [],
+            componentColors: {},
+          },
+        } : undefined,
+      };
+
+      await processNewFile(ctx, notify, {
+        onSummaryChunk: onAISummaryChunk,
+        onAnalysisChunk,
+      });
+
+      const { file: _file, config: _config, ...result } = ctx;
+      if (!result.warnings?.length) result.warnings = undefined;
+      return result;
+    }),
+  );
+
+  return {
+    workflowStates: workflowStates.filter((c): c is WorkflowState => c !== null),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Store-level orchestration
+// ---------------------------------------------------------------------------
+
+/** Run workflows for dropped files, creating placeholders and processing. */
+export async function runWorkflowMutation(
+  store: StoreAccessor,
+  files: File[],
+  presetIds: Map<number, string> | undefined,
+  options?: WorkflowOptions,
+): Promise<void> {
+  const fileIds = new Map<number, string>();
+  const placeholders: WorkflowState[] = files.map((file, index) => {
+    const id = presetIds?.get(index) || generateId();
+    fileIds.set(index, id);
+    return { id, filename: file.name, status: "pending" };
+  });
+
+  store.set((state: any) => ({
+    conversations: [...state.conversations, ...placeholders],
+    fileIdsRef: fileIds,
+  }));
+
+  const onFileComplete = (completed: WorkflowState) => {
+    store.set((state: any) => ({
+      conversations: state.conversations.map((conv: WorkflowState) =>
+        conv.id === completed.id
+          ? {
+              ...conv,
+              ...completed,
+              aiSummary: completed.aiSummary || conv.aiSummary,
+              analysis: completed.analysis || conv.analysis,
+            }
+          : conv,
+      ),
+    }));
+  };
+
+  const onSummaryChunk = (id: string, chunk: string) => store.appendSummaryChunk(id, chunk);
+  const onAnalysisChunk = (id: string, chunk: string) => store.appendAnalysisChunk(id, chunk);
+
+  try {
+    await runWorkflows(files, fileIds, onFileComplete, onSummaryChunk, onAnalysisChunk, options);
+    if (!store.getState().pendingSessionImport) {
+      store.set({ fileIdsRef: new Map() });
+    }
+  } catch {
+    store.set({ fileIdsRef: new Map() });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Store-level summary / analysis
+// ---------------------------------------------------------------------------
+
+/** Build a notify function that routes to group or conversation. */
+function makeGroupAwareNotify(
+  store: StoreAccessor,
+  id: string,
+  group: Group | undefined,
+): Notify {
+  return (rid, update) => {
+    if (group) {
+      store.updateGroup(id, {
+        ...(update.analysis !== undefined ? { analysis: update.analysis } : {}),
+        ...(update.aiSummary !== undefined ? { aiSummary: update.aiSummary } : {}),
+        ...(update.customSummaryPrompt !== undefined ? { customSummaryPrompt: update.customSummaryPrompt } : {}),
+        ...(update.customAnalysisPrompt !== undefined ? { customAnalysisPrompt: update.customAnalysisPrompt } : {}),
+      });
+    } else {
+      store.updateConversation(rid, update);
+    }
+  };
+}
+
+/** Generate or regenerate analysis for a file or group. */
+export async function generateAnalysisForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: WorkflowState,
+  options: { customAnalysisPrompt?: string } = {},
+): Promise<void> {
+  const group = store.getState().groups[id];
+  const notify = makeGroupAwareNotify(store, id, group);
+  const ctx: WorkflowState = {
+    ...buildBaseContext(conv),
+    analysis: "",
+    customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
+  };
+
+  await generateAnalysisOnDemand(ctx, notify, {
+    onSummaryChunk: group
+      ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
+      : (id, chunk) => store.appendSummaryChunk(id, chunk),
+    onAnalysisChunk: group
+      ? (_, chunk) => store.updateGroup(id, { analysis: (store.getState().groups[id]?.analysis || "") + chunk })
+      : (id, chunk) => store.appendAnalysisChunk(id, chunk),
+  });
+}
+
+/** Generate summary for a file or group. */
+export async function generateSummaryForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: WorkflowState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
+  const group = store.getState().groups[id];
+  const notify = makeGroupAwareNotify(store, id, group);
+  const ctx: WorkflowState = {
+    ...buildBaseContext(conv),
+    aiSummary: "",
+    customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
+  };
+
+  await generateSummaryOnDemand(ctx, notify, {
+    onSummaryChunk: group
+      ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
+      : (id, chunk) => store.appendSummaryChunk(id, chunk),
+  });
+}
+
+/** Rerun summary (and optionally analysis) for a conversation. */
+export async function rerunSummaryForTarget(
+  store: StoreAccessor,
+  conv: WorkflowState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
+  const notify: Notify = (id, update) => store.updateConversation(id, update);
+  const shouldRegenerateAnalysis =
+    !!conv.analysis || conv.stepTimings?.analysis !== undefined;
+
+  const ctx = buildBaseContext(conv);
+  ctx.aiSummary = "";
+  ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
+  ctx.customSummaryPrompt = options.customSummaryPrompt;
+  ctx.regenerateAnalysis = shouldRegenerateAnalysis;
+  ctx.stepTimings = {
+    ...ctx.stepTimings,
+    summary: undefined,
+    ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
+  };
+
+  await rerunSummary(ctx, notify, {
+    onSummaryChunk: (id, chunk) => store.appendSummaryChunk(id, chunk),
+    onAnalysisChunk: shouldRegenerateAnalysis
+      ? (id, chunk) => store.appendAnalysisChunk(id, chunk)
+      : undefined,
+  });
 }
 
 /** Resume all paused workflows after API key is provided. */

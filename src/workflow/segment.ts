@@ -3,7 +3,7 @@
  */
 
 import type { WorkflowState } from "./types";
-import { type Notify, startStep, endStep, timed } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./notify";
 import { segmentConversation } from "../segmentation";
 import { addTokenCounts } from "../add-token-counts";
 

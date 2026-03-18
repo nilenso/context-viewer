@@ -11,6 +11,9 @@ import {
   reprocessWithRunner,
   reprocessTarget,
   applyPromptsToAll,
+  generateAnalysisForTarget,
+  generateSummaryForTarget,
+  rerunSummaryForTarget,
   resumeWorkflowsWithApiKey,
   type StoreAccessor,
 } from "../workflow/orchestrate";
@@ -72,6 +75,9 @@ interface ConversationStore {
     callbacks: WorkflowCallbacks,
     dimNames?: string[],
   ) => Promise<void>;
+  handleGenerateAnalysis: (id: string, conv: WorkflowState, options?: { customAnalysisPrompt?: string }) => Promise<void>;
+  handleGenerateSummary: (id: string, conv: WorkflowState, options?: { customSummaryPrompt?: string }) => Promise<void>;
+  handleRerunSummary: (conv: WorkflowState, options?: { customSummaryPrompt?: string }) => Promise<void>;
   handleApplyPromptsToAll: (sourceId: string) => Promise<void>;
   handleExportPromptsAsPreset: (sourceId: string) => void;
   handleExportSession: () => void;
@@ -85,6 +91,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
   const accessor: StoreAccessor = {
     getState: () => get(),
     updateConversation: (id, update) => get().updateConversation(id, update),
+    updateGroup: (id, update) => get().updateGroup(id, update),
     appendSummaryChunk: (id, chunk) => get().appendSummaryChunk(id, chunk),
     appendAnalysisChunk: (id, chunk) => get().appendAnalysisChunk(id, chunk),
     set,
@@ -229,6 +236,18 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       await reprocessTarget(accessor, targetId, startFrom, contextModifier, callbacks, dimNames);
     },
 
+    handleGenerateAnalysis: async (id, conv, options) => {
+      await generateAnalysisForTarget(accessor, id, conv, options);
+    },
+
+    handleGenerateSummary: async (id, conv, options) => {
+      await generateSummaryForTarget(accessor, id, conv, options);
+    },
+
+    handleRerunSummary: async (conv, options) => {
+      await rerunSummaryForTarget(accessor, conv, options);
+    },
+
     handleApplyPromptsToAll: (sourceId) => applyPromptsToAll(accessor, sourceId),
 
     handleExportPromptsAsPreset: (sourceId) => {
@@ -311,5 +330,3 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
   };
 });
 
-// Re-export buildBaseContext for App.tsx
-export { buildBaseContext } from "../workflow/context";

@@ -3,7 +3,7 @@
  */
 
 import type { WorkflowState, WorkflowCallbacks } from "./types";
-import { type Notify, startStep, endStep, timed } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./notify";
 import { generateConversationSummary, type ConversationStats } from "../ai-summary";
 
 function calculateConversationStats(conversation: {

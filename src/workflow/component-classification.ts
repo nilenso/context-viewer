@@ -9,7 +9,7 @@ import type { WorkflowState } from "./types";
 import { mapComponentsToIds, buildComponentTimeline } from "../component-classification";
 import { getAIConfig } from "../ai-config";
 import { getDefaultComponentIdentificationPrompt } from "../prompts";
-import { timed } from "./runner";
+import { timed } from "./notify";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 
 export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: string[]): Promise<{ timing: number }> {

@@ -6,7 +6,7 @@
 import type { WorkflowState } from "./types";
 import type { ConversationMetadata } from "../parser";
 import type { Conversation } from "../schema";
-import { type Notify, startStep, endStep, timed } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./notify";
 import { parserRegistry } from "../parser";
 import { summarizeConversation } from "../conversation-summary";
 import { parseFileContent } from "../lib/file-formats";

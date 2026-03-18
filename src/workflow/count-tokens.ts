@@ -4,7 +4,7 @@
  */
 
 import type { WorkflowState } from "./types";
-import { type Notify, startStep, endStep, timed } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./notify";
 import { addTokenCounts } from "../add-token-counts";
 import { staticComponentise } from "../static-components";
 

@@ -3,7 +3,7 @@
  */
 
 import type { WorkflowState } from "./types";
-import { type Notify, startStep, endStep, timed } from "./runner";
+import { type Notify, startStep, endStep, timed } from "./notify";
 import { assignComponentColors } from "../component-coloring";
 import { ensureDimensions, getDimensionNames } from "./dimensions";
 

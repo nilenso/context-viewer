@@ -3,7 +3,7 @@
  */
 
 import type { WorkflowState, WorkflowCallbacks } from "./types";
-import { type Notify, startStep, endStep, timed, updateState } from "./runner";
+import { type Notify, startStep, endStep, timed, updateState } from "./notify";
 import { generateContextAnalysis } from "../ai-summary";
 import { runSummary } from "./summarize";
 import { getAllComponents, getDefaultDimension } from "./dimensions";
