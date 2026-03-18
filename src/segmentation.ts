@@ -1,8 +1,7 @@
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation, Message } from "./schema";
 import { getPrompt } from "./prompts";
-import { getAIConfig, getProviderOptions, type AIConfig } from "./ai-config";
+import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const log = createPhaseLogger("segmenting", "Segmentation");
@@ -59,9 +58,7 @@ async function segmentTextWithAI(
   customPrompt?: string,
   conversationId?: string,
 ): Promise<string[]> {
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   log(
     conversationId,
@@ -72,7 +69,7 @@ async function segmentTextWithAI(
 
   try {
     const result = await generateText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });

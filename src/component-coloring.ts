@@ -1,7 +1,6 @@
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { getPrompt } from "./prompts";
-import { getProviderOptions, type AIConfig } from "./ai-config";
+import { getProviderOptions, createModel, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const logColoring = createPhaseLogger("coloring", "Coloring");
@@ -31,9 +30,7 @@ export async function assignComponentColors(
   }
 
   // AI-based color assignment
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   const componentsJson = JSON.stringify(components, null, 2);
 
@@ -46,7 +43,7 @@ export async function assignComponentColors(
 
   try {
     const result = await generateText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });

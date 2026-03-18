@@ -1,17 +1,16 @@
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import { getProviderOptions, type AIConfig } from "./ai-config";
+import { getProviderOptions, createModel, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 import {
   buildComponentTimeline as buildComponentTimelineCore,
   type ComponentTimelineSnapshot,
 } from "./aggregation";
 
-const log = createPhaseLogger("finding-components", "Classification");
-const logError = createPhaseLogger("finding-components", "Classification", "error");
+const log = createPhaseLogger("classifying-components", "Classification");
+const logError = createPhaseLogger("classifying-components", "Classification", "error");
 
 /**
  * Extract all parts from a conversation with their context
@@ -69,9 +68,7 @@ async function mapPartsBatch(
   componentDescriptions?: string,
   conversationId?: string,
 ): Promise<Record<string, string>> {
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   // Create a simplified conversation structure for just these parts
   const partsJson = JSON.stringify(parts, null, 2);
@@ -85,7 +82,7 @@ async function mapPartsBatch(
 
   try {
     const result = await generateText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });

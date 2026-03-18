@@ -1,12 +1,11 @@
 import { streamText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { computeTupleTokens, generateComponentCSV, type ComponentTimelineSnapshot } from "./aggregation";
 import type { DimensionData } from "./component-types";
 import type { ConversationMetadata } from "./parser";
 import { getPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import { getAIConfig, getProviderOptions } from "./ai-config";
+import { getAIConfig, getProviderOptions, createModel } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
 const logSummary = createPhaseLogger("summary", "AI Summary");
@@ -41,9 +40,7 @@ export async function generateConversationSummary(
     return { summary: "", error: "AI Summary: No API key configured" };
   }
 
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   // Strip large content (images, files, truncate tool calls/results) - same as componentisation
   const strippedConversation = stripLargeContent(conversation);
@@ -57,7 +54,7 @@ export async function generateConversationSummary(
 
   try {
     const result = streamText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });
@@ -102,9 +99,7 @@ export async function generateContextAnalysis(
     return { analysis: "", error: "Context Analysis: No API key configured" };
   }
 
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   // Generate component data for analysis
   let allCSVData: string;
@@ -141,7 +136,7 @@ export async function generateContextAnalysis(
 
   try {
     const result = streamText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });

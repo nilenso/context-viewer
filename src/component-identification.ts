@@ -1,13 +1,12 @@
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { Conversation } from "./schema";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { stripLargeContent } from "./strip-large-content";
-import { getProviderOptions, type AIConfig } from "./ai-config";
+import { getProviderOptions, createModel, type AIConfig } from "./ai-config";
 import { createPhaseLogger } from "./lib/workflow-log-helpers";
 
-const log = createPhaseLogger("finding-components", "Identification");
-const logError = createPhaseLogger("finding-components", "Identification", "error");
+const log = createPhaseLogger("identifying-components", "Identification");
+const logError = createPhaseLogger("identifying-components", "Identification", "error");
 
 /**
  * Identify components in a conversation using AI
@@ -19,9 +18,7 @@ export async function identifyComponents(
   customPrompt?: string,
   conversationId?: string,
 ): Promise<string[]> {
-  const openai = createOpenAI({
-    apiKey: config.apiKey,
-  });
+  const model = createModel(config);
 
   // Strip binary data to reduce token count
   const strippedConversation = stripLargeContent(conversation);
@@ -39,7 +36,7 @@ export async function identifyComponents(
 
   try {
     const result = await generateText({
-      model: openai(config.model),
+      model,
       prompt,
       providerOptions: getProviderOptions(config),
     });
