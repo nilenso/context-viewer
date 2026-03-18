@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUIStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { getComponentWaffleStyles } from "@/lib/component-colors";
 import { ArrowUp, ArrowDown, LayoutGrid, Rows3 } from "lucide-react";
@@ -380,12 +381,14 @@ function ComparisonLegend({
   componentColors,
   sortField,
   sortDirection,
+  percentPrecision: percentPrecisionProp,
 }: {
   componentTokens: Record<string, number>;
   totalTokens: number;
   componentColors?: Record<string, string>;
   sortField: SortField;
   sortDirection: SortDirection;
+  percentPrecision?: number;
 }) {
   const componentData = sortField === "category"
     ? sortByCategory(componentTokens, sortDirection)
@@ -420,7 +423,7 @@ function ComparisonLegend({
               {component}
             </span>
             <span className="text-muted-foreground tabular-nums [font-variant:small-caps]">
-              {percentage.toFixed(percentPrecision)}%
+              {percentage.toFixed(percentPrecisionProp ?? 0)}%
             </span>
           </div>
         );
@@ -805,6 +808,7 @@ export function ComponentComparisonView({
                         componentColors={componentColors}
                         sortField={sortField}
                         sortDirection={sortDirection}
+                        percentPrecision={percentPrecision}
                       />
                     </div>
                   )}
