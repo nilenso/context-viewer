@@ -18,6 +18,13 @@ export async function runAssignColors(ctx: WorkflowState, notify: Notify, onlyDi
         const dimData = dims[dimName];
         if (!dimData || !ctx.config || !dimData.components?.length) return;
 
+        // Idempotent: if componentColors already covers exactly the current components, skip
+        const existingColorKeys = Object.keys(dimData.componentColors || {}).sort();
+        const currentComponents = [...dimData.components].sort();
+        if (existingColorKeys.length > 0 && JSON.stringify(existingColorKeys) === JSON.stringify(currentComponents)) {
+          return;
+        }
+
         const colors = await assignComponentColors(
           dimData.components,
           ctx.config,

@@ -29,7 +29,12 @@ export async function runIdentifyComponents(ctx: WorkflowState, onlyDims?: strin
         let components: string[];
 
         if (customComponents && customComponents.length > 0) {
-          components = customComponents.map((c) => c.replace(/^-\s*/, ""));
+          const cleaned = customComponents.map((c) => c.replace(/^-\s*/, ""));
+          // Idempotent: if components already match customComponents, skip
+          if (dimData?.components?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.components)) {
+            return;
+          }
+          components = cleaned;
         } else if (config) {
           try {
             components = await identifyComponents(ctx.conversation!, config, prompt, ctx.id);

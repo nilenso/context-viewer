@@ -157,13 +157,6 @@ export async function applyPromptsToAll(
   const source = conversations.find((c) => c.id === sourceId);
   if (!source) return;
 
-  const convPrompts = {
-    customSegmentationPrompt: source.customSegmentationPrompt,
-    customSummaryPrompt: source.customSummaryPrompt,
-    customAnalysisPrompt: source.customAnalysisPrompt,
-    segmentationThreshold: source.segmentationThreshold,
-  };
-
   const targets = conversations.filter(
     (c) => c.id !== sourceId && c.status === "success" && c.conversation,
   );
@@ -172,78 +165,43 @@ export async function applyPromptsToAll(
 
   await Promise.all(
     targets.map(async (conv) => {
-      const segChanged =
-        convPrompts.customSegmentationPrompt !== conv.customSegmentationPrompt ||
-        convPrompts.segmentationThreshold !== conv.segmentationThreshold;
+      const notify: Notify = (id, update) => store.updateConversation(id, update);
+      const ctx = buildBaseContext(conv);
 
-      store.updateConversation(conv.id, convPrompts);
+      // Copy conversation-level prompts
+      ctx.customSegmentationPrompt = source.customSegmentationPrompt;
+      ctx.customSummaryPrompt = source.customSummaryPrompt;
+      ctx.customAnalysisPrompt = source.customAnalysisPrompt;
+      ctx.segmentationThreshold = source.segmentationThreshold;
 
-      if (segChanged) {
-        const notify: Notify = (id, update) => store.updateConversation(id, update);
-        const ctx = buildBaseContext(conv);
-        Object.assign(ctx, convPrompts);
-        if (source.dimensions) {
-          const dims = ctx.dimensions || {};
-          for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
-            dims[dimName] = {
-              ...(dims[dimName] || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
-              prompt: sourceDim.prompt,
-              customColoringPrompt: sourceDim.customColoringPrompt,
-              customComponents: sourceDim.customComponents,
-            };
-          }
-          ctx.dimensions = dims;
-        }
-        await runPipelineFrom(PipelineStep.Segment, ctx, notify, {
-          onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
-        });
-        return;
-      }
+      // Persist prompts immediately (summary/analysis prompts aren't pipeline outputs)
+      store.updateConversation(conv.id, {
+        customSegmentationPrompt: source.customSegmentationPrompt,
+        customSummaryPrompt: source.customSummaryPrompt,
+        customAnalysisPrompt: source.customAnalysisPrompt,
+        segmentationThreshold: source.segmentationThreshold,
+      });
 
       if (!source.dimensions) return;
 
-      const notify: Notify = (id, update) => store.updateConversation(id, update);
-      const ctx = buildBaseContext(conv);
+      // Copy dimension-level prompts, components, and colors
       const dims = ctx.dimensions || {};
-
-      const identifyDims: string[] = [];
-      const colorDims: string[] = [];
-
       for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
-        const targetDim = dims[dimName];
-
-        // Copy source dimension prompts/components into target
         dims[dimName] = {
-          ...(targetDim || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
+          ...(dims[dimName] || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
           prompt: sourceDim.prompt,
           customColoringPrompt: sourceDim.customColoringPrompt,
           customComponents: sourceDim.components?.length ? sourceDim.components : sourceDim.customComponents,
+          components: sourceDim.components || [],
+          componentColors: { ...sourceDim.componentColors },
         };
-
-        const promptChanged = sourceDim.prompt !== targetDim?.prompt;
-        const componentsChanged =
-          JSON.stringify(sourceDim.components) !== JSON.stringify(targetDim?.components) ||
-          JSON.stringify(sourceDim.customComponents) !== JSON.stringify(targetDim?.customComponents);
-        const coloringChanged = sourceDim.customColoringPrompt !== targetDim?.customColoringPrompt;
-
-        if (promptChanged || componentsChanged) {
-          identifyDims.push(dimName);
-        } else if (coloringChanged) {
-          colorDims.push(dimName);
-        }
       }
-
       ctx.dimensions = dims;
 
-      if (identifyDims.length > 0) {
-        await runPipelineFrom(PipelineStep.Identify, ctx, notify, {
-          onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
-        }, identifyDims);
-      }
-
-      if (colorDims.length > 0) {
-        await runPipelineFrom(PipelineStep.Color, ctx, notify, undefined, colorDims);
-      }
+      // Run full pipeline — each step skips if its inputs match its outputs
+      await runPipelineFrom(PipelineStep.Segment, ctx, notify, {
+        onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
+      });
     }),
   );
 }

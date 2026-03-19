@@ -25,6 +25,22 @@ export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: strin
         const dimData = dims[dimName];
         if (!dimData || !config || !dimData.components?.length) return;
 
+        // Idempotent: if mapping already covers all parts and maps to current components, skip
+        const mapping = dimData.componentMapping;
+        if (mapping && Object.keys(mapping).length > 0) {
+          const allPartIds = ctx.conversation!.messages.flatMap(m => m.parts.map(p => p.id));
+          const partIdSet = new Set(allPartIds);
+          const componentSet = new Set(dimData.components);
+          const hasOther = componentSet.has("other");
+          // Mapping keys must reference current part IDs (not stale from a previous segmentation)
+          const mappingKeysValid = Object.keys(mapping).every(id => partIdSet.has(id));
+          const allClassified = allPartIds.every(id => id in mapping || hasOther);
+          const allMappedToCurrentComponents = Object.values(mapping).every(comp => componentSet.has(comp));
+          if (mappingKeysValid && allClassified && allMappedToCurrentComponents) {
+            return;
+          }
+        }
+
         const prompt = dimData.prompt;
         const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
 
