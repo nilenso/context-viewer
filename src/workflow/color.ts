@@ -25,7 +25,9 @@ export async function runAssignColors(ctx: WorkflowState, notify: Notify, onlyDi
           ctx.presetColors,
           dimData.customColoringPrompt,
         );
-        dims[dimName] = { ...dimData, componentColors: colors };
+        // Mutate in place — color and classify run in parallel on the same dimData,
+        // so replacing the object would race with runClassifyComponents.
+        dimData.componentColors = colors;
       }),
     );
 

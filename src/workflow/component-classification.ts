@@ -48,12 +48,11 @@ export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: strin
 
           const timeline = buildComponentTimeline(ctx.conversation!, mapping);
 
-          dims[dimName] = {
-            ...dimData,
-            components: finalComponents,
-            componentMapping: mapping,
-            componentTimeline: timeline,
-          };
+          // Mutate in place — classify and color run in parallel on the same dimData,
+          // so replacing the object would race with runAssignColors.
+          dimData.components = finalComponents;
+          dimData.componentMapping = mapping;
+          dimData.componentTimeline = timeline;
         } catch (e: any) {
           errors.push(`[${dimName}] Classification failed: ${e.message}`);
         }

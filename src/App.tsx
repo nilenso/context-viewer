@@ -296,6 +296,11 @@ export default function App() {
       };
       (window as any).__debug = {
         conversation: conversationWithComponents,
+        selectedConversation,
+        dimensions: selectedConversation.dimensions,
+        defaultDim: getDefaultDimension(selectedConversation),
+        allConversations: () => useConversationStore.getState().conversations,
+        store: () => useConversationStore.getState(),
         summary: selectedConversation.summary,
         msg: (index: number) => conversationWithComponents.messages[index],
         part: (msgIndex: number, partIndex: number) =>
