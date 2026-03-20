@@ -13,6 +13,16 @@ import { useUrlStore } from "@/stores/url-store";
 import type { WorkflowState } from "@/workflow/types";
 import { PipelineStep } from "@/workflow/types";
 import { ensureDimensions } from "@/workflow/dimensions";
+import { buildSessionExport, downloadExport, exportPromptsAsPreset } from "@/lib/export-builder";
+import {
+  reprocessTarget,
+  applyPromptsToAll,
+  generateAnalysisForTarget,
+  generateSummaryForTarget,
+  rerunSummaryForTarget,
+  resumeWorkflowsWithApiKey,
+  type StoreAccessor,
+} from "@/workflow/orchestrate";
 import {
   getDefaultComponentIdentificationPrompt,
   getDefaultSegmentationPrompt,
@@ -22,13 +32,26 @@ import {
 } from "@/prompts";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "@/segmentation";
 
+// ---- Store accessor for orchestration ----
+
+function getAccessor(): StoreAccessor {
+  const store = useConversationStore;
+  return {
+    getState: () => store.getState(),
+    updateConversation: (id, update) => store.getState().updateConversation(id, update),
+    updateGroup: (id, update) => store.getState().updateGroup(id, update),
+    appendSummaryChunk: (id, chunk) => store.getState().appendSummaryChunk(id, chunk),
+    appendAnalysisChunk: (id, chunk) => store.getState().appendAnalysisChunk(id, chunk),
+    set: store.setState,
+  };
+}
+
 // ---- Helpers (no hooks, pure store access) ----
 
 function navigateToId(id: string | null) {
   if (id === null) {
     const basePath = import.meta.env.BASE_URL || "/";
     window.history.replaceState({}, "", basePath);
-    // Also clear the store state
     useUrlStore.getState()._syncFromUrl();
   } else {
     const isGroup = !!useConversationStore.getState().groups[id];
@@ -39,11 +62,6 @@ function navigateToId(id: string | null) {
 function getOnAnalysisChunk() {
   return (id: string, chunk: string) =>
     useConversationStore.getState().appendAnalysisChunk(id, chunk);
-}
-
-function getOnSummaryChunk() {
-  return (id: string, chunk: string) =>
-    useConversationStore.getState().appendSummaryChunk(id, chunk);
 }
 
 // ---- Reprocessing actions ----
@@ -60,7 +78,8 @@ export async function reprocessComponents(
   ui.setReprocessingId(id);
 
   try {
-    await store.handleReprocessTarget(
+    await reprocessTarget(
+      getAccessor(),
       id,
       PipelineStep.Identify,
       (ctx) => {
@@ -93,7 +112,8 @@ export async function reprocessSegmentation(
   ui.setReprocessingId(id);
 
   try {
-    await store.handleReprocessTarget(
+    await reprocessTarget(
+      getAccessor(),
       id,
       PipelineStep.Segment,
       (ctx) => {
@@ -119,7 +139,7 @@ export async function reprocessSummary(
   const id = selectedConversation.id;
   ui.setReprocessingId(id);
   try {
-    await store.handleRerunSummary(selectedConversation, options);
+    await rerunSummaryForTarget(getAccessor(), selectedConversation, options);
   } catch (error) {
     console.error("Failed to reprocess summary:", error);
     store.updateConversation(id, { status: "failed", step: undefined, error: "Summary reprocessing failed" });
@@ -141,7 +161,7 @@ export async function generateAnalysis(
 
   ui.setReprocessingId(id);
   try {
-    await store.handleGenerateAnalysis(id, conv, options);
+    await generateAnalysisForTarget(getAccessor(), id, conv, options);
   } catch (error) {
     console.error("Failed to generate analysis:", error);
     if (!group) store.updateConversation(id, { status: "failed", step: undefined, error: "Analysis generation failed" });
@@ -163,7 +183,7 @@ export async function generateSummary(
 
   ui.setReprocessingId(id);
   try {
-    await store.handleGenerateSummary(id, conv, options);
+    await generateSummaryForTarget(getAccessor(), id, conv, options);
   } catch (error) {
     console.error("Failed to generate summary:", error);
     if (!group) store.updateConversation(id, { status: "failed", step: undefined, error: "Summary generation failed" });
@@ -291,7 +311,8 @@ export async function applyPrompt(selectedConversation: WorkflowState | undefine
 
   ui.setReprocessingId(id);
   try {
-    await store.handleReprocessTarget(
+    await reprocessTarget(
+      getAccessor(),
       id,
       PipelineStep.Identify,
       (ctx) => {
@@ -342,7 +363,8 @@ export async function applyComponents(selectedConversation: WorkflowState | unde
 
   ui.setReprocessingId(id);
   try {
-    await store.handleReprocessTarget(
+    await reprocessTarget(
+      getAccessor(),
       id,
       PipelineStep.Identify,
       (ctx) => {
@@ -416,7 +438,8 @@ export async function applyColoringPrompt(selectedConversation: WorkflowState | 
   );
 
   try {
-    await store.handleReprocessTarget(
+    await reprocessTarget(
+      getAccessor(),
       id,
       PipelineStep.Color,
       (ctx) => {
@@ -497,6 +520,28 @@ export function renameDimension(selectedConversationId: string, oldName: string,
   ui.setActiveDimensions(next);
 }
 
+// ---- Orchestration actions (called directly from UI) ----
+
+export function applyPromptsToAllAction(sourceId: string) {
+  return applyPromptsToAll(getAccessor(), sourceId);
+}
+
+export function resumeWorkflowsWithApiKeyAction() {
+  resumeWorkflowsWithApiKey(getAccessor());
+}
+
+// ---- Export actions ----
+
+export function exportSession() {
+  const { conversations, groups } = useConversationStore.getState();
+  downloadExport(buildSessionExport(conversations, groups));
+}
+
+export function exportPromptsAsPresetAction(sourceId: string) {
+  const source = useConversationStore.getState().conversations.find((c) => c.id === sourceId);
+  if (source) exportPromptsAsPreset(source);
+}
+
 // ---- Navigation wrappers ----
 
 export function groupConversations(
@@ -506,9 +551,10 @@ export function groupConversations(
   groupTitle?: string,
 ) {
   const store = useConversationStore.getState();
-  const ids = idsToGroup || [...store.selectedIds];
+  const ui = useUIStore.getState();
+  const ids = idsToGroup || [...ui.selectedIds];
   if (ids.length < 2) return;
-  if (!idsToGroup) store.clearSelection();
+  if (!idsToGroup) ui.clearSelection();
   const groupId = store.groupConversations(ids, groupName, existingGroupId, groupTitle);
   if (groupId) navigateToId(groupId);
 }

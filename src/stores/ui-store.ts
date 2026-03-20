@@ -7,9 +7,20 @@ import {
   getDefaultColoringPrompt,
 } from "../prompts";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "../segmentation";
+import { hasApiKey } from "../ai-config";
 import type { PresetConfig, PresetSummary } from "../lib/preset-loader";
 
 interface UIStore {
+  // Selection state
+  selectedIds: Set<string>;
+  toggleSelect: (id: string, isSelected: boolean) => void;
+  clearSelection: () => void;
+  selectAll: (ids: string[]) => void;
+
+  // API key state
+  hasApiKeyState: boolean;
+  setHasApiKeyState: (value: boolean) => void;
+
   // Prompt editor dialog state
   isPromptDialogOpen: boolean;
   editingPrompt: string;
@@ -82,6 +93,22 @@ interface UIStore {
 }
 
 export const useUIStore = create<UIStore>((set) => ({
+  // Selection state
+  selectedIds: new Set(),
+  toggleSelect: (id, isSelected) =>
+    set((state) => {
+      const next = new Set(state.selectedIds);
+      if (isSelected) next.add(id);
+      else next.delete(id);
+      return { selectedIds: next };
+    }),
+  clearSelection: () => set({ selectedIds: new Set() }),
+  selectAll: (ids) => set({ selectedIds: new Set(ids) }),
+
+  // API key state
+  hasApiKeyState: hasApiKey(),
+  setHasApiKeyState: (value) => set({ hasApiKeyState: value }),
+
   // Prompt editor
   isPromptDialogOpen: false,
   editingPrompt: getDefaultComponentIdentificationPrompt(),

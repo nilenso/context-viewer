@@ -60,6 +60,8 @@ import {
   updateGroupSources,
   exportSession,
   exportPromptsAsPresetAction,
+  applyPromptsToAllAction,
+  resumeWorkflowsWithApiKeyAction,
 } from "@/hooks/useWorkflowActions";
 
 export function ConversationList() {
@@ -1023,7 +1025,7 @@ export function ConversationList() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                useConversationStore.getState().handleApplyPromptsToAll(conversation.id);
+                                applyPromptsToAllAction(conversation.id);
                               }}
                               className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
                             >
@@ -1091,7 +1093,7 @@ export function ConversationList() {
       <ApiKeyInput
         onApiKeyChange={(hasKey) => useUIStore.getState().setHasApiKeyState(hasKey)}
         pausedWorkflowCount={pausedWorkflowCount}
-        onResumeWorkflows={() => useConversationStore.getState().handleResumeWorkflowsWithApiKey()}
+        onResumeWorkflows={() => resumeWorkflowsWithApiKeyAction()}
       />
 
       {/* Workflow Detail Modal */}

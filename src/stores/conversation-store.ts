@@ -1,20 +1,10 @@
 import { create } from "zustand";
-import type { WorkflowState, WorkflowCallbacks, WorkflowOptions } from "../workflow/types";
-import { PipelineStep } from "../workflow/types";
+import type { WorkflowState, WorkflowOptions } from "../workflow/types";
 import type { Group } from "../workflow/types";
-import { hasApiKey } from "../ai-config";
 import { generateId } from "../lib/id-generator";
-import { buildSessionExport, downloadExport, exportPromptsAsPreset } from "../lib/export-builder";
 import { parseFileDropInput } from "../lib/file-import";
 import {
   runWorkflowMutation,
-  reprocessWithRunner,
-  reprocessTarget,
-  applyPromptsToAll,
-  generateAnalysisForTarget,
-  generateSummaryForTarget,
-  rerunSummaryForTarget,
-  resumeWorkflowsWithApiKey,
   type StoreAccessor,
 } from "../workflow/orchestrate";
 
@@ -22,13 +12,11 @@ interface ConversationStore {
   // ---- State ----
   conversations: WorkflowState[];
   groups: Record<string, Group>;
-  selectedIds: Set<string>;
   fileIdsRef: Map<number, string>;
   pendingSessionImport: {
     oldIdToIndex: Map<string, number>;
     groups: Array<{ id: string; name: string; title?: string; fileIds: string[] }>;
   } | null;
-  hasApiKeyState: boolean;
 
   // ---- Getters ----
   getConversation: (id: string) => WorkflowState | undefined;
@@ -44,11 +32,6 @@ interface ConversationStore {
   appendSummaryChunk: (id: string, chunk: string) => void;
   appendAnalysisChunk: (id: string, chunk: string) => void;
 
-  // Selection
-  toggleSelect: (id: string, isSelected: boolean) => void;
-  clearSelection: () => void;
-  selectAll: (ids: string[]) => void;
-
   // CRUD
   renameConversation: (id: string, newTitle: string) => void;
   deleteConversation: (id: string) => void;
@@ -58,31 +41,9 @@ interface ConversationStore {
   removeGroup: (id: string) => void;
   updateGroup: (id: string, update: Partial<Group>) => void;
 
-  // ---- Actions (no navigation — callers handle selection) ----
+  // ---- Actions ----
   runWorkflows: (files: File[], presetIds?: Map<number, string>, options?: WorkflowOptions) => Promise<void>;
   groupConversations: (ids: string[], name?: string, existingId?: string, title?: string) => string;
-  handleReprocessWithRunner: (
-    conv: WorkflowState,
-    startFrom: PipelineStep,
-    contextModifier: (ctx: WorkflowState) => void,
-    callbacks: WorkflowCallbacks,
-    dimNames?: string[],
-  ) => Promise<void>;
-  handleReprocessTarget: (
-    targetId: string,
-    startFrom: PipelineStep,
-    contextModifier: (ctx: WorkflowState) => void,
-    callbacks: WorkflowCallbacks,
-    dimNames?: string[],
-  ) => Promise<void>;
-  handleGenerateAnalysis: (id: string, conv: WorkflowState, options?: { customAnalysisPrompt?: string }) => Promise<void>;
-  handleGenerateSummary: (id: string, conv: WorkflowState, options?: { customSummaryPrompt?: string }) => Promise<void>;
-  handleRerunSummary: (conv: WorkflowState, options?: { customSummaryPrompt?: string }) => Promise<void>;
-  handleApplyPromptsToAll: (sourceId: string) => Promise<void>;
-  handleExportPromptsAsPreset: (sourceId: string) => void;
-  handleExportSession: () => void;
-  handleResumeWorkflowsWithApiKey: () => void;
-  setHasApiKeyState: (value: boolean) => void;
   processPendingGroups: () => void;
   processFileDrop: (files: File[], loadedPreset: any) => Promise<void>;
 }
@@ -100,10 +61,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
   return {
     conversations: [],
     groups: {},
-    selectedIds: new Set(),
     fileIdsRef: new Map(),
     pendingSessionImport: null,
-    hasApiKeyState: hasApiKey(),
 
     // ---- Getters ----
     getConversation: (id) => get().conversations.find((c) => c.id === id),
@@ -146,17 +105,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           c.id === id ? { ...c, analysis: (c.analysis || "") + chunk } : c,
         ),
       })),
-
-    toggleSelect: (id, isSelected) =>
-      set((state) => {
-        const next = new Set(state.selectedIds);
-        if (isSelected) next.add(id);
-        else next.delete(id);
-        return { selectedIds: next };
-      }),
-
-    clearSelection: () => set({ selectedIds: new Set() }),
-    selectAll: (ids) => set({ selectedIds: new Set(ids) }),
 
     renameConversation: (id, newTitle) => {
       const title = newTitle || undefined;
@@ -227,42 +175,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
       return get().createGroup(validIds, groupName, existingId, title);
     },
-
-    handleReprocessWithRunner: async (conv, startFrom, contextModifier, callbacks, dimNames?) => {
-      await reprocessWithRunner(accessor, conv, startFrom, contextModifier, callbacks, dimNames);
-    },
-
-    handleReprocessTarget: async (targetId, startFrom, contextModifier, callbacks, dimNames?) => {
-      await reprocessTarget(accessor, targetId, startFrom, contextModifier, callbacks, dimNames);
-    },
-
-    handleGenerateAnalysis: async (id, conv, options) => {
-      await generateAnalysisForTarget(accessor, id, conv, options);
-    },
-
-    handleGenerateSummary: async (id, conv, options) => {
-      await generateSummaryForTarget(accessor, id, conv, options);
-    },
-
-    handleRerunSummary: async (conv, options) => {
-      await rerunSummaryForTarget(accessor, conv, options);
-    },
-
-    handleApplyPromptsToAll: (sourceId) => applyPromptsToAll(accessor, sourceId),
-
-    handleExportPromptsAsPreset: (sourceId) => {
-      const source = get().conversations.find((c) => c.id === sourceId);
-      if (source) exportPromptsAsPreset(source);
-    },
-
-    handleExportSession: () => {
-      const { conversations, groups } = get();
-      downloadExport(buildSessionExport(conversations, groups));
-    },
-
-    handleResumeWorkflowsWithApiKey: () => resumeWorkflowsWithApiKey(accessor),
-
-    setHasApiKeyState: (value) => set({ hasApiKeyState: value }),
 
     processPendingGroups: () => {
       const { pendingSessionImport, conversations, fileIdsRef } = get();
