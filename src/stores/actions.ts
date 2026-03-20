@@ -12,7 +12,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { useUrlStore } from "@/stores/url-store";
 import type { PipelineState } from "@/model/types";
 import { PipelineStep } from "@/model/types";
-import { ensureDimensions } from "@/model/dimensions";
+import { ensureDimensions, createEmptyDimension } from "@/model/dimensions";
 import { buildSessionExport } from "@/operations/export-builder";
 import { downloadExport, exportPromptsAsPreset } from "@/ui/lib/export-download";
 import {
@@ -86,7 +86,7 @@ export async function reprocessComponents(
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
-          dims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          dims[dimName] = createEmptyDimension(dimName);
         }
         if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
         if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
@@ -297,14 +297,7 @@ export async function applyPrompt(selectedConversation: PipelineState | undefine
       if (dims[dimName]) {
         dims[dimName] = { ...dims[dimName]!, prompt: ui.editingPrompt };
       } else {
-        dims[dimName] = {
-          name: dimName,
-          prompt: ui.editingPrompt,
-          discoveredComponents: [],
-          componentMapping: {},
-          componentTimeline: [],
-          componentColors: {},
-        };
+        dims[dimName] = { ...createEmptyDimension(dimName), prompt: ui.editingPrompt };
       }
       return { ...conv, dimensions: dims };
     }),
@@ -319,7 +312,7 @@ export async function applyPrompt(selectedConversation: PipelineState | undefine
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
-          dims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          dims[dimName] = createEmptyDimension(dimName);
         }
         dims[dimName]!.prompt = ui.editingPrompt;
       },
@@ -470,7 +463,7 @@ export function addDimension(selectedConversationId: string, name: string) {
     prev.map((conv) => {
       if (conv.id !== selectedConversationId) return conv;
       const dims = { ...(conv.dimensions || {}) };
-      dims[name] = { name, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+      dims[name] = createEmptyDimension(name);
       return { ...conv, dimensions: dims };
     }),
   );

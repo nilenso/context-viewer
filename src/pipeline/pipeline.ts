@@ -28,7 +28,7 @@ import {
   timed,
 } from "./notify";
 import { hasApiKey, getAIConfig } from "@/stages/ai/config";
-import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
+import { ensureDimensions, ensureDimension, getDimensionNames } from "@/model/dimensions";
 
 import { runParse, restorePreProcessedImport } from "@/stages/parse";
 import { runCountTokens, runStaticComponents } from "@/stages/count-tokens";
@@ -67,12 +67,16 @@ export async function runDimensionSteps(
     const config = getAIConfig("Componentisation");
     const errors: string[] = [];
 
+    // Ensure each active dimension has an entry (new files start with empty dimensions)
+    for (const dimName of activeDimNames) {
+      ensureDimension(dims, dimName);
+    }
+
     if (startFrom <= PipelineStep.Identify) {
       const { timing } = await timed(async () => {
         await Promise.all(
           activeDimNames.map(async (dimName) => {
-            const dimData = dims[dimName];
-            if (!dimData) return;
+            const dimData = dims[dimName]!;
             const result = await identifyForDimension(
               ctx.conversation!, dimData, config, ctx.id,
             );
@@ -87,8 +91,8 @@ export async function runDimensionSteps(
     const { timing: classifyTiming } = await timed(async () => {
       await Promise.all(
         activeDimNames.map(async (dimName) => {
-          const dimData = dims[dimName];
-          if (!dimData || !config) return;
+          const dimData = dims[dimName]!;
+          if (!config) return;
 
           const [classifyResult, colorResult] = await Promise.all([
             classifyForDimension(ctx.conversation!, dimData, config, ctx.id),

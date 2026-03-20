@@ -20,6 +20,31 @@ export function getDimensionNames(ctx: PipelineState): string[] {
   return Object.keys(ctx.dimensions);
 }
 
+/** Create an empty DimensionData for a given name. */
+export function createEmptyDimension(name: string): DimensionData {
+  return {
+    name,
+    discoveredComponents: [],
+    componentMapping: {},
+    componentTimeline: [],
+    componentColors: {},
+  };
+}
+
+/**
+ * Ensure a specific dimension exists in the record, creating it if missing.
+ * Returns the (possibly new) DimensionData.
+ */
+export function ensureDimension(
+  dims: Record<string, DimensionData>,
+  name: string,
+): DimensionData {
+  if (!dims[name]) {
+    dims[name] = createEmptyDimension(name);
+  }
+  return dims[name];
+}
+
 // ---------------------------------------------------------------------------
 // Accessor helpers — centralizes "which dimension am I looking at?"
 // ---------------------------------------------------------------------------

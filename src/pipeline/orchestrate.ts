@@ -19,6 +19,7 @@ import {
   markComplete,
   markFailed,
 } from "./notify";
+import { createEmptyDimension } from "@/model/dimensions";
 import { runDimensionSteps, processNewFile, resumeFromPause } from "./pipeline";
 import { runSummary } from "@/stages/summarize";
 import { runAnalysis, runEnsureSummaryThenAnalysis, regenerateAnalysisIfNeeded } from "@/stages/analyze";
@@ -214,7 +215,7 @@ export async function applyPromptsToAll(
       const dims = ctx.dimensions || {};
       for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
         dims[dimName] = {
-          ...(dims[dimName] || { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
+          ...(dims[dimName] || createEmptyDimension(dimName)),
           prompt: sourceDim.prompt,
           customColoringPrompt: sourceDim.customColoringPrompt,
           customComponents: sourceDim.discoveredComponents?.length ? sourceDim.discoveredComponents : sourceDim.customComponents,
@@ -319,13 +320,9 @@ export async function runPipelines(
         customSegmentationPrompt: options?.customSegmentationPrompt,
         dimensions: (options?.customPrompt || options?.customComponents) ? {
           default: {
-            name: "default",
+            ...createEmptyDimension("default"),
             prompt: options?.customPrompt,
             customComponents: options?.customComponents,
-            discoveredComponents: [],
-            componentMapping: {},
-            componentTimeline: [],
-            componentColors: {},
           },
         } : undefined,
       };

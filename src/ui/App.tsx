@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { useUrlStore } from "@/stores/url-store";
 import type { InsightsTab } from "@/stores/url-store";
 import type { PipelineState } from "@/model/types";
-import { getDefaultDimension, getAllComponents } from "@/model/dimensions";
+import { getDefaultDimension, getAllComponents, createEmptyDimension } from "@/model/dimensions";
 import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { aggregateComponentTokens } from "@/operations/aggregation";
 import { ConversationList } from "./components/ConversationList";
@@ -89,7 +89,7 @@ export default function App() {
       if (!conv.dimensions) continue;
       for (const [dimName, dim] of Object.entries(conv.dimensions)) {
         if (!mergedDims[dimName]) {
-          mergedDims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          mergedDims[dimName] = createEmptyDimension(dimName);
         }
         const merged = mergedDims[dimName]!;
         for (const c of dim.discoveredComponents) {
