@@ -1,24 +1,25 @@
 /**
- * Pipeline: declarative stage chain for processing conversation files.
+ * Pipeline: imperative stage chain for processing conversation files.
  *
- * The PIPELINE array defines the stages, their order, scope, and outputs.
- * runPipeline() executes them with middleware for logging, timing, and
- * store notifications.
+ * The pipeline reads top-to-bottom like pseudocode.
+ * Each stage is pure — returns results, never mutates ctx directly.
+ * The `run` wrapper handles logging, timing, and store notifications.
  *
- * Stages are pure — they return results, the runner merges them into ctx.
- * Stages never import from pipeline/.
+ * This file also contains all orchestration: batch processing,
+ * reprocessing, and on-demand summary/analysis.
  */
 
 import type {
   PipelineState,
   PipelineCallbacks,
   PipelineDataField,
-  DimensionData,
+  PipelineOptions,
+  PipelineBatchResult,
+  Group,
   Stage,
   StageGroup,
 } from "@/model/types";
-import type { Conversation } from "@/model/schema";
-import type { AIConfig } from "@/stages/ai/config";
+import { PipelineStep } from "@/model/types";
 import {
   type Notify,
   updateState,
@@ -28,7 +29,8 @@ import {
 } from "./notify";
 import { markStepStart, markStepEnd } from "./logging";
 import { hasApiKey, getAIConfig } from "@/stages/ai/config";
-import { ensureDimensions, ensureDimension, getDimensionNames } from "@/model/dimensions";
+import { ensureDimensions, ensureDimension, getDimensionNames, createEmptyDimension } from "@/model/dimensions";
+import { generateId } from "@/lib/id-generator";
 
 import { parse, restorePreProcessedImport } from "@/stages/parse";
 import { countTokens } from "@/stages/count-tokens";
@@ -36,307 +38,68 @@ import { segment } from "@/stages/segment";
 import { identifyForDimension } from "@/stages/identify-components";
 import { classifyForDimension } from "@/stages/classify-components";
 import { colorForDimension } from "@/stages/color-components";
+import { runSummary } from "@/stages/summarize";
+import { runAnalysis, runEnsureSummaryThenAnalysis, regenerateAnalysisIfNeeded } from "@/stages/analyze";
 
 // ---------------------------------------------------------------------------
-// Stage descriptor types
+// Stage runner — wraps a stage with logging, timing, and status notification
 // ---------------------------------------------------------------------------
 
-type ConversationStageRunner = (
+async function run<T>(
+  name: Stage,
+  group: StageGroup,
   ctx: PipelineState,
-) => Promise<Partial<PipelineState> & { warnings?: string[] }>;
+  notify: Notify,
+  fn: () => Promise<T>,
+): Promise<T> {
+  markStepStart(ctx.id, name);
+  notify(ctx.id, { status: "processing", step: group });
+  const start = Date.now();
+  const result = await fn();
+  ctx.stepTimings![name] = Math.round((Date.now() - start) / 1000);
+  markStepEnd(ctx.id, name);
+  return result;
+}
 
-type DimensionStageRunner = (
-  conversation: Conversation,
-  dimData: DimensionData,
-  config: AIConfig,
-  conversationId?: string,
-) => Promise<{ result: Partial<DimensionData>; error?: string }>;
+/** Merge a conversation stage result (with optional warnings) into ctx. */
+function merge(ctx: PipelineState, result: Partial<PipelineState> & { warnings?: string[] }) {
+  const { warnings, ...fields } = result;
+  Object.assign(ctx, fields);
+  if (warnings) ctx.warnings!.push(...warnings);
+}
 
-export interface StageDescriptor {
-  name: Stage;
-  group: StageGroup;
-  scope: "conversation" | "dimension";
-  run: ConversationStageRunner | DimensionStageRunner;
-  emits: readonly PipelineDataField[];
-  /** Name of another stage to run in parallel with. */
-  parallel?: Stage;
+/** Push state to the store after a stage completes. */
+function push(notify: Notify, ctx: PipelineState, fields: readonly PipelineDataField[], nextStep?: StageGroup) {
+  updateState(notify, ctx, fields, nextStep);
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline definition
+// The pipeline — imperative, reads top-to-bottom
 // ---------------------------------------------------------------------------
-
-export const PIPELINE: StageDescriptor[] = [
-  {
-    name: "parsing",
-    group: "parsing",
-    scope: "conversation",
-    run: parse,
-    emits: ["conversation", "summary", "metadata"],
-  },
-  {
-    name: "counting-tokens",
-    group: "counting-tokens",
-    scope: "conversation",
-    run: countTokens,
-    emits: ["conversation", "staticComponents", "staticMapping", "staticTimeline"],
-  },
-  {
-    name: "segmenting",
-    group: "segmenting",
-    scope: "conversation",
-    run: segment,
-    emits: ["conversation", "customSegmentationPrompt"],
-  },
-  {
-    name: "identifying-components",
-    group: "finding-components",
-    scope: "dimension",
-    run: identifyForDimension,
-    emits: ["dimensions"],
-  },
-  {
-    name: "classifying-components",
-    group: "finding-components",
-    scope: "dimension",
-    run: classifyForDimension,
-    emits: ["dimensions"],
-    parallel: "coloring",
-  },
-  {
-    name: "coloring",
-    group: "finding-components",
-    scope: "dimension",
-    // colorForDimension has extra presetColors param — runner calls it directly,
-    // not through the DimensionStageRunner interface. Cast is for array type only.
-    run: colorForDimension as unknown as DimensionStageRunner,
-    emits: ["dimensions"],
-    parallel: "classifying-components",
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Collect emitted fields for all stages from startIndex..endIndex inclusive. */
-function collectEmittedFields(startIndex: number, endIndex: number): PipelineDataField[] {
-  const fields = new Set<PipelineDataField>();
-  for (let i = startIndex; i <= endIndex; i++) {
-    for (const f of PIPELINE[i]!.emits) fields.add(f);
-  }
-  return [...fields];
-}
-
-/** Find stage index by name. */
-function stageIndex(name: Stage): number {
-  const idx = PIPELINE.findIndex(s => s.name === name);
-  if (idx === -1) throw new Error(`Unknown stage: ${name}`);
-  return idx;
-}
-
-// Pre-computed field lists (derived from PIPELINE, not hand-maintained)
-const API_KEY_GATE_INDEX = stageIndex("segmenting");
-const PRE_API_KEY_FIELDS: PipelineDataField[] = collectEmittedFields(0, API_KEY_GATE_INDEX - 1);
-const ALL_PIPELINE_FIELDS: PipelineDataField[] = collectEmittedFields(0, PIPELINE.length - 1);
-
-// ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
-
-interface RunOptions {
-  startFrom?: Stage;
-  dimNames?: string[];
-  notify: Notify;
-  /** Extra args passed to dimension stages (e.g. presetColors for coloring). */
-  presetColors?: Record<string, string>;
-}
 
 /**
- * Run the pipeline from startFrom through the end.
- * Merges stage results into ctx. Applies middleware (logging, timing, store updates).
- * Throws on error — callers handle markFailed.
+ * Run the pipeline from `startFrom` through the end.
+ *
+ * Parse → CountTokens → Segment → Identify → (Classify ∥ Color)
+ *
+ * Each stage returns results. The pipeline merges them into ctx.
+ * Dimension stages run per-dimension in parallel.
+ * Classify and Color run in parallel within each dimension.
  */
 async function runPipeline(
   ctx: PipelineState,
-  options: RunOptions,
-): Promise<void> {
-  const { notify, dimNames, presetColors } = options;
-  const startIdx = options.startFrom ? stageIndex(options.startFrom) : 0;
-  const config = getAIConfig("Componentisation");
-
-  // Group parallel stages so we can run them together
-  const processed = new Set<number>();
-
-  for (let i = startIdx; i < PIPELINE.length; i++) {
-    if (processed.has(i)) continue;
-
-    const stage = PIPELINE[i]!;
-
-    // Find parallel partner if any
-    const parallelIdx = stage.parallel
-      ? PIPELINE.findIndex((s, j) => j > i && s.name === stage.parallel)
-      : -1;
-    const parallelStage = parallelIdx >= 0 ? PIPELINE[parallelIdx]! : undefined;
-
-    if (parallelStage) {
-      processed.add(parallelIdx);
-      await runParallelDimensionStages(
-        [stage, parallelStage], ctx, notify, config, dimNames, presetColors,
-      );
-    } else if (stage.scope === "conversation") {
-      await runConversationStage(stage, ctx, notify);
-    } else {
-      await runDimensionStage(stage, ctx, notify, config, dimNames, presetColors);
-    }
-
-    // Notify store with accumulated state
-    const lastIdx = parallelStage ? Math.max(i, parallelIdx) : i;
-    const nextStage = findNextStage(lastIdx, processed);
-    updateState(notify, ctx, collectEmittedFields(startIdx, lastIdx), nextStage?.group);
-  }
-}
-
-function findNextStage(afterIdx: number, processed: Set<number>): StageDescriptor | undefined {
-  for (let j = afterIdx + 1; j < PIPELINE.length; j++) {
-    if (!processed.has(j)) return PIPELINE[j];
-  }
-  return undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Stage executors (middleware is inlined — logging, timing, status)
-// ---------------------------------------------------------------------------
-
-async function runConversationStage(
-  stage: StageDescriptor,
-  ctx: PipelineState,
   notify: Notify,
-): Promise<void> {
-  markStepStart(ctx.id, stage.name);
-  notify(ctx.id, { status: "processing", step: stage.group });
-
-  const start = Date.now();
-  const result = await (stage.run as ConversationStageRunner)(ctx);
-  const timing = Math.round((Date.now() - start) / 1000);
-
-  const { warnings: stageWarnings, ...fields } = result;
-  Object.assign(ctx, fields);
-  if (stageWarnings) ctx.warnings!.push(...stageWarnings);
-  ctx.stepTimings![stage.name] = timing;
-
-  markStepEnd(ctx.id, stage.name);
-}
-
-async function runDimensionStage(
-  stage: StageDescriptor,
-  ctx: PipelineState,
-  notify: Notify,
-  config: AIConfig | null,
+  startFrom: PipelineStep = PipelineStep.Parse,
   dimNames?: string[],
-  presetColors?: Record<string, string>,
 ): Promise<void> {
-  markStepStart(ctx.id, stage.name);
-  notify(ctx.id, { status: "processing", step: stage.group });
+  // --- Conversation-level stages ---
 
-  const dims = ensureDimensions(ctx);
-  const activeDimNames = dimNames ?? getDimensionNames(ctx);
-  for (const name of activeDimNames) ensureDimension(dims, name);
-  const errors: string[] = [];
+  if (startFrom <= PipelineStep.Parse && !ctx.conversation) {
+    merge(ctx, await run("parsing", "parsing", ctx, notify, () => parse(ctx)));
+    push(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
 
-  const start = Date.now();
-  await Promise.all(
-    activeDimNames.map(async (dimName) => {
-      const dimData = dims[dimName]!;
-      if (!config) return;
-
-      const runFn = stage.run as DimensionStageRunner;
-      const { result, error } = stage.name === "coloring"
-        ? await colorForDimension(dimData, config, ctx.id, presetColors)
-        : await runFn(ctx.conversation!, dimData, config, ctx.id);
-
-      Object.assign(dimData, result);
-      if (error) errors.push(`[${dimName}] ${error}`);
-    }),
-  );
-  const timing = Math.round((Date.now() - start) / 1000);
-
-  ctx.dimensions = dims;
-  ctx.stepTimings![stage.name] = timing;
-  if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
-
-  markStepEnd(ctx.id, stage.name);
-}
-
-async function runParallelDimensionStages(
-  stages: StageDescriptor[],
-  ctx: PipelineState,
-  notify: Notify,
-  config: AIConfig | null,
-  dimNames?: string[],
-  presetColors?: Record<string, string>,
-): Promise<void> {
-  for (const stage of stages) markStepStart(ctx.id, stage.name);
-  notify(ctx.id, { status: "processing", step: stages[0]!.group });
-
-  const dims = ensureDimensions(ctx);
-  const activeDimNames = dimNames ?? getDimensionNames(ctx);
-  for (const name of activeDimNames) ensureDimension(dims, name);
-  const errors: string[] = [];
-
-  const start = Date.now();
-  await Promise.all(
-    activeDimNames.map(async (dimName) => {
-      const dimData = dims[dimName]!;
-      if (!config) return;
-
-      // Run all parallel stages for this dimension concurrently
-      const results = await Promise.all(
-        stages.map(stage =>
-          stage.name === "coloring"
-            ? colorForDimension(dimData, config, ctx.id, presetColors)
-            : (stage.run as DimensionStageRunner)(ctx.conversation!, dimData, config, ctx.id),
-        ),
-      );
-
-      // Merge all results after both complete — no race
-      for (const { result, error } of results) {
-        Object.assign(dimData, result);
-        if (error) errors.push(`[${dimName}] ${error}`);
-      }
-    }),
-  );
-  const timing = Math.round((Date.now() - start) / 1000);
-
-  ctx.dimensions = dims;
-  for (const stage of stages) {
-    ctx.stepTimings![stage.name] = timing;
-    markStepEnd(ctx.id, stage.name);
-  }
-  if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Process a new file through the full pipeline.
- */
-export async function processNewFile(
-  ctx: PipelineState,
-  notify: Notify,
-  _callbacks: PipelineCallbacks,
-): Promise<void> {
-  try {
-    // --- Parse ---
-    await runConversationStage(PIPELINE[0]!, ctx, notify);
-    updateState(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
-
-    // --- Pre-processed import short-circuit ---
     if (ctx.metadata!.parserName === "Context Viewer") {
-      const restored = restorePreProcessedImport(ctx.metadata!, ctx.conversation!);
-      Object.assign(ctx, restored);
+      Object.assign(ctx, restorePreProcessedImport(ctx.metadata!, ctx.conversation!));
       markComplete(notify, ctx, [
         "conversation", "summary", "metadata", "title",
         "aiSummary", "analysis", "dimensions",
@@ -345,73 +108,486 @@ export async function processNewFile(
       ]);
       return;
     }
+  }
 
-    // --- Count tokens ---
-    await runConversationStage(PIPELINE[1]!, ctx, notify);
+  if (startFrom <= PipelineStep.CountTokens && !ctx.staticComponents) {
+    merge(ctx, await run("counting-tokens", "counting-tokens", ctx, notify, () => countTokens(ctx)));
+  }
 
-    // --- API key gate ---
-    if (!hasApiKey()) {
-      markPausedForApiKey(notify, ctx, PRE_API_KEY_FIELDS, "segmenting");
-      return;
-    }
-    updateState(notify, ctx, PRE_API_KEY_FIELDS, "segmenting");
+  if (!hasApiKey()) {
+    markPausedForApiKey(notify, ctx, [
+      "conversation", "summary", "metadata",
+      "staticComponents", "staticMapping", "staticTimeline",
+    ], "segmenting");
+    return;
+  }
 
-    // --- Segment through Color ---
-    await runPipeline(ctx, {
-      startFrom: "segmenting",
-      notify,
-      presetColors: ctx.presetColors,
-    });
-    markComplete(notify, ctx, ALL_PIPELINE_FIELDS);
+  if (startFrom <= PipelineStep.CountTokens) {
+    push(notify, ctx, [
+      "conversation", "summary", "metadata",
+      "staticComponents", "staticMapping", "staticTimeline",
+    ], "segmenting");
+  }
+
+  if (startFrom <= PipelineStep.Segment) {
+    merge(ctx, await run("segmenting", "segmenting", ctx, notify, () => segment(ctx)));
+    push(notify, ctx, ["conversation"], "finding-components");
+  }
+
+  // --- Dimension-level stages ---
+
+  const dims = ensureDimensions(ctx);
+  const activeDimNames = dimNames ?? getDimensionNames(ctx);
+  for (const name of activeDimNames) ensureDimension(dims, name);
+  const config = getAIConfig("Componentisation");
+  if (!config) return;
+  const errors: string[] = [];
+
+  // Identify — all dimensions in parallel
+  if (startFrom <= PipelineStep.Identify) {
+    await run("identifying-components", "finding-components", ctx, notify, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const { result, error } = await identifyForDimension(
+          ctx.conversation!, dims[dimName]!, config, ctx.id,
+        );
+        Object.assign(dims[dimName]!, result);
+        if (error) errors.push(`[${dimName}] ${error}`);
+      })),
+    );
+  }
+
+  // Classify + Color — parallel per dimension, both stages parallel within each
+  if (startFrom <= PipelineStep.Classify) {
+    await run("classifying-components", "finding-components", ctx, notify, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const dim = dims[dimName]!;
+        const [classified, colored] = await Promise.all([
+          classifyForDimension(ctx.conversation!, dim, config, ctx.id),
+          colorForDimension(dim, config, ctx.id, ctx.presetColors),
+        ]);
+        Object.assign(dim, classified.result, colored.result);
+        if (classified.error) errors.push(`[${dimName}] ${classified.error}`);
+        if (colored.error) errors.push(`[${dimName}] ${colored.error}`);
+      })),
+    );
+  } else if (startFrom <= PipelineStep.Color) {
+    // Color only (e.g., reprocessing just the coloring prompt)
+    await run("coloring", "coloring", ctx, notify, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const { result, error } = await colorForDimension(
+          dims[dimName]!, config, ctx.id, ctx.presetColors,
+        );
+        Object.assign(dims[dimName]!, result);
+        if (error) errors.push(`[${dimName}] ${error}`);
+      })),
+    );
+  }
+
+  ctx.dimensions = dims;
+  if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
+  push(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
+}
+
+// ---------------------------------------------------------------------------
+// Store accessor
+// ---------------------------------------------------------------------------
+
+export interface StoreAccessor {
+  getState: () => {
+    conversations: PipelineState[];
+    groups: Record<string, Group>;
+    pendingSessionImport: any;
+  };
+  updateConversation: (id: string, update: Partial<PipelineState>) => void;
+  updateGroup: (id: string, update: Partial<Group>) => void;
+  appendSummaryChunk: (id: string, chunk: string) => void;
+  appendAnalysisChunk: (id: string, chunk: string) => void;
+  set: (update: any) => void;
+}
+
+function buildBaseContext(conv: PipelineState): PipelineState {
+  return {
+    id: conv.id,
+    filename: conv.filename,
+    conversation: conv.conversation,
+    summary: conv.summary,
+    metadata: conv.metadata,
+    aiSummary: conv.aiSummary,
+    analysis: conv.analysis,
+    dimensions: conv.dimensions ? { ...conv.dimensions } : undefined,
+    staticComponents: conv.staticComponents,
+    staticMapping: conv.staticMapping,
+    staticTimeline: conv.staticTimeline,
+    customSummaryPrompt: conv.customSummaryPrompt,
+    customSegmentationPrompt: conv.customSegmentationPrompt,
+    customAnalysisPrompt: conv.customAnalysisPrompt,
+    segmentationThreshold: conv.segmentationThreshold,
+    config: conv.config || getAIConfig("Componentisation"),
+    warnings: [],
+    stepTimings: { ...conv.stepTimings },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Entry points
+// ---------------------------------------------------------------------------
+
+/** Process a new file through the full pipeline. */
+export async function processNewFile(
+  ctx: PipelineState,
+  notify: Notify,
+  _callbacks: PipelineCallbacks,
+): Promise<void> {
+  try {
+    await runPipeline(ctx, notify);
+    markComplete(notify, ctx, [
+      "conversation", "summary", "metadata", "dimensions",
+      "staticComponents", "staticMapping", "staticTimeline",
+      "customSegmentationPrompt",
+    ]);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
   }
 }
 
-/**
- * Resume from API key pause — run from Segment through Color.
- */
+/** Resume from API key pause. */
 export async function resumeFromPause(
   ctx: PipelineState,
   notify: Notify,
   _callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
-    await runPipeline(ctx, {
-      startFrom: "segmenting",
-      notify,
-      presetColors: ctx.presetColors,
-    });
+    await runPipeline(ctx, notify, PipelineStep.Segment);
     markComplete(notify, ctx, ["conversation", "dimensions"]);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
   }
 }
 
-/**
- * Run dimension steps from a given starting stage.
- * Used by orchestrate.ts for reprocessing after prompt changes.
- *
- * Accepts numeric PipelineStep for backward compatibility with callers.
- */
-export async function runDimensionSteps(
-  startFrom: number,
-  ctx: PipelineState,
-  notify: Notify,
+// ---------------------------------------------------------------------------
+// Reprocessing
+// ---------------------------------------------------------------------------
+
+/** Reprocess a target (file or group) from a given pipeline step. */
+export async function reprocessTarget(
+  store: StoreAccessor,
+  targetId: string,
+  startFrom: PipelineStep,
+  contextModifier: (ctx: PipelineState) => void,
+  callbacks: PipelineCallbacks,
   dimNames?: string[],
 ): Promise<void> {
-  // Map numeric PipelineStep values to stage names
-  const stageNames: Stage[] = [
-    "parsing", "counting-tokens", "segmenting",
-    "identifying-components", "classifying-components", "coloring",
-  ];
-  const stageName = stageNames[startFrom];
-  if (!stageName) throw new Error(`Invalid startFrom: ${startFrom}`);
+  const { conversations, groups } = store.getState();
+  const group = groups[targetId];
+  const notify: Notify = (id, update) => store.updateConversation(id, update);
 
-  await runPipeline(ctx, {
-    startFrom: stageName,
-    dimNames,
-    notify,
-    presetColors: ctx.presetColors,
+  const convs = group
+    ? group.fileIds
+        .map((fid) => conversations.find((c) => c.id === fid))
+        .filter((c): c is PipelineState => !!c?.conversation)
+    : [conversations.find((c) => c.id === targetId)].filter(
+        (c): c is PipelineState => !!c?.conversation,
+      );
+
+  await Promise.all(
+    convs.map(async (conv) => {
+      const ctx = buildBaseContext(conv);
+      contextModifier(ctx);
+      try {
+        await runPipeline(ctx, notify, startFrom, dimNames);
+
+        const regenerated = callbacks
+          ? await regenerateAnalysisIfNeeded(ctx, notify, callbacks)
+          : false;
+
+        const fields: PipelineDataField[] = ["conversation", "dimensions", "customSegmentationPrompt"];
+        if (regenerated) fields.push("analysis", "aiSummary");
+        markComplete(notify, ctx, fields);
+      } catch (error: any) {
+        markFailed(notify, ctx.id, error.message);
+      }
+    }),
+  );
+}
+
+/** Apply prompts, component list, and colors from one conversation to all others. */
+export async function applyPromptsToAll(
+  store: StoreAccessor,
+  sourceId: string,
+): Promise<void> {
+  const { conversations } = store.getState();
+  const source = conversations.find((c) => c.id === sourceId);
+  if (!source) return;
+
+  const targets = conversations.filter(
+    (c) => c.id !== sourceId && c.status === "success" && c.conversation,
+  );
+  if (targets.length === 0) return;
+
+  await Promise.all(
+    targets.map(async (conv) => {
+      const notify: Notify = (id, update) => store.updateConversation(id, update);
+      const ctx = buildBaseContext(conv);
+
+      ctx.customSegmentationPrompt = source.customSegmentationPrompt;
+      ctx.customSummaryPrompt = source.customSummaryPrompt;
+      ctx.customAnalysisPrompt = source.customAnalysisPrompt;
+      ctx.segmentationThreshold = source.segmentationThreshold;
+
+      store.updateConversation(conv.id, {
+        customSegmentationPrompt: source.customSegmentationPrompt,
+        customSummaryPrompt: source.customSummaryPrompt,
+        customAnalysisPrompt: source.customAnalysisPrompt,
+        segmentationThreshold: source.segmentationThreshold,
+      });
+
+      if (!source.dimensions) return;
+
+      const dims = ctx.dimensions || {};
+      for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
+        dims[dimName] = {
+          ...(dims[dimName] || createEmptyDimension(dimName)),
+          prompt: sourceDim.prompt,
+          customColoringPrompt: sourceDim.customColoringPrompt,
+          customComponents: sourceDim.discoveredComponents?.length ? sourceDim.discoveredComponents : sourceDim.customComponents,
+          discoveredComponents: sourceDim.discoveredComponents || [],
+          componentColors: { ...sourceDim.componentColors },
+        };
+      }
+      ctx.dimensions = dims;
+
+      try {
+        await runPipeline(ctx, notify, PipelineStep.Segment);
+        markComplete(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
+      } catch (error: any) {
+        markFailed(notify, ctx.id, error.message);
+      }
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Batch processing
+// ---------------------------------------------------------------------------
+
+export async function runPipelines(
+  files: File[],
+  fileIds: Map<number, string>,
+  onFileComplete: (conversation: PipelineState) => void,
+  onAISummaryChunk: (id: string, chunk: string) => void,
+  onAnalysisChunk: (id: string, chunk: string) => void,
+  options?: PipelineOptions,
+): Promise<PipelineBatchResult> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const pipelineStates = await Promise.all(
+    files.map(async (file, i) => {
+      if (!file) return null;
+
+      const id = fileIds.get(i) || generateId();
+      const notify: Notify = (id, update) => {
+        onFileComplete({ id, filename: file.name, ...update } as PipelineState);
+      };
+
+      const ctx: PipelineState = {
+        id,
+        filename: file.name,
+        file,
+        conversation: null as any,
+        warnings: [],
+        stepTimings: {},
+        config: getAIConfig("Componentisation"),
+        presetColors: options?.presetColors,
+        customSegmentationPrompt: options?.customSegmentationPrompt,
+        dimensions: (options?.customPrompt || options?.customComponents) ? {
+          default: {
+            ...createEmptyDimension("default"),
+            prompt: options?.customPrompt,
+            customComponents: options?.customComponents,
+          },
+        } : undefined,
+      };
+
+      await processNewFile(ctx, notify, {
+        onSummaryChunk: onAISummaryChunk,
+        onAnalysisChunk,
+      });
+
+      const { file: _file, config: _config, ...result } = ctx;
+      if (!result.warnings?.length) result.warnings = undefined;
+      return result;
+    }),
+  );
+
+  return {
+    pipelineStates: pipelineStates.filter((c): c is PipelineState => c !== null),
+  };
+}
+
+/** Run pipelines for dropped files, creating placeholders and processing. */
+export async function runPipelineMutation(
+  store: StoreAccessor,
+  files: File[],
+  presetIds: Map<number, string> | undefined,
+  options?: PipelineOptions,
+): Promise<void> {
+  const fileIds = new Map<number, string>();
+  const placeholders: PipelineState[] = files.map((file, index) => {
+    const id = presetIds?.get(index) || generateId();
+    fileIds.set(index, id);
+    return { id, filename: file.name, status: "pending" };
   });
+
+  store.set((state: any) => ({
+    conversations: [...state.conversations, ...placeholders],
+    fileIdsRef: fileIds,
+  }));
+
+  const onFileComplete = (completed: PipelineState) => {
+    store.set((state: any) => ({
+      conversations: state.conversations.map((conv: PipelineState) =>
+        conv.id === completed.id
+          ? { ...conv, ...completed, aiSummary: completed.aiSummary || conv.aiSummary, analysis: completed.analysis || conv.analysis }
+          : conv,
+      ),
+    }));
+  };
+
+  const onSummaryChunk = (id: string, chunk: string) => store.appendSummaryChunk(id, chunk);
+  const onAnalysisChunk = (id: string, chunk: string) => store.appendAnalysisChunk(id, chunk);
+
+  try {
+    await runPipelines(files, fileIds, onFileComplete, onSummaryChunk, onAnalysisChunk, options);
+    if (!store.getState().pendingSessionImport) {
+      store.set({ fileIdsRef: new Map() });
+    }
+  } catch {
+    store.set({ fileIdsRef: new Map() });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// On-demand summary / analysis (outside the pipeline)
+// ---------------------------------------------------------------------------
+
+function makeGroupAwareNotify(store: StoreAccessor, id: string, group: Group | undefined): Notify {
+  return (rid, update) => {
+    if (group) {
+      store.updateGroup(id, {
+        ...(update.analysis !== undefined ? { analysis: update.analysis } : {}),
+        ...(update.aiSummary !== undefined ? { aiSummary: update.aiSummary } : {}),
+        ...(update.customSummaryPrompt !== undefined ? { customSummaryPrompt: update.customSummaryPrompt } : {}),
+        ...(update.customAnalysisPrompt !== undefined ? { customAnalysisPrompt: update.customAnalysisPrompt } : {}),
+      });
+    } else {
+      store.updateConversation(rid, update);
+    }
+  };
+}
+
+export async function generateAnalysisForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: PipelineState,
+  options: { customAnalysisPrompt?: string } = {},
+): Promise<void> {
+  const group = store.getState().groups[id];
+  const notify = makeGroupAwareNotify(store, id, group);
+  const ctx: PipelineState = {
+    ...buildBaseContext(conv),
+    analysis: "",
+    customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
+  };
+
+  try {
+    await runEnsureSummaryThenAnalysis(ctx, notify, {
+      onSummaryChunk: group
+        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
+        : (id, chunk) => store.appendSummaryChunk(id, chunk),
+      onAnalysisChunk: group
+        ? (_, chunk) => store.updateGroup(id, { analysis: (store.getState().groups[id]?.analysis || "") + chunk })
+        : (id, chunk) => store.appendAnalysisChunk(id, chunk),
+    });
+    markComplete(notify, ctx, ["analysis", "aiSummary", "customAnalysisPrompt"]);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+export async function generateSummaryForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: PipelineState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
+  const group = store.getState().groups[id];
+  const notify = makeGroupAwareNotify(store, id, group);
+  const ctx: PipelineState = {
+    ...buildBaseContext(conv),
+    aiSummary: "",
+    customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
+  };
+
+  try {
+    await runSummary(ctx, notify, {
+      onSummaryChunk: group
+        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
+        : (id, chunk) => store.appendSummaryChunk(id, chunk),
+    });
+    markComplete(notify, ctx, ["aiSummary", "customSummaryPrompt"]);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+export async function rerunSummaryForTarget(
+  store: StoreAccessor,
+  conv: PipelineState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
+  const notify: Notify = (id, update) => store.updateConversation(id, update);
+  const shouldRegenerateAnalysis = !!conv.analysis || conv.stepTimings?.analyzing !== undefined;
+
+  const ctx = buildBaseContext(conv);
+  ctx.aiSummary = "";
+  ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
+  ctx.customSummaryPrompt = options.customSummaryPrompt;
+  ctx.regenerateAnalysis = shouldRegenerateAnalysis;
+  ctx.stepTimings = {
+    ...ctx.stepTimings,
+    summarizing: undefined,
+    ...(shouldRegenerateAnalysis ? { analyzing: undefined } : {}),
+  };
+
+  try {
+    ctx.aiSummary = "";
+    await runSummary(ctx, notify, {
+      onSummaryChunk: (id, chunk) => store.appendSummaryChunk(id, chunk),
+    });
+
+    const fields: PipelineDataField[] = ["aiSummary", "customSummaryPrompt"];
+    if (ctx.regenerateAnalysis) {
+      ctx.analysis = "";
+      await runAnalysis(ctx, notify, {
+        onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
+      });
+      fields.push("analysis");
+    }
+    markComplete(notify, ctx, fields);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
+  }
+}
+
+/** Resume all paused pipelines after API key is provided. */
+export function resumePipelinesWithApiKey(store: StoreAccessor): void {
+  const { conversations } = store.getState();
+  const pausedPipelines = conversations.filter((c) => c.status === "paused-for-api-key");
+
+  for (const conv of pausedPipelines) {
+    if (!conv.conversation) continue;
+    const notify: Notify = (id, update) => store.updateConversation(id, update);
+    const ctx = buildBaseContext(conv);
+    resumeFromPause(ctx, notify, {});
+  }
 }

@@ -6,7 +6,7 @@ import { parseFileDropInput } from "@/parsers/file-import";
 import {
   runPipelineMutation,
   type StoreAccessor,
-} from "@/pipeline/orchestrate";
+} from "@/pipeline/pipeline";
 
 interface ConversationStore {
   // ---- State ----

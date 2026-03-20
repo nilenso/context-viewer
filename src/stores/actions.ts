@@ -23,7 +23,7 @@ import {
   rerunSummaryForTarget,
   resumePipelinesWithApiKey,
   type StoreAccessor,
-} from "@/pipeline/orchestrate";
+} from "@/pipeline/pipeline";
 import {
   getDefaultComponentIdentificationPrompt,
   getDefaultSegmentationPrompt,
