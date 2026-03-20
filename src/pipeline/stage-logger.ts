@@ -1,5 +1,5 @@
-import { workflowLog, type LogLevel } from "./workflow-logger";
-import type { ProcessingPhase } from "@/model/types";
+import { pipelineLog, type LogLevel } from "./logging";
+import type { Stage } from "@/model/types";
 
 type PhaseLogger = (
   conversationId: string | undefined,
@@ -8,16 +8,16 @@ type PhaseLogger = (
 ) => void;
 
 /**
- * Create a logger bound to a specific workflow phase and console label.
+ * Create a logger bound to a specific pipeline stage and console label.
  */
 export function createPhaseLogger(
-  phase: ProcessingPhase,
+  phase: Stage,
   label: string,
   level: LogLevel = "info",
 ): PhaseLogger {
   return (conversationId, message, data) => {
     if (conversationId) {
-      workflowLog(conversationId, phase, level, message, data);
+      pipelineLog(conversationId, phase, level, message, data);
     } else {
       const method = level === "error" ? console.error : console.log;
       if (data !== undefined) {

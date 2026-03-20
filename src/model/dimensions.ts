@@ -1,9 +1,9 @@
-import type { WorkflowState, DimensionData } from "./types";
+import type { PipelineState, DimensionData } from "./types";
 
 /**
  * Ensure ctx.dimensions exists and has at least a "default" entry.
  */
-export function ensureDimensions(ctx: WorkflowState): Record<string, DimensionData> {
+export function ensureDimensions(ctx: PipelineState): Record<string, DimensionData> {
   if (!ctx.dimensions) {
     ctx.dimensions = {};
   }
@@ -11,9 +11,9 @@ export function ensureDimensions(ctx: WorkflowState): Record<string, DimensionDa
 }
 
 /**
- * Get dimension names from a WorkflowState, defaulting to ["default"].
+ * Get dimension names from a PipelineState, defaulting to ["default"].
  */
-export function getDimensionNames(ctx: WorkflowState): string[] {
+export function getDimensionNames(ctx: PipelineState): string[] {
   if (!ctx.dimensions || Object.keys(ctx.dimensions).length === 0) {
     return ["default"];
   }
@@ -25,26 +25,38 @@ export function getDimensionNames(ctx: WorkflowState): string[] {
 // ---------------------------------------------------------------------------
 
 /** Get a specific dimension by name (defaults to "default"). */
-export function getDimension(state: WorkflowState, name: string = "default"): DimensionData | undefined {
+export function getDimension(state: PipelineState, name: string = "default"): DimensionData | undefined {
   return state.dimensions?.[name];
 }
 
 /** Get the default dimension. */
-export function getDefaultDimension(state: WorkflowState): DimensionData | undefined {
+export function getDefaultDimension(state: PipelineState): DimensionData | undefined {
   return state.dimensions?.["default"];
 }
 
+/**
+ * Get the effective component list for a dimension.
+ * Returns customComponents if set, otherwise discoveredComponents.
+ * This is the single source of truth for "what components does this dimension use?"
+ */
+export function getEffectiveComponents(dim: DimensionData): string[] {
+  if (dim.customComponents && dim.customComponents.length > 0) {
+    return dim.customComponents;
+  }
+  return dim.discoveredComponents;
+}
+
 /** Union of all component names across all dimensions. */
-export function getAllComponents(state: WorkflowState): string[] {
+export function getAllComponents(state: PipelineState): string[] {
   if (!state.dimensions) return [];
   const all = new Set<string>();
   for (const dim of Object.values(state.dimensions)) {
-    for (const c of dim.components) all.add(c);
+    for (const c of getEffectiveComponents(dim)) all.add(c);
   }
   return [...all];
 }
 
 /** Get color for a component in a given dimension. */
-export function getComponentColor(state: WorkflowState, component: string, dimName: string = "default"): string | undefined {
+export function getComponentColor(state: PipelineState, component: string, dimName: string = "default"): string | undefined {
   return state.dimensions?.[dimName]?.componentColors[component];
 }

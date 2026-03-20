@@ -4,22 +4,22 @@
  * Algorithm: generate AI analysis of context usage patterns by analyzing
  * component distribution and providing recommendations.
  *
- * Workflow wrapper: runAnalysis, runEnsureSummaryThenAnalysis,
+ * Pipeline wrapper: runAnalysis, runEnsureSummaryThenAnalysis,
  * regenerateAnalysisIfNeeded.
  */
 
 import { streamText } from "ai";
 import type { Conversation } from "@/model/schema";
 import type {
-  WorkflowState,
-  WorkflowCallbacks,
+  PipelineState,
+  PipelineCallbacks,
   DimensionData,
   ComponentTimelineSnapshot,
 } from "@/model/types";
 import { computeTupleTokens, generateComponentCSV } from "@/operations/aggregation";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel } from "./ai/config";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { type Notify, startStep, endStep, timed, updateState } from "@/pipeline/notify";
 import { getAllComponents, getDefaultDimension } from "@/model/dimensions";
 import { runSummary } from "./summarize";
@@ -28,9 +28,9 @@ import { runSummary } from "./summarize";
 // Loggers
 // ---------------------------------------------------------------------------
 
-const logAnalysis = createPhaseLogger("analysis", "Context Analysis");
+const logAnalysis = createPhaseLogger("analyzing", "Context Analysis");
 const logAnalysisError = createPhaseLogger(
-  "analysis",
+  "analyzing",
   "Context Analysis",
   "error",
 );
@@ -80,7 +80,7 @@ export async function generateContextAnalysis(
     const dim = Object.values(dimensions)[0]!;
     allCSVData = generateComponentCSV(
       dim.componentTimeline,
-      [...new Set(dim.components)],
+      [...new Set(dim.discoveredComponents)],
     );
   } else {
     // Fallback to legacy single-dimension data
@@ -125,15 +125,15 @@ export async function generateContextAnalysis(
 }
 
 // ---------------------------------------------------------------------------
-// Workflow wrapper
+// Pipeline wrapper
 // ---------------------------------------------------------------------------
 
 export async function runAnalysis(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ) {
-  startStep(notify, ctx, "analysis");
+  startStep(notify, ctx, "analyzing");
   const { result, timing } = await timed(async () => {
     const allComponents = getAllComponents(ctx);
 
@@ -157,11 +157,11 @@ export async function runAnalysis(
       ctx.dimensions,
     );
   });
-  endStep(ctx, "analysis");
+  endStep(ctx, "analyzing");
 
   ctx.analysis = result.analysis;
   if (result.error) ctx.warnings!.push(result.error);
-  ctx.stepTimings!.analysis = timing;
+  ctx.stepTimings!.analyzing = timing;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,9 +170,9 @@ export async function runAnalysis(
 
 /** Generate summary if missing, then generate analysis. */
 export async function runEnsureSummaryThenAnalysis(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ) {
   if (!ctx.aiSummary) {
     await runSummary(ctx, notify, callbacks);
@@ -185,15 +185,15 @@ export async function runEnsureSummaryThenAnalysis(
  * Returns whether analysis was regenerated.
  */
 export async function regenerateAnalysisIfNeeded(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<boolean> {
-  const hadAnalysis = !!ctx.analysis || ctx.stepTimings?.analysis !== undefined;
+  const hadAnalysis = !!ctx.analysis || ctx.stepTimings?.analyzing !== undefined;
   if (!hadAnalysis) return false;
 
   ctx.analysis = "";
-  updateState(notify, ctx, ["analysis"], "analysis");
+  updateState(notify, ctx, ["analysis"], "analyzing");
   await runEnsureSummaryThenAnalysis(ctx, notify, callbacks);
   return true;
 }

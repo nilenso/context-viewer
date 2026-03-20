@@ -3,7 +3,7 @@
  * Also handles restoring pre-processed Context Viewer exports.
  */
 
-import type { WorkflowState, ConversationMetadata } from "@/model/types";
+import type { PipelineState, ConversationMetadata } from "@/model/types";
 import type { Conversation } from "@/model/schema";
 import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 import { parserRegistry } from "@/parsers/parser";
@@ -12,7 +12,7 @@ import { parseFileContent } from "@/parsers/file-formats";
 import { buildComponentTimeline } from "./classify-components";
 import { staticComponentise } from "@/operations/static-components";
 
-export async function runParse(ctx: WorkflowState, notify: Notify) {
+export async function runParse(ctx: PipelineState, notify: Notify) {
   startStep(notify, ctx, "parsing");
   const { result, timing } = await timed(async () => {
     const text = await ctx.file!.text();
@@ -48,7 +48,7 @@ function extractComponentMappingFromParts(
 }
 
 export function restorePreProcessedImport(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   metadata: ConversationMetadata,
   conversation: Conversation,
 ) {
@@ -68,7 +68,7 @@ export function restorePreProcessedImport(
     default: {
       name: "default",
       prompt: metadata.customPrompt,
-      components,
+      discoveredComponents: components,
       componentMapping,
       componentTimeline,
       componentColors: metadata.componentColors || {},
@@ -91,7 +91,7 @@ export function restorePreProcessedImport(
       ctx.dimensions[dimName] = {
         name: dimName,
         prompt: dimExport.prompt,
-        components: dimExport.components,
+        discoveredComponents: dimExport.components,
         componentMapping: dimMapping,
         componentTimeline: buildComponentTimeline(conversation, dimMapping),
         componentColors: dimExport.colors,

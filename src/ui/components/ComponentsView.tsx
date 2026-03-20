@@ -60,7 +60,7 @@ export function ComponentsView({
   const dimensionsDataKey = useMemo(() => {
     if (!dimensions) return "";
     return Object.entries(dimensions)
-      .map(([name, dim]) => `${name}:${dim.components.length}:${Object.keys(dim.componentMapping).length}`)
+      .map(([name, dim]) => `${name}:${dim.discoveredComponents.length}:${Object.keys(dim.componentMapping).length}`)
       .sort()
       .join("|");
   }, [dimensions]);
@@ -142,7 +142,7 @@ export function ComponentsView({
     };
   }, [dimensions, dimensionsDataKey, tupleData]);
 
-  // Compute messageComponents for workflow view (filtered, up to current slider position)
+  // Compute messageComponents for message sequence view (filtered, up to current slider position)
   // When multiple dimensions are active, produces tuple keys matching the waffle chart
   const messageComponents = useMemo(() => {
     if (!effectiveMapping || Object.keys(effectiveMapping).length === 0) return [];

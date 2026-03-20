@@ -9,9 +9,9 @@
  */
 
 import type {
-  WorkflowState,
-  WorkflowCallbacks,
-  WorkflowDataField,
+  PipelineState,
+  PipelineCallbacks,
+  PipelineDataField,
 } from "@/model/types";
 import { PipelineStep } from "@/model/types";
 import {
@@ -45,7 +45,7 @@ import { runAssignColors } from "@/stages/color-components";
  */
 export async function runDimensionSteps(
   startFrom: PipelineStep,
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
   dimNames?: string[],
 ): Promise<void> {
@@ -58,7 +58,7 @@ export async function runDimensionSteps(
     startStep(notify, ctx, "finding-components");
     if (startFrom <= PipelineStep.Identify) {
       const { timing } = await runIdentifyComponents(ctx, dimNames);
-      ctx.stepTimings!["identifying-components" as any] = timing;
+      ctx.stepTimings!["identifying-components"] = timing;
     }
 
     // Classify and Color both depend only on the component list from Identify,
@@ -67,7 +67,7 @@ export async function runDimensionSteps(
       runClassifyComponents(ctx, dimNames),
       runAssignColors(ctx, notify, dimNames),
     ]);
-    ctx.stepTimings!["classifying-components" as any] = classifyResult.timing;
+    ctx.stepTimings!["classifying-components"] = classifyResult.timing;
     endStep(ctx, "finding-components");
     updateState(notify, ctx, ["conversation", "dimensions"]);
     return;
@@ -82,7 +82,7 @@ export async function runDimensionSteps(
 // New file processing
 // ---------------------------------------------------------------------------
 
-const PRE_PROCESSED_COMPLETE: WorkflowDataField[] = [
+const PRE_PROCESSED_COMPLETE: PipelineDataField[] = [
   "conversation", "summary", "metadata", "title",
   "aiSummary", "analysis",
   "dimensions",
@@ -91,12 +91,12 @@ const PRE_PROCESSED_COMPLETE: WorkflowDataField[] = [
   "customAnalysisPrompt",
 ];
 
-const PARSED_FIELDS: WorkflowDataField[] = [
+const PARSED_FIELDS: PipelineDataField[] = [
   "conversation", "summary", "metadata",
   "staticComponents", "staticMapping", "staticTimeline",
 ];
 
-const NEW_FILE_COMPLETE: WorkflowDataField[] = [
+const NEW_FILE_COMPLETE: PipelineDataField[] = [
   "conversation", "summary", "metadata",
   "dimensions",
   "staticComponents", "staticMapping", "staticTimeline",
@@ -104,9 +104,9 @@ const NEW_FILE_COMPLETE: WorkflowDataField[] = [
 ];
 
 export async function processNewFile(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
     await runParse(ctx, notify);
@@ -138,14 +138,14 @@ export async function processNewFile(
 // Resume from API key pause
 // ---------------------------------------------------------------------------
 
-const RESUME_COMPLETE: WorkflowDataField[] = [
+const RESUME_COMPLETE: PipelineDataField[] = [
   "conversation", "dimensions",
 ];
 
 export async function resumeFromPause(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
     await runDimensionSteps(PipelineStep.Segment, ctx, notify);

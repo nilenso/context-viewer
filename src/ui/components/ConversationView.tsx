@@ -45,8 +45,8 @@ export { ALL_MESSAGE_FILTERS };
 // Internal message filters that include "all" pseudo-filter for display purposes
 type MessageFilterWithAll = MessageFilter | "all";
 
-// Minimal workflow state info needed for computing source conversation components
-interface MemberWorkflowState {
+// Minimal pipeline state info needed for computing source conversation components
+interface MemberPipelineState {
   id: string;
   filename: string;
   title?: string;
@@ -74,8 +74,8 @@ interface ConversationViewProps {
   isGrouped?: boolean;
   groupTitle?: string;
   memberComponentData?: ConversationComponentData[];
-  // Source workflow states for grouped conversations (for filtered comparison)
-  memberWorkflowStates?: MemberWorkflowState[];
+  // Source pipeline states for grouped conversations (for filtered comparison)
+  memberPipelineStates?: MemberPipelineState[];
 }
 
 export function ConversationView({
@@ -94,7 +94,7 @@ export function ConversationView({
   isGrouped,
   groupTitle,
   memberComponentData,
-  memberWorkflowStates,
+  memberPipelineStates,
 }: ConversationViewProps) {
   // URL state (from Zustand store)
   const activeTab = useUrlStore((s) => s.tab) as TabType;
@@ -331,12 +331,12 @@ export function ConversationView({
     if (!hasMessageTypeFilters && !hasComponentFilters) {
       return memberComponentData;
     }
-    if (!memberWorkflowStates || memberWorkflowStates.length === 0) {
+    if (!memberPipelineStates || memberPipelineStates.length === 0) {
       return memberComponentData;
     }
 
     // Compute filtered data for each source conversation
-    return memberWorkflowStates
+    return memberPipelineStates
       .map((source) => {
         if (!source.conversation || !source.componentMapping) {
           return null;
@@ -472,7 +472,7 @@ export function ConversationView({
         return result;
       })
       .filter((item): item is ConversationComponentData => item !== null);
-  }, [memberWorkflowStates, memberComponentData, messageFiltersSet, hasAllFilters, components, selectedComponents]);
+  }, [memberPipelineStates, memberComponentData, messageFiltersSet, hasAllFilters, components, selectedComponents]);
 
   // Filter messages at the part level
   const filteredAndSortedMessages = useMemo(() => {

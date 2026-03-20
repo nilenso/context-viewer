@@ -1,21 +1,21 @@
 /**
- * Workflow execution utilities.
+ * Pipeline execution utilities.
  *
- * Replaces the WorkflowRunner class with plain functions.
+ * Plain functions for step lifecycle and state notification.
  * The `notify` callback pushes state updates to the Zustand store.
  */
 
-import type { WorkflowState, WorkflowDataField, ProcessingStep, ProcessingPhase } from "@/model/types";
-import { markStepStart, markStepEnd } from "@/stages/ai/workflow-logger";
+import type { PipelineState, PipelineDataField, StageGroup, Stage } from "@/model/types";
+import { markStepStart, markStepEnd } from "./logging";
 
-export type Notify = (id: string, update: Partial<WorkflowState>) => void;
+export type Notify = (id: string, update: Partial<PipelineState>) => void;
 
 /** Pick specific data fields from ctx to build a partial update */
 function pickFields(
-  ctx: WorkflowState,
-  fields: readonly WorkflowDataField[],
-): Partial<WorkflowState> {
-  const update: Partial<WorkflowState> = {};
+  ctx: PipelineState,
+  fields: readonly PipelineDataField[],
+): Partial<PipelineState> {
+  const update: Partial<PipelineState> = {};
   for (const f of fields) {
     (update as any)[f] = (ctx as any)[f];
   }
@@ -26,20 +26,20 @@ function pickFields(
 // Step lifecycle — tell the UI what's happening
 // ---------------------------------------------------------------------------
 
-export function startStep(notify: Notify, ctx: WorkflowState, step: ProcessingStep) {
-  markStepStart(ctx.id, step as ProcessingPhase);
+export function startStep(notify: Notify, ctx: PipelineState, step: StageGroup) {
+  markStepStart(ctx.id, step as Stage);
   notify(ctx.id, { status: "processing", step });
 }
 
-export function endStep(ctx: WorkflowState, step: ProcessingStep) {
-  markStepEnd(ctx.id, step as ProcessingPhase);
+export function endStep(ctx: PipelineState, step: StageGroup) {
+  markStepEnd(ctx.id, step as Stage);
 }
 
 export function updateState(
   notify: Notify,
-  ctx: WorkflowState,
-  only: readonly WorkflowDataField[],
-  nextStep?: ProcessingStep,
+  ctx: PipelineState,
+  only: readonly PipelineDataField[],
+  nextStep?: StageGroup,
 ) {
   notify(ctx.id, {
     ...pickFields(ctx, only),
@@ -52,8 +52,8 @@ export function updateState(
 
 export function markComplete(
   notify: Notify,
-  ctx: WorkflowState,
-  only: readonly WorkflowDataField[],
+  ctx: PipelineState,
+  only: readonly PipelineDataField[],
 ) {
   notify(ctx.id, {
     ...pickFields(ctx, only),
@@ -70,9 +70,9 @@ export function markFailed(notify: Notify, id: string, error: string) {
 
 export function markPausedForApiKey(
   notify: Notify,
-  ctx: WorkflowState,
-  only: readonly WorkflowDataField[],
-  nextStep: ProcessingStep,
+  ctx: PipelineState,
+  only: readonly PipelineDataField[],
+  nextStep: StageGroup,
 ) {
   notify(ctx.id, {
     ...pickFields(ctx, only),

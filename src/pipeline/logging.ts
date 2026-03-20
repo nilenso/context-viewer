@@ -1,17 +1,17 @@
 /**
- * Workflow Logger - Per-conversation logging system
+ * Pipeline Logger - Per-conversation logging system
  *
- * Replaces console.log for workflow phases with structured, timestamped logs
+ * Replaces console.log for pipeline stages with structured, timestamped logs
  * that can be displayed in the UI.
  */
 
-import type { ProcessingPhase } from "@/model/types";
+import type { Stage } from "@/model/types";
 
 export type LogLevel = "info" | "warn" | "error" | "debug";
 
 export interface LogEntry {
   timestamp: Date;
-  phase: ProcessingPhase;
+  phase: Stage;
   level: LogLevel;
   message: string;
   data?: unknown;
@@ -26,7 +26,7 @@ export interface StepTiming {
 export interface ConversationLogs {
   conversationId: string;
   entries: LogEntry[];
-  stepTimings: Partial<Record<ProcessingPhase, StepTiming>>;
+  stepTimings: Partial<Record<Stage, StepTiming>>;
 }
 
 // Global store for conversation logs
@@ -77,9 +77,9 @@ export function clearConversationLogs(conversationId: string): void {
 /**
  * Log a message for a specific conversation and phase
  */
-export function workflowLog(
+export function pipelineLog(
   conversationId: string,
-  phase: ProcessingPhase,
+  phase: Stage,
   level: LogLevel,
   message: string,
   data?: unknown,
@@ -123,7 +123,7 @@ export function workflowLog(
  */
 export function markStepStart(
   conversationId: string,
-  phase: ProcessingPhase,
+  phase: Stage,
 ): void {
   const logs = getConversationLogs(conversationId);
 
@@ -131,7 +131,7 @@ export function markStepStart(
     startTime: new Date(),
   };
 
-  workflowLog(conversationId, phase, "info", `Starting ${phase}...`);
+  pipelineLog(conversationId, phase, "info", `Starting ${phase}...`);
   notifySubscribers(conversationId, logs);
 }
 
@@ -140,7 +140,7 @@ export function markStepStart(
  */
 export function markStepEnd(
   conversationId: string,
-  phase: ProcessingPhase,
+  phase: Stage,
 ): void {
   const logs = getConversationLogs(conversationId);
   const timing = logs.stepTimings[phase];
@@ -149,7 +149,7 @@ export function markStepEnd(
     timing.endTime = new Date();
     timing.durationMs = timing.endTime.getTime() - timing.startTime.getTime();
 
-    workflowLog(
+    pipelineLog(
       conversationId,
       phase,
       "info",
@@ -193,7 +193,7 @@ export function formatTimestamp(date: Date): string {
  */
 function getLogsForPhase(
   conversationId: string,
-  phase: ProcessingPhase,
+  phase: Stage,
 ): LogEntry[] {
   const logs = getConversationLogs(conversationId);
   return logs.entries.filter((entry) => entry.phase === phase);
@@ -204,18 +204,18 @@ function getLogsForPhase(
  */
 export function createConversationLogger(conversationId: string) {
   return {
-    info: (phase: ProcessingPhase, message: string, data?: unknown) =>
-      workflowLog(conversationId, phase, "info", message, data),
-    warn: (phase: ProcessingPhase, message: string, data?: unknown) =>
-      workflowLog(conversationId, phase, "warn", message, data),
-    error: (phase: ProcessingPhase, message: string, data?: unknown) =>
-      workflowLog(conversationId, phase, "error", message, data),
-    debug: (phase: ProcessingPhase, message: string, data?: unknown) =>
-      workflowLog(conversationId, phase, "debug", message, data),
-    startStep: (phase: ProcessingPhase) => markStepStart(conversationId, phase),
-    endStep: (phase: ProcessingPhase) => markStepEnd(conversationId, phase),
+    info: (phase: Stage, message: string, data?: unknown) =>
+      pipelineLog(conversationId, phase, "info", message, data),
+    warn: (phase: Stage, message: string, data?: unknown) =>
+      pipelineLog(conversationId, phase, "warn", message, data),
+    error: (phase: Stage, message: string, data?: unknown) =>
+      pipelineLog(conversationId, phase, "error", message, data),
+    debug: (phase: Stage, message: string, data?: unknown) =>
+      pipelineLog(conversationId, phase, "debug", message, data),
+    startStep: (phase: Stage) => markStepStart(conversationId, phase),
+    endStep: (phase: Stage) => markStepEnd(conversationId, phase),
     getLogs: () => getConversationLogs(conversationId),
-    getLogsForPhase: (phase: ProcessingPhase) =>
+    getLogsForPhase: (phase: Stage) =>
       getLogsForPhase(conversationId, phase),
     clear: () => clearConversationLogs(conversationId),
   };

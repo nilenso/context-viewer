@@ -11,14 +11,14 @@ import {
 
 interface ApiKeyInputProps {
   onApiKeyChange: (hasKey: boolean) => void;
-  pausedWorkflowCount: number;
-  onResumeWorkflows: () => void;
+  pausedPipelineCount: number;
+  onResumePipelines: () => void;
 }
 
 export function ApiKeyInput({
   onApiKeyChange,
-  pausedWorkflowCount,
-  onResumeWorkflows,
+  pausedPipelineCount,
+  onResumePipelines,
 }: ApiKeyInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -90,16 +90,16 @@ export function ApiKeyInput({
             Change
           </Button>
         </div>
-        {pausedWorkflowCount > 0 && (
+        {pausedPipelineCount > 0 && (
           <Button
             variant="default"
             size="sm"
-            onClick={onResumeWorkflows}
+            onClick={onResumePipelines}
             className="w-full mt-2 h-8 text-xs"
           >
             <Play className="h-3 w-3 mr-1" />
-            Resume {pausedWorkflowCount} paused workflow
-            {pausedWorkflowCount > 1 ? "s" : ""}
+            Resume {pausedPipelineCount} paused pipeline
+            {pausedPipelineCount > 1 ? "s" : ""}
           </Button>
         )}
       </Card>

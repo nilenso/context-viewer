@@ -3,29 +3,29 @@
  *
  * Algorithm: generate a streaming AI summary of a conversation.
  *
- * Workflow wrapper: runSummary orchestrates summary generation with
+ * Pipeline wrapper: runSummary orchestrates summary generation with
  * step tracking and state updates.
  */
 
 import { streamText } from "ai";
 import type { Conversation } from "@/model/schema";
 import type {
-  WorkflowState,
-  WorkflowCallbacks,
+  PipelineState,
+  PipelineCallbacks,
   ConversationMetadata,
 } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 
 // ---------------------------------------------------------------------------
 // Loggers
 // ---------------------------------------------------------------------------
 
-const logSummary = createPhaseLogger("summary", "AI Summary");
-const logSummaryError = createPhaseLogger("summary", "AI Summary", "error");
+const logSummary = createPhaseLogger("summarizing", "AI Summary");
+const logSummaryError = createPhaseLogger("summarizing", "AI Summary", "error");
 
 // ---------------------------------------------------------------------------
 // Algorithm
@@ -96,7 +96,7 @@ export async function generateConversationSummary(
 }
 
 // ---------------------------------------------------------------------------
-// Workflow wrapper
+// Pipeline wrapper
 // ---------------------------------------------------------------------------
 
 function calculateConversationStats(conversation: {
@@ -128,11 +128,11 @@ function calculateConversationStats(conversation: {
 }
 
 export async function runSummary(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ) {
-  startStep(notify, ctx, "summary");
+  startStep(notify, ctx, "summarizing");
   const { result, timing } = await timed(async () => {
     const stats = calculateConversationStats(ctx.conversation!);
     return generateConversationSummary(
@@ -144,9 +144,9 @@ export async function runSummary(
       ctx.id,
     );
   });
-  endStep(ctx, "summary");
+  endStep(ctx, "summarizing");
 
   ctx.aiSummary = result.summary;
   if (result.error) ctx.warnings!.push(result.error);
-  ctx.stepTimings!.summary = timing;
+  ctx.stepTimings!.summarizing = timing;
 }

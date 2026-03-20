@@ -1,5 +1,11 @@
 /**
- * Preset loader utilities for component analysis presets
+ * Preset loader utilities for component analysis presets.
+ *
+ * NOTE: This module performs HTTP fetches (I/O) to load preset JSON files.
+ * It lives in stages/ai/ because presets configure AI stage behavior, but
+ * the I/O aspect is a concern — if stricter layering is needed, the fetch
+ * logic should move to the store or UI layer, with this module accepting
+ * preset data as input instead.
  */
 
 import type { PresetConfig, PresetSummary } from "@/model/presets";

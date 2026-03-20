@@ -1,9 +1,9 @@
 /**
  * Core domain types for Context Viewer.
  *
- * Merged from: component-types.ts, workflow/types.ts, conversation-summary.ts
+ * Merged from: component-types.ts, pipeline/types.ts, conversation-summary.ts
  * (interface only), parser.ts (interface only), aggregation.ts (interface only),
- * workflow-logger.ts (ProcessingPhase only).
+ * pipeline/logging.ts (Stage only).
  *
  * model/ depends on nothing except zod (via ./schema).
  */
@@ -14,26 +14,49 @@ import type { Conversation } from "./schema";
 // Processing phases & lifecycle
 // ---------------------------------------------------------------------------
 
-export type ProcessingPhase =
+/**
+ * Stage — the individual execution units of the processing pipeline.
+ * Each corresponds to a file in stages/.
+ *
+ * Used for logging, timing, and tracking progress.
+ */
+export type Stage =
   | "parsing"
   | "counting-tokens"
   | "segmenting"
-  | "summary"
   | "identifying-components"
   | "classifying-components"
-  | "finding-components" // composite UI label (covers both identify + classify)
   | "coloring"
-  | "analysis";
+  | "summarizing"
+  | "analyzing";
 
-export type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
-export type ProcessingStep =
+/**
+ * StageGroup — coarser pipeline checkpoints shown in the UI.
+ * "finding-components" groups identify + classify + color.
+ * Used for status reporting to the user.
+ */
+export type StageGroup =
   | "parsing"
   | "counting-tokens"
   | "segmenting"
-  | "summary"
+  | "summarizing"
   | "finding-components"
   | "coloring"
-  | "analysis";
+  | "analyzing";
+
+/** Map from Stage to its StageGroup for UI display */
+export const STAGE_TO_GROUP: Record<Stage, StageGroup> = {
+  "parsing": "parsing",
+  "counting-tokens": "counting-tokens",
+  "segmenting": "segmenting",
+  "identifying-components": "finding-components",
+  "classifying-components": "finding-components",
+  "coloring": "coloring",
+  "summarizing": "summarizing",
+  "analyzing": "analyzing",
+};
+
+export type ConversationStatus = "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
 
 // ---------------------------------------------------------------------------
 // Aggregation types
@@ -57,7 +80,7 @@ export interface ComponentTimelineSnapshot {
 export interface DimensionData {
   name: string;
   prompt?: string; // custom identification prompt
-  components: string[];
+  discoveredComponents: string[];
   componentMapping: Record<string, string>; // partId -> componentName
   componentTimeline: ComponentTimelineSnapshot[];
   componentColors: Record<string, string>; // componentName -> color
@@ -155,22 +178,22 @@ export interface Parser {
 }
 
 // ---------------------------------------------------------------------------
-// Workflow state
+// Pipeline state
 // ---------------------------------------------------------------------------
 
 /**
- * Represents workflow state for processing a conversation file.
- * Used both for React state management (persisting UI state) and during workflow execution (tracking progress).
+ * Represents pipeline state for processing a conversation file.
+ * Used both for React state management (persisting UI state) and during pipeline execution (tracking progress).
  */
-export interface WorkflowState {
+export interface PipelineState {
   // Identity
   id: string;
   filename: string;
   title?: string;
 
-  // UI/Workflow lifecycle
+  // UI/Pipeline lifecycle
   status?: ConversationStatus;
-  step?: ProcessingStep;
+  step?: StageGroup;
   error?: string;
 
   // Execution inputs
@@ -200,8 +223,8 @@ export interface WorkflowState {
 
   // Tracking
   warnings?: string[];
-  stepTimings?: Partial<Record<ProcessingStep | string, number>>;
-  pausedAtStep?: ProcessingStep;
+  stepTimings?: Partial<Record<Stage | string, number>>;
+  pausedAtStep?: StageGroup;
 }
 
 /**
@@ -221,8 +244,8 @@ export interface Group {
   analysis?: string;
 }
 
-export interface WorkflowBatchResult {
-  workflowStates: WorkflowState[];
+export interface PipelineBatchResult {
+  pipelineStates: PipelineState[];
 }
 
 /**
@@ -241,21 +264,21 @@ export enum PipelineStep {
 /**
  * Callbacks for streaming updates
  */
-export interface WorkflowCallbacks {
+export interface PipelineCallbacks {
   onSummaryChunk?: (id: string, chunk: string) => void;
   onAnalysisChunk?: (id: string, chunk: string) => void;
 }
 
 /**
- * Data fields on WorkflowState that can be selectively written back.
+ * Data fields on PipelineState that can be selectively written back to the store.
  */
-export type WorkflowDataField = Exclude<
-  keyof WorkflowState,
+export type PipelineDataField = Exclude<
+  keyof PipelineState,
   "id" | "filename" | "status" | "step" | "error" | "warnings" | "stepTimings" |
   "file" | "config" | "regenerateAnalysis" | "pausedAtStep"
 >;
 
-export interface WorkflowOptions {
+export interface PipelineOptions {
   customComponents?: string[];
   presetColors?: Record<string, string>;
   customPrompt?: string;

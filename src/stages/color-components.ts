@@ -3,15 +3,15 @@
  *
  * Algorithm: assign colors to identified components via preset mapping or AI.
  *
- * Workflow wrapper: runAssignColors orchestrates color assignment across
+ * Pipeline wrapper: runAssignColors orchestrates color assignment across
  * all dimensions.
  */
 
 import { generateText } from "ai";
-import type { WorkflowState } from "@/model/types";
+import type { PipelineState } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getProviderOptions, createModel, type AIConfig } from "./ai/config";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
@@ -116,10 +116,10 @@ export async function assignComponentColors(
 }
 
 // ---------------------------------------------------------------------------
-// Workflow wrapper
+// Pipeline wrapper
 // ---------------------------------------------------------------------------
 
-export async function runAssignColors(ctx: WorkflowState, notify: Notify, onlyDims?: string[]) {
+export async function runAssignColors(ctx: PipelineState, notify: Notify, onlyDims?: string[]) {
   startStep(notify, ctx, "coloring");
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
@@ -128,17 +128,17 @@ export async function runAssignColors(ctx: WorkflowState, notify: Notify, onlyDi
     await Promise.all(
       dimNames.map(async (dimName) => {
         const dimData = dims[dimName];
-        if (!dimData || !ctx.config || !dimData.components?.length) return;
+        if (!dimData || !ctx.config || !dimData.discoveredComponents?.length) return;
 
         // Idempotent: if componentColors already covers exactly the current components, skip
         const existingColorKeys = Object.keys(dimData.componentColors || {}).sort();
-        const currentComponents = [...dimData.components].sort();
+        const currentComponents = [...dimData.discoveredComponents].sort();
         if (existingColorKeys.length > 0 && JSON.stringify(existingColorKeys) === JSON.stringify(currentComponents)) {
           return;
         }
 
         const colors = await assignComponentColors(
-          dimData.components,
+          dimData.discoveredComponents,
           ctx.config,
           ctx.id,
           ctx.presetColors,

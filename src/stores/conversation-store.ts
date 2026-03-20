@@ -1,16 +1,16 @@
 import { create } from "zustand";
-import type { WorkflowState, WorkflowOptions } from "@/model/types";
+import type { PipelineState, PipelineOptions } from "@/model/types";
 import type { Group } from "@/model/types";
 import { generateId } from "@/lib/id-generator";
 import { parseFileDropInput } from "@/parsers/file-import";
 import {
-  runWorkflowMutation,
+  runPipelineMutation,
   type StoreAccessor,
 } from "@/pipeline/orchestrate";
 
 interface ConversationStore {
   // ---- State ----
-  conversations: WorkflowState[];
+  conversations: PipelineState[];
   groups: Record<string, Group>;
   fileIdsRef: Map<number, string>;
   pendingSessionImport: {
@@ -19,16 +19,16 @@ interface ConversationStore {
   } | null;
 
   // ---- Getters ----
-  getConversation: (id: string) => WorkflowState | undefined;
+  getConversation: (id: string) => PipelineState | undefined;
   getGroup: (id: string) => Group | undefined;
   getGroupsForFile: (fileId: string) => Group[];
   getPausedCount: () => number;
 
   // ---- Mutations ----
-  updateConversation: (id: string, update: Partial<WorkflowState>) => void;
-  addConversations: (states: WorkflowState[]) => void;
+  updateConversation: (id: string, update: Partial<PipelineState>) => void;
+  addConversations: (states: PipelineState[]) => void;
   removeConversation: (id: string) => void;
-  setConversations: (updater: (prev: WorkflowState[]) => WorkflowState[]) => void;
+  setConversations: (updater: (prev: PipelineState[]) => PipelineState[]) => void;
   appendSummaryChunk: (id: string, chunk: string) => void;
   appendAnalysisChunk: (id: string, chunk: string) => void;
 
@@ -42,7 +42,7 @@ interface ConversationStore {
   updateGroup: (id: string, update: Partial<Group>) => void;
 
   // ---- Actions ----
-  runWorkflows: (files: File[], presetIds?: Map<number, string>, options?: WorkflowOptions) => Promise<void>;
+  runPipelines: (files: File[], presetIds?: Map<number, string>, options?: PipelineOptions) => Promise<void>;
   groupConversations: (ids: string[], name?: string, existingId?: string, title?: string) => string;
   processPendingGroups: () => void;
   processFileDrop: (files: File[], loadedPreset: any) => Promise<void>;
@@ -156,8 +156,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
     // ---- Actions ----
 
-    runWorkflows: async (files, presetIds, options) => {
-      await runWorkflowMutation(accessor, files, presetIds, options);
+    runPipelines: async (files, presetIds, options) => {
+      await runPipelineMutation(accessor, files, presetIds, options);
     },
 
     groupConversations: (ids, name, existingId, title) => {
@@ -223,7 +223,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           presetIds.set(index, oldId);
         }
 
-        const options: WorkflowOptions | undefined = loadedPreset
+        const options: PipelineOptions | undefined = loadedPreset
           ? {
               customComponents: loadedPreset.components,
               presetColors: loadedPreset.colors,
@@ -232,7 +232,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             }
           : undefined;
 
-        await get().runWorkflows(
+        await get().runPipelines(
           filesToProcess,
           presetIds.size > 0 ? presetIds : undefined,
           options,

@@ -1,16 +1,16 @@
 /**
- * Workflow orchestration: who runs what, on which files/dimensions,
+ * Pipeline orchestration: who runs what, on which files/dimensions,
  * and where the results go.
  *
  * Pipeline steps live in pipeline.ts. This file wires them to the store.
  */
 
 import type {
-  WorkflowState,
-  WorkflowCallbacks,
-  WorkflowDataField,
-  WorkflowOptions,
-  WorkflowBatchResult,
+  PipelineState,
+  PipelineCallbacks,
+  PipelineDataField,
+  PipelineOptions,
+  PipelineBatchResult,
   Group,
 } from "@/model/types";
 import { PipelineStep } from "@/model/types";
@@ -26,10 +26,10 @@ import { getAIConfig } from "@/stages/ai/config";
 import { generateId } from "@/lib/id-generator";
 
 // ---------------------------------------------------------------------------
-// Inline buildBaseContext (was workflow/context.ts)
+// Inline buildBaseContext (was pipeline/context.ts)
 // ---------------------------------------------------------------------------
 
-function buildBaseContext(conv: WorkflowState): WorkflowState {
+function buildBaseContext(conv: PipelineState): PipelineState {
   return {
     id: conv.id,
     filename: conv.filename,
@@ -59,11 +59,11 @@ function buildBaseContext(conv: WorkflowState): WorkflowState {
 /** Minimal store interface for orchestration functions. */
 export interface StoreAccessor {
   getState: () => {
-    conversations: WorkflowState[];
+    conversations: PipelineState[];
     groups: Record<string, Group>;
     pendingSessionImport: any;
   };
-  updateConversation: (id: string, update: Partial<WorkflowState>) => void;
+  updateConversation: (id: string, update: Partial<PipelineState>) => void;
   updateGroup: (id: string, update: Partial<Group>) => void;
   appendSummaryChunk: (id: string, chunk: string) => void;
   appendAnalysisChunk: (id: string, chunk: string) => void;
@@ -75,8 +75,8 @@ export interface StoreAccessor {
 // ---------------------------------------------------------------------------
 
 /** Collect all data fields affected by running the pipeline from `startFrom`. */
-function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = false): WorkflowDataField[] {
-  const fields = new Set<WorkflowDataField>();
+function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = false): PipelineDataField[] {
+  const fields = new Set<PipelineDataField>();
 
   if (startFrom <= PipelineStep.Segment) {
     fields.add("conversation");
@@ -105,9 +105,9 @@ function collectFieldsFrom(startFrom: PipelineStep, includeAnalysis: boolean = f
  */
 async function runPipelineFrom(
   startFrom: PipelineStep,
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks?: WorkflowCallbacks,
+  callbacks?: PipelineCallbacks,
   dimNames?: string[],
 ): Promise<void> {
   try {
@@ -126,10 +126,10 @@ async function runPipelineFrom(
 /** Reprocess a single conversation from a given pipeline step. */
 export async function reprocessWithRunner(
   store: StoreAccessor,
-  conv: WorkflowState,
+  conv: PipelineState,
   startFrom: PipelineStep,
-  contextModifier: (ctx: WorkflowState) => void,
-  callbacks: WorkflowCallbacks,
+  contextModifier: (ctx: PipelineState) => void,
+  callbacks: PipelineCallbacks,
   dimNames?: string[],
 ): Promise<void> {
   const notify: Notify = (id, update) => store.updateConversation(id, update);
@@ -146,8 +146,8 @@ export async function reprocessTarget(
   store: StoreAccessor,
   targetId: string,
   startFrom: PipelineStep,
-  contextModifier: (ctx: WorkflowState) => void,
-  callbacks: WorkflowCallbacks,
+  contextModifier: (ctx: PipelineState) => void,
+  callbacks: PipelineCallbacks,
   dimNames?: string[],
 ): Promise<void> {
   const { conversations, groups } = store.getState();
@@ -156,7 +156,7 @@ export async function reprocessTarget(
   if (group) {
     const memberConvs = group.fileIds
       .map((fid) => conversations.find((c) => c.id === fid))
-      .filter((c): c is WorkflowState => !!c?.conversation);
+      .filter((c): c is PipelineState => !!c?.conversation);
 
     await Promise.all(
       memberConvs.map((conv) =>
@@ -214,11 +214,11 @@ export async function applyPromptsToAll(
       const dims = ctx.dimensions || {};
       for (const [dimName, sourceDim] of Object.entries(source.dimensions)) {
         dims[dimName] = {
-          ...(dims[dimName] || { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
+          ...(dims[dimName] || { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} }),
           prompt: sourceDim.prompt,
           customColoringPrompt: sourceDim.customColoringPrompt,
-          customComponents: sourceDim.components?.length ? sourceDim.components : sourceDim.customComponents,
-          components: sourceDim.components || [],
+          customComponents: sourceDim.discoveredComponents?.length ? sourceDim.discoveredComponents : sourceDim.customComponents,
+          discoveredComponents: sourceDim.discoveredComponents || [],
           componentColors: { ...sourceDim.componentColors },
         };
       }
@@ -237,9 +237,9 @@ export async function applyPromptsToAll(
 // ---------------------------------------------------------------------------
 
 export async function generateSummaryOnDemand(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
     await runSummary(ctx, notify, callbacks);
@@ -250,9 +250,9 @@ export async function generateSummaryOnDemand(
 }
 
 export async function generateAnalysisOnDemand(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
     await runEnsureSummaryThenAnalysis(ctx, notify, callbacks);
@@ -263,15 +263,15 @@ export async function generateAnalysisOnDemand(
 }
 
 export async function rerunSummary(
-  ctx: WorkflowState,
+  ctx: PipelineState,
   notify: Notify,
-  callbacks: WorkflowCallbacks,
+  callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
     ctx.aiSummary = "";
     await runSummary(ctx, notify, callbacks);
 
-    const fields: WorkflowDataField[] = ["aiSummary", "customSummaryPrompt"];
+    const fields: PipelineDataField[] = ["aiSummary", "customSummaryPrompt"];
     if (ctx.regenerateAnalysis) {
       ctx.analysis = "";
       await runAnalysis(ctx, notify, callbacks);
@@ -287,27 +287,27 @@ export async function rerunSummary(
 // Batch processing
 // ---------------------------------------------------------------------------
 
-export async function runWorkflows(
+export async function runPipelines(
   files: File[],
   fileIds: Map<number, string>,
-  onFileComplete: (conversation: WorkflowState) => void,
+  onFileComplete: (conversation: PipelineState) => void,
   onAISummaryChunk: (id: string, chunk: string) => void,
   onAnalysisChunk: (id: string, chunk: string) => void,
-  options?: WorkflowOptions,
-): Promise<WorkflowBatchResult> {
+  options?: PipelineOptions,
+): Promise<PipelineBatchResult> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  const workflowStates = await Promise.all(
+  const pipelineStates = await Promise.all(
     files.map(async (file, i) => {
       if (!file) return null;
 
       const id = fileIds.get(i) || generateId();
 
       const notify: Notify = (id, update) => {
-        onFileComplete({ id, filename: file.name, ...update } as WorkflowState);
+        onFileComplete({ id, filename: file.name, ...update } as PipelineState);
       };
 
-      const ctx: WorkflowState = {
+      const ctx: PipelineState = {
         id,
         filename: file.name,
         file,
@@ -322,7 +322,7 @@ export async function runWorkflows(
             name: "default",
             prompt: options?.customPrompt,
             customComponents: options?.customComponents,
-            components: [],
+            discoveredComponents: [],
             componentMapping: {},
             componentTimeline: [],
             componentColors: {},
@@ -342,7 +342,7 @@ export async function runWorkflows(
   );
 
   return {
-    workflowStates: workflowStates.filter((c): c is WorkflowState => c !== null),
+    pipelineStates: pipelineStates.filter((c): c is PipelineState => c !== null),
   };
 }
 
@@ -350,15 +350,15 @@ export async function runWorkflows(
 // Store-level orchestration
 // ---------------------------------------------------------------------------
 
-/** Run workflows for dropped files, creating placeholders and processing. */
-export async function runWorkflowMutation(
+/** Run pipelines for dropped files, creating placeholders and processing. */
+export async function runPipelineMutation(
   store: StoreAccessor,
   files: File[],
   presetIds: Map<number, string> | undefined,
-  options?: WorkflowOptions,
+  options?: PipelineOptions,
 ): Promise<void> {
   const fileIds = new Map<number, string>();
-  const placeholders: WorkflowState[] = files.map((file, index) => {
+  const placeholders: PipelineState[] = files.map((file, index) => {
     const id = presetIds?.get(index) || generateId();
     fileIds.set(index, id);
     return { id, filename: file.name, status: "pending" };
@@ -369,9 +369,9 @@ export async function runWorkflowMutation(
     fileIdsRef: fileIds,
   }));
 
-  const onFileComplete = (completed: WorkflowState) => {
+  const onFileComplete = (completed: PipelineState) => {
     store.set((state: any) => ({
-      conversations: state.conversations.map((conv: WorkflowState) =>
+      conversations: state.conversations.map((conv: PipelineState) =>
         conv.id === completed.id
           ? {
               ...conv,
@@ -388,7 +388,7 @@ export async function runWorkflowMutation(
   const onAnalysisChunk = (id: string, chunk: string) => store.appendAnalysisChunk(id, chunk);
 
   try {
-    await runWorkflows(files, fileIds, onFileComplete, onSummaryChunk, onAnalysisChunk, options);
+    await runPipelines(files, fileIds, onFileComplete, onSummaryChunk, onAnalysisChunk, options);
     if (!store.getState().pendingSessionImport) {
       store.set({ fileIdsRef: new Map() });
     }
@@ -425,12 +425,12 @@ function makeGroupAwareNotify(
 export async function generateAnalysisForTarget(
   store: StoreAccessor,
   id: string,
-  conv: WorkflowState,
+  conv: PipelineState,
   options: { customAnalysisPrompt?: string } = {},
 ): Promise<void> {
   const group = store.getState().groups[id];
   const notify = makeGroupAwareNotify(store, id, group);
-  const ctx: WorkflowState = {
+  const ctx: PipelineState = {
     ...buildBaseContext(conv),
     analysis: "",
     customAnalysisPrompt: options.customAnalysisPrompt || conv.customAnalysisPrompt || group?.customAnalysisPrompt,
@@ -450,12 +450,12 @@ export async function generateAnalysisForTarget(
 export async function generateSummaryForTarget(
   store: StoreAccessor,
   id: string,
-  conv: WorkflowState,
+  conv: PipelineState,
   options: { customSummaryPrompt?: string } = {},
 ): Promise<void> {
   const group = store.getState().groups[id];
   const notify = makeGroupAwareNotify(store, id, group);
-  const ctx: WorkflowState = {
+  const ctx: PipelineState = {
     ...buildBaseContext(conv),
     aiSummary: "",
     customSummaryPrompt: options.customSummaryPrompt || conv.customSummaryPrompt || group?.customSummaryPrompt,
@@ -471,12 +471,12 @@ export async function generateSummaryForTarget(
 /** Rerun summary (and optionally analysis) for a conversation. */
 export async function rerunSummaryForTarget(
   store: StoreAccessor,
-  conv: WorkflowState,
+  conv: PipelineState,
   options: { customSummaryPrompt?: string } = {},
 ): Promise<void> {
   const notify: Notify = (id, update) => store.updateConversation(id, update);
   const shouldRegenerateAnalysis =
-    !!conv.analysis || conv.stepTimings?.analysis !== undefined;
+    !!conv.analysis || conv.stepTimings?.analyzing !== undefined;
 
   const ctx = buildBaseContext(conv);
   ctx.aiSummary = "";
@@ -485,8 +485,8 @@ export async function rerunSummaryForTarget(
   ctx.regenerateAnalysis = shouldRegenerateAnalysis;
   ctx.stepTimings = {
     ...ctx.stepTimings,
-    summary: undefined,
-    ...(shouldRegenerateAnalysis ? { analysis: undefined } : {}),
+    summarizing: undefined,
+    ...(shouldRegenerateAnalysis ? { analyzing: undefined } : {}),
   };
 
   await rerunSummary(ctx, notify, {
@@ -497,12 +497,12 @@ export async function rerunSummaryForTarget(
   });
 }
 
-/** Resume all paused workflows after API key is provided. */
-export function resumeWorkflowsWithApiKey(store: StoreAccessor): void {
+/** Resume all paused pipelines after API key is provided. */
+export function resumePipelinesWithApiKey(store: StoreAccessor): void {
   const { conversations } = store.getState();
-  const pausedWorkflows = conversations.filter((c) => c.status === "paused-for-api-key");
+  const pausedPipelines = conversations.filter((c) => c.status === "paused-for-api-key");
 
-  for (const conv of pausedWorkflows) {
+  for (const conv of pausedPipelines) {
     if (!conv.conversation) continue;
 
     const notify: Notify = (id, update) => store.updateConversation(id, update);

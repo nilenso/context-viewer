@@ -1,11 +1,11 @@
 import { generateText } from "ai";
 import type { Conversation } from "@/model/schema";
-import type { WorkflowState } from "@/model/types";
+import type { PipelineState } from "@/model/types";
 import { timed } from "@/pipeline/notify";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
 const log = createPhaseLogger("identifying-components", "Identification");
@@ -78,9 +78,9 @@ export async function identifyComponents(
   }
 }
 
-// --- Workflow runner ---
+// --- Pipeline runner ---
 
-export async function runIdentifyComponents(ctx: WorkflowState, onlyDims?: string[]): Promise<{ timing: number }> {
+export async function runIdentifyComponents(ctx: PipelineState, onlyDims?: string[]): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
     const dimNames = onlyDims ?? getDimensionNames(ctx);
@@ -99,7 +99,7 @@ export async function runIdentifyComponents(ctx: WorkflowState, onlyDims?: strin
         if (customComponents && customComponents.length > 0) {
           const cleaned = customComponents.map((c) => c.replace(/^-\s*/, ""));
           // Idempotent: if components already match customComponents, skip
-          if (dimData?.components?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.components)) {
+          if (dimData?.discoveredComponents?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.discoveredComponents)) {
             return;
           }
           components = cleaned;
@@ -119,7 +119,7 @@ export async function runIdentifyComponents(ctx: WorkflowState, onlyDims?: strin
           ...(dims[dimName] || { name: dimName }),
           name: dimName,
           prompt,
-          components,
+          discoveredComponents: components,
           componentMapping: dims[dimName]?.componentMapping || {},
           componentTimeline: dims[dimName]?.componentTimeline || [],
           componentColors: dims[dimName]?.componentColors || {},

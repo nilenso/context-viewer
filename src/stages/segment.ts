@@ -1,10 +1,10 @@
 import { generateText } from "ai";
 import type { Conversation, Message } from "@/model/schema";
-import type { WorkflowState } from "@/model/types";
+import type { PipelineState } from "@/model/types";
 import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { addTokenCounts } from "@/operations/token-counting";
 
 const log = createPhaseLogger("segmenting", "Segmentation");
@@ -380,9 +380,9 @@ export async function segmentConversation(
   return { conversation: newConversation };
 }
 
-// --- Workflow runner ---
+// --- Pipeline runner ---
 
-export async function runSegment(ctx: WorkflowState, notify: Notify) {
+export async function runSegment(ctx: PipelineState, notify: Notify) {
   startStep(notify, ctx, "segmenting");
   const { result, timing } = await timed(async () => {
     const segResult = await segmentConversation(

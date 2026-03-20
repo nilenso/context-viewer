@@ -136,7 +136,7 @@ describe("ContextViewerParser", () => {
 
 describe("Export → Import round-trip", () => {
   it("round-trips a single-dimension conversation", () => {
-    const workflowState = {
+    const pipelineState = {
       id: "test-1",
       filename: "test.json",
       status: "success" as const,
@@ -162,7 +162,7 @@ describe("Export → Import round-trip", () => {
       dimensions: {
         default: {
           name: "default",
-          components: ["greeting", "context", "response"],
+          discoveredComponents: ["greeting", "context", "response"],
           componentMapping: { p1: "greeting", p2: "context", p3: "response" },
           componentTimeline: [],
           componentColors: { greeting: "blue", context: "green", response: "red" },
@@ -174,15 +174,15 @@ describe("Export → Import round-trip", () => {
     };
 
     // Export
-    const exported = buildFileExport(workflowState);
+    const exported = buildFileExport(pipelineState);
 
     // Validate schema
     expect(FileExportSchema.safeParse(exported).success).toBe(true);
 
     // Verify structure
     expect(exported.id).toBe("test-1");
-    expect(exported.colors).toEqual(workflowState.dimensions.default.componentColors);
-    expect(exported.summary).toBe(workflowState.aiSummary);
+    expect(exported.colors).toEqual(pipelineState.dimensions.default.componentColors);
+    expect(exported.summary).toBe(pipelineState.aiSummary);
     expect(exported.conversation.messages).toHaveLength(2);
 
     // Verify component annotations on parts
@@ -199,14 +199,14 @@ describe("Export → Import round-trip", () => {
     expect(conversation.messages).toHaveLength(2);
 
     const metadata = parser.extractMetadata(exported);
-    expect(metadata.componentColors).toEqual(workflowState.dimensions.default.componentColors);
-    expect(metadata.aiSummary).toBe(workflowState.aiSummary);
-    expect(metadata.analysis).toBe(workflowState.analysis);
-    expect(metadata.customPrompt).toBe(workflowState.dimensions.default.prompt);
+    expect(metadata.componentColors).toEqual(pipelineState.dimensions.default.componentColors);
+    expect(metadata.aiSummary).toBe(pipelineState.aiSummary);
+    expect(metadata.analysis).toBe(pipelineState.analysis);
+    expect(metadata.customPrompt).toBe(pipelineState.dimensions.default.prompt);
   });
 
   it("round-trips a multi-dimension conversation", () => {
-    const workflowState = {
+    const pipelineState = {
       id: "test-multi",
       filename: "multi-dim.json",
       status: "success" as const,
@@ -232,14 +232,14 @@ describe("Export → Import round-trip", () => {
       dimensions: {
         default: {
           name: "default",
-          components: ["identity", "task_description", "project_context"],
+          discoveredComponents: ["identity", "task_description", "project_context"],
           componentMapping: { p1: "identity", p2: "task_description", p3: "project_context" },
           componentTimeline: [],
           componentColors: { identity: "blue", task_description: "green", project_context: "orange" },
         },
         workflow: {
           name: "workflow",
-          components: ["identity", "task_description", "project_context"],
+          discoveredComponents: ["identity", "task_description", "project_context"],
           componentMapping: { p1: "identity", p2: "task_description", p3: "project_context" },
           componentTimeline: [],
           componentColors: { identity: "blue", task_description: "green", project_context: "orange" },
@@ -247,7 +247,7 @@ describe("Export → Import round-trip", () => {
         },
         error_types: {
           name: "error_types",
-          components: ["setup", "bug_description", "code_reference"],
+          discoveredComponents: ["setup", "bug_description", "code_reference"],
           componentMapping: { p1: "setup", p2: "bug_description", p3: "code_reference" },
           componentTimeline: [],
           componentColors: { setup: "gray", bug_description: "red", code_reference: "purple" },
@@ -259,7 +259,7 @@ describe("Export → Import round-trip", () => {
     };
 
     // Export
-    const exported = buildFileExport(workflowState);
+    const exported = buildFileExport(pipelineState);
 
     // Validate schema
     expect(FileExportSchema.safeParse(exported).success).toBe(true);
@@ -269,10 +269,10 @@ describe("Export → Import round-trip", () => {
     expect(Object.keys(exported.dimensions!)).toEqual(["default", "workflow", "error_types"]);
 
     // Verify per-dimension data
-    const workflowDim = exported.dimensions!["workflow"]!;
-    expect(workflowDim.components).toEqual(["identity", "task_description", "project_context"]);
-    expect(workflowDim.colors).toEqual(workflowState.dimensions.workflow.componentColors);
-    expect(workflowDim.prompt).toBe("Identify workflow components");
+    const pipelineDim = exported.dimensions!["workflow"]!;
+    expect(pipelineDim.components).toEqual(["identity", "task_description", "project_context"]);
+    expect(pipelineDim.colors).toEqual(pipelineState.dimensions.workflow.componentColors);
+    expect(pipelineDim.prompt).toBe("Identify workflow components");
 
     const errorDim = exported.dimensions!["error_types"]!;
     expect(errorDim.components).toEqual(["setup", "bug_description", "code_reference"]);
@@ -289,7 +289,7 @@ describe("Export → Import round-trip", () => {
     expect(p2.dimensions).toEqual({ default: "task_description", workflow: "task_description", error_types: "bug_description" });
 
     // Colors should come from the default dimension
-    expect(exported.colors).toEqual(workflowState.dimensions.default.componentColors);
+    expect(exported.colors).toEqual(pipelineState.dimensions.default.componentColors);
 
     // Import
     const parser = new ContextViewerParser();
@@ -299,7 +299,7 @@ describe("Export → Import round-trip", () => {
     expect(conversation.messages).toHaveLength(2);
 
     const metadata = parser.extractMetadata(exported);
-    expect(metadata.componentColors).toEqual(workflowState.dimensions.default.componentColors);
+    expect(metadata.componentColors).toEqual(pipelineState.dimensions.default.componentColors);
     expect(metadata.dimensions).toBeDefined();
     expect(Object.keys(metadata.dimensions!)).toEqual(["default", "workflow", "error_types"]);
     expect(metadata.dimensions!["error_types"]!.prompt).toBe("Identify error-related components");

@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
-import type { DimensionData, ProcessingPhase } from "@/model/types";
+import type { DimensionData, StageGroup } from "@/model/types";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import {
@@ -39,7 +39,7 @@ import {
   subscribeToLogs,
   formatDuration,
   formatTimestamp,
-} from "@/stages/ai/workflow-logger";
+} from "@/pipeline/logging";
 import { useConversationStore } from "@/stores/conversation-store";
 import {
   openPromptEditor,
@@ -56,17 +56,8 @@ import {
   updateGroupSources,
 } from "@/stores/actions";
 
-type ProcessingStep =
-  | "parsing"
-  | "counting-tokens"
-  | "segmenting"
-  | "summary"
-  | "finding-components"
-  | "coloring"
-  | "analysis";
-
 interface StepInfo {
-  key: ProcessingStep;
+  key: StageGroup;
   label: string;
   description: string;
 }
@@ -88,7 +79,7 @@ const processingSteps: StepInfo[] = [
     description: "Split large text parts into smaller segments using AI",
   },
   {
-    key: "summary",
+    key: "summarizing",
     label: "Generate summary",
     description: "Generate an AI summary of the conversation",
   },
@@ -103,7 +94,7 @@ const processingSteps: StepInfo[] = [
     description: "Assign colors to identified components",
   },
   {
-    key: "analysis",
+    key: "analyzing",
     label: "Generate analysis",
     description: "Generate detailed context analysis using AI",
   },
@@ -146,7 +137,7 @@ export function WorkflowDetailModal({
       })
     : undefined;
   const [logs, setLogs] = useState<ConversationLogs | null>(null);
-  const [expandedSteps, setExpandedSteps] = useState<Set<ProcessingStep>>(
+  const [expandedSteps, setExpandedSteps] = useState<Set<StageGroup>>(
     new Set(),
   );
   // Dimension accordion state
@@ -173,7 +164,7 @@ export function WorkflowDetailModal({
     return unsubscribe;
   }, [conversationId]);
 
-  const toggleStep = (step: ProcessingStep) => {
+  const toggleStep = (step: StageGroup) => {
     setExpandedSteps((prev) => {
       const next = new Set(prev);
       if (next.has(step)) {
@@ -186,7 +177,7 @@ export function WorkflowDetailModal({
   };
 
   const getStepStatus = (
-    stepKey: ProcessingStep,
+    stepKey: StageGroup,
   ): "pending" | "in-progress" | "completed" | "not-run" => {
     if (status === "failed") return "pending";
     if (status === "pending") return "pending";
@@ -197,11 +188,11 @@ export function WorkflowDetailModal({
     );
 
     // Special handling for summary step - check if aiSummary exists
-    if (stepKey === "summary") {
+    if (stepKey === "summarizing") {
       if (aiSummary && aiSummary.length > 0) {
         return "completed";
       }
-      if (status === "processing" && currentStep === "summary") {
+      if (status === "processing" && currentStep === "summarizing") {
         return "in-progress";
       }
       return "pending";
@@ -214,7 +205,7 @@ export function WorkflowDetailModal({
         return "completed";
       }
       // Analysis is optional - if no timing, it wasn't run
-      if (stepKey === "analysis") {
+      if (stepKey === "analyzing") {
         return "not-run";
       }
       return "completed";
@@ -225,31 +216,31 @@ export function WorkflowDetailModal({
     return "pending";
   };
 
-  const getStepTiming = (stepKey: ProcessingStep): StepTiming | undefined => {
-    return logs?.stepTimings[stepKey];
+  const getStepTiming = (stepKey: StageGroup): StepTiming | undefined => {
+    return logs?.stepTimings[stepKey as keyof typeof logs.stepTimings];
   };
 
-  const getLogsForStep = (stepKey: ProcessingStep): LogEntry[] => {
+  const getLogsForStep = (stepKey: StageGroup): LogEntry[] => {
     if (!logs) return [];
     return logs.entries.filter((entry) => entry.phase === stepKey);
   };
 
   const getStatusIcon = (
     stepStatus: "pending" | "in-progress" | "completed" | "not-run",
-    stepKey: ProcessingStep,
+    stepKey: StageGroup,
   ) => {
     const isSummaryClickable =
-      stepKey === "summary" &&
+      stepKey === "summarizing" &&
       status === "success" &&
       !currentStep &&
-      stepTimings?.summary === undefined &&
+      stepTimings?.summarizing === undefined &&
       true;
 
     const isAnalysisClickable =
-      stepKey === "analysis" &&
+      stepKey === "analyzing" &&
       status === "success" &&
       !currentStep &&
-      stepTimings?.analysis === undefined;
+      stepTimings?.analyzing === undefined;
 
     if (isSummaryClickable || isAnalysisClickable) {
       return <Play className="h-4 w-4 text-blue-600" />;
@@ -325,24 +316,24 @@ export function WorkflowDetailModal({
               const legacyTiming = stepTimings?.[step.key];
 
               const isSummaryClickable =
-                step.key === "summary" &&
+                step.key === "summarizing" &&
                 status === "success" &&
                 !currentStep &&
-                stepTimings?.summary === undefined;
+                stepTimings?.summarizing === undefined;
 
               const isAnalysisClickable =
-                step.key === "analysis" &&
+                step.key === "analyzing" &&
                 status === "success" &&
                 !currentStep &&
-                stepTimings?.analysis === undefined;
+                stepTimings?.analyzing === undefined;
 
               const isClickable = isSummaryClickable || isAnalysisClickable;
 
               const isFindComponentsStep = step.key === "finding-components";
               const isSegmentingStep = step.key === "segmenting";
-              const isSummaryStep = step.key === "summary";
+              const isSummaryStep = step.key === "summarizing";
               const isColoringStep = step.key === "coloring";
-              const isAnalysisStep = step.key === "analysis";
+              const isAnalysisStep = step.key === "analyzing";
 
               return (
                 <Collapsible
@@ -601,7 +592,7 @@ export function WorkflowDetailModal({
                                       )}
 
                                       <span className="text-muted-foreground flex-shrink-0">
-                                        {new Set(dimData.components).size} components
+                                        {new Set(dimData.discoveredComponents).size} components
                                       </span>
 
                                       {(
@@ -659,10 +650,10 @@ export function WorkflowDetailModal({
                                     {/* Expanded: show component list and action links */}
                                     {isDimExpanded && (
                                       <div className="px-7 py-1.5 bg-muted/20 space-y-0.5">
-                                        {dimData.components.length === 0 ? (
+                                        {dimData.discoveredComponents.length === 0 ? (
                                           <p className="text-muted-foreground italic">No components yet. Edit the prompt to run component identification.</p>
                                         ) : (
-                                          [...new Set(dimData.components)].map((comp) => {
+                                          [...new Set(dimData.discoveredComponents)].map((comp) => {
                                             const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
                                             return (
                                               <div key={comp} className="flex items-center gap-1.5">

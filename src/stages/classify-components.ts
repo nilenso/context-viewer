@@ -4,13 +4,13 @@
  * Algorithm: map/classify each conversation part to a component using AI,
  * then build a component timeline.
  *
- * Workflow wrapper: runClassifyComponents orchestrates classification across
+ * Pipeline wrapper: runClassifyComponents orchestrates classification across
  * all dimensions.
  */
 
 import { generateText } from "ai";
 import type { Conversation } from "@/model/schema";
-import type { WorkflowState, ComponentTimelineSnapshot } from "@/model/types";
+import type { PipelineState, ComponentTimelineSnapshot } from "@/model/types";
 import {
   getPrompt,
   getDefaultComponentIdentificationPrompt,
@@ -22,7 +22,7 @@ import {
   type AIConfig,
 } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
-import { createPhaseLogger } from "./ai/logger";
+import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { buildComponentTimeline as buildComponentTimelineCore } from "@/operations/aggregation";
 import { timed } from "@/pipeline/notify";
 import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
@@ -204,7 +204,7 @@ export async function mapComponentsToIds(
 }
 
 /**
- * Build a component timeline with workflow logging.
+ * Build a component timeline with pipeline logging.
  * Thin wrapper around the pure function in aggregation.ts.
  */
 export function buildComponentTimeline(
@@ -229,10 +229,10 @@ export function buildComponentTimeline(
 }
 
 // ---------------------------------------------------------------------------
-// Workflow wrapper
+// Pipeline wrapper
 // ---------------------------------------------------------------------------
 
-export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: string[]): Promise<{ timing: number }> {
+export async function runClassifyComponents(ctx: PipelineState, onlyDims?: string[]): Promise<{ timing: number }> {
   const { result, timing } = await timed(async () => {
     const dims = ensureDimensions(ctx);
     const dimNames = onlyDims ?? getDimensionNames(ctx);
@@ -243,14 +243,14 @@ export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: strin
     await Promise.all(
       dimNames.map(async (dimName) => {
         const dimData = dims[dimName];
-        if (!dimData || !config || !dimData.components?.length) return;
+        if (!dimData || !config || !dimData.discoveredComponents?.length) return;
 
         // Idempotent: if mapping already covers all parts and maps to current components, skip
         const mapping = dimData.componentMapping;
         if (mapping && Object.keys(mapping).length > 0) {
           const allPartIds = ctx.conversation!.messages.flatMap(m => m.parts.map(p => p.id));
           const partIdSet = new Set(allPartIds);
-          const componentSet = new Set(dimData.components);
+          const componentSet = new Set(dimData.discoveredComponents);
           const hasOther = componentSet.has("other");
           // Mapping keys must reference current part IDs (not stale from a previous segmentation)
           const mappingKeysValid = Object.keys(mapping).every(id => partIdSet.has(id));
@@ -267,7 +267,7 @@ export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: strin
         try {
           const mapping = await mapComponentsToIds(
             ctx.conversation!,
-            dimData.components,
+            dimData.discoveredComponents,
             config,
             componentDescriptions,
             ctx.id,
@@ -278,15 +278,15 @@ export async function runClassifyComponents(ctx: WorkflowState, onlyDims?: strin
           );
           const mappedParts = Object.keys(mapping).length;
           const finalComponents =
-            mappedParts < totalParts && !dimData.components.includes("other")
-              ? [...dimData.components, "other"]
-              : dimData.components;
+            mappedParts < totalParts && !dimData.discoveredComponents.includes("other")
+              ? [...dimData.discoveredComponents, "other"]
+              : dimData.discoveredComponents;
 
           const timeline = buildComponentTimeline(ctx.conversation!, mapping);
 
           // Mutate in place — classify and color run in parallel on the same dimData,
           // so replacing the object would race with runAssignColors.
-          dimData.components = finalComponents;
+          dimData.discoveredComponents = finalComponents;
           dimData.componentMapping = mapping;
           dimData.componentTimeline = timeline;
         } catch (e: any) {

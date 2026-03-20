@@ -1,26 +1,27 @@
 /**
- * useWorkflowActions — consolidates the complex multi-step handler functions
+ * usePipelineActions — consolidates the complex multi-step handler functions
  * that were previously scattered across App.tsx (~400 lines).
  *
  * These are operations that combine conversation-store mutations,
  * UI-store updates, pipeline calls, and/or navigation.
  *
- * Components import this hook directly instead of receiving callbacks via props.
+ * Components import these functions directly instead of receiving callbacks via props.
  */
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useUrlStore } from "@/stores/url-store";
-import type { WorkflowState } from "@/model/types";
+import type { PipelineState } from "@/model/types";
 import { PipelineStep } from "@/model/types";
 import { ensureDimensions } from "@/model/dimensions";
-import { buildSessionExport, downloadExport, exportPromptsAsPreset } from "@/operations/export-builder";
+import { buildSessionExport } from "@/operations/export-builder";
+import { downloadExport, exportPromptsAsPreset } from "@/ui/lib/export-download";
 import {
   reprocessTarget,
   applyPromptsToAll,
   generateAnalysisForTarget,
   generateSummaryForTarget,
   rerunSummaryForTarget,
-  resumeWorkflowsWithApiKey,
+  resumePipelinesWithApiKey,
   type StoreAccessor,
 } from "@/pipeline/orchestrate";
 import {
@@ -67,7 +68,7 @@ function getOnAnalysisChunk() {
 // ---- Reprocessing actions ----
 
 export async function reprocessComponents(
-  selectedConversation: WorkflowState,
+  selectedConversation: PipelineState,
   selectedGroupFileIds: string[] | undefined,
   options: { customPrompt?: string; customComponents?: string[] } = {},
 ) {
@@ -85,7 +86,7 @@ export async function reprocessComponents(
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
-          dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          dims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
         }
         if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
         if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
@@ -102,7 +103,7 @@ export async function reprocessComponents(
 }
 
 export async function reprocessSegmentation(
-  selectedConversation: WorkflowState,
+  selectedConversation: PipelineState,
   selectedGroupFileIds: string[] | undefined,
   options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {},
 ) {
@@ -131,7 +132,7 @@ export async function reprocessSegmentation(
 }
 
 export async function reprocessSummary(
-  selectedConversation: WorkflowState,
+  selectedConversation: PipelineState,
   options: { customSummaryPrompt?: string } = {},
 ) {
   const ui = useUIStore.getState();
@@ -150,7 +151,7 @@ export async function reprocessSummary(
 
 export async function generateAnalysis(
   id: string,
-  selectedConversation: WorkflowState | undefined,
+  selectedConversation: PipelineState | undefined,
   options: { customAnalysisPrompt?: string } = {},
 ) {
   const ui = useUIStore.getState();
@@ -172,7 +173,7 @@ export async function generateAnalysis(
 
 export async function generateSummary(
   id: string,
-  selectedConversation: WorkflowState | undefined,
+  selectedConversation: PipelineState | undefined,
   options: { customSummaryPrompt?: string } = {},
 ) {
   const ui = useUIStore.getState();
@@ -228,7 +229,7 @@ export function openComponentsEditor(id: string, dimensionName?: string) {
   const ui = useUIStore.getState();
   ui.setEditingDimensionName(dimName);
 
-  const currentComponents = sourceConv?.dimensions?.[dimName]?.components || [];
+  const currentComponents = sourceConv?.dimensions?.[dimName]?.discoveredComponents || [];
   ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
   ui.setIsComponentsDialogOpen(true);
 }
@@ -276,7 +277,7 @@ export function openColoringPromptEditor(id: string, dimensionName?: string) {
 
 // ---- Prompt apply actions ----
 
-export async function applyPrompt(selectedConversation: WorkflowState | undefined) {
+export async function applyPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsPromptDialogOpen(false);
@@ -299,7 +300,7 @@ export async function applyPrompt(selectedConversation: WorkflowState | undefine
         dims[dimName] = {
           name: dimName,
           prompt: ui.editingPrompt,
-          components: [],
+          discoveredComponents: [],
           componentMapping: {},
           componentTimeline: [],
           componentColors: {},
@@ -318,7 +319,7 @@ export async function applyPrompt(selectedConversation: WorkflowState | undefine
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
-          dims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          dims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
         }
         dims[dimName]!.prompt = ui.editingPrompt;
       },
@@ -332,7 +333,7 @@ export async function applyPrompt(selectedConversation: WorkflowState | undefine
   }
 }
 
-export async function applyComponents(selectedConversation: WorkflowState | undefined) {
+export async function applyComponents(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsComponentsDialogOpen(false);
@@ -382,7 +383,7 @@ export async function applyComponents(selectedConversation: WorkflowState | unde
 }
 
 export async function applySegmentationPrompt(
-  selectedConversation: WorkflowState | undefined,
+  selectedConversation: PipelineState | undefined,
   selectedGroupFileIds: string[] | undefined,
 ) {
   const ui = useUIStore.getState();
@@ -395,7 +396,7 @@ export async function applySegmentationPrompt(
   }
 }
 
-export async function applySummaryPrompt(selectedConversation: WorkflowState | undefined) {
+export async function applySummaryPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   ui.setIsSummaryPromptDialogOpen(false);
   if (selectedConversation?.conversation) {
@@ -403,7 +404,7 @@ export async function applySummaryPrompt(selectedConversation: WorkflowState | u
   }
 }
 
-export async function applyAnalysisPrompt(selectedConversation: WorkflowState | undefined) {
+export async function applyAnalysisPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   ui.setIsAnalysisPromptDialogOpen(false);
   if (selectedConversation?.conversation) {
@@ -413,7 +414,7 @@ export async function applyAnalysisPrompt(selectedConversation: WorkflowState | 
   }
 }
 
-export async function applyColoringPrompt(selectedConversation: WorkflowState | undefined) {
+export async function applyColoringPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsColoringPromptDialogOpen(false);
@@ -469,7 +470,7 @@ export function addDimension(selectedConversationId: string, name: string) {
     prev.map((conv) => {
       if (conv.id !== selectedConversationId) return conv;
       const dims = { ...(conv.dimensions || {}) };
-      dims[name] = { name, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+      dims[name] = { name, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
       return { ...conv, dimensions: dims };
     }),
   );
@@ -526,8 +527,8 @@ export function applyPromptsToAllAction(sourceId: string) {
   return applyPromptsToAll(getAccessor(), sourceId);
 }
 
-export function resumeWorkflowsWithApiKeyAction() {
-  resumeWorkflowsWithApiKey(getAccessor());
+export function resumePipelinesWithApiKeyAction() {
+  resumePipelinesWithApiKey(getAccessor());
 }
 
 // ---- Export actions ----

@@ -12,10 +12,10 @@ import {
 } from "@/model/export-schema";
 
 /**
- * Minimal WorkflowState interface for export building.
- * Matches the subset of fields we need from the full WorkflowState in App.tsx.
+ * Minimal PipelineState interface for export building.
+ * Matches the subset of fields we need from the full PipelineState.
  */
-interface WorkflowState {
+interface PipelineState {
   id: string;
   filename: string;
   title?: string;
@@ -70,7 +70,7 @@ function buildConversationWithComponents(
 /**
  * Build export data for a single file/conversation
  */
-export function buildFileExport(conv: WorkflowState): FileExport {
+export function buildFileExport(conv: PipelineState): FileExport {
   if (!conv.conversation) {
     throw new Error(`Cannot export conversation ${conv.id}: no conversation data`);
   }
@@ -102,7 +102,7 @@ export function buildFileExport(conv: WorkflowState): FileExport {
     dimensionsExport = {};
     for (const [dimName, dim] of Object.entries(conv.dimensions)) {
       dimensionsExport[dimName] = {
-        components: dim.components,
+        components: dim.discoveredComponents,
         colors: dim.componentColors,
         prompt: dim.prompt,
         coloringPrompt: dim.customColoringPrompt,
@@ -132,7 +132,7 @@ export function buildFileExport(conv: WorkflowState): FileExport {
 /**
  * Build analytics data from conversations
  */
-function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
+function buildAnalytics(conversations: PipelineState[]): AnalyticsExport {
   return {
     componentComparison: conversations.map((conv) => {
       const defaultDim = conv.dimensions?.["default"];
@@ -162,7 +162,7 @@ function buildAnalytics(conversations: WorkflowState[]): AnalyticsExport {
  * Build complete session export from all conversations
  */
 export function buildSessionExport(
-  conversations: WorkflowState[],
+  conversations: PipelineState[],
   groups?: Record<string, Group>,
 ): SessionExport {
   const individualFiles = conversations.filter(
@@ -192,62 +192,3 @@ export function buildSessionExport(
   return SessionExportSchema.parse(data);
 }
 
-/**
- * Export a conversation's prompts as a reusable preset file.
- */
-export function exportPromptsAsPreset(source: WorkflowState): void {
-  const defaultDim = source.dimensions?.["default"];
-  const defaultName = source.title || source.filename.replace(/\.[^.]+$/, "");
-  const name = window.prompt("Preset name:", defaultName);
-  if (!name) return;
-
-  const preset: Record<string, unknown> = {
-    id: `custom-${Date.now()}`,
-    name,
-    description: `Exported prompts from "${name}"`,
-    components: defaultDim?.components || [],
-    colors: defaultDim?.componentColors || {},
-  };
-
-  if (source.customSegmentationPrompt) preset.segmentationPrompt = source.customSegmentationPrompt;
-  if (source.segmentationThreshold != null) preset.segmentationThreshold = source.segmentationThreshold;
-  if (defaultDim?.prompt) preset.componentIdentificationPrompt = defaultDim.prompt;
-  if (defaultDim?.customColoringPrompt) preset.coloringPrompt = defaultDim.customColoringPrompt;
-  if (source.customSummaryPrompt) preset.summaryPrompt = source.customSummaryPrompt;
-  if (source.customAnalysisPrompt) preset.analysisPrompt = source.customAnalysisPrompt;
-
-  if (source.dimensions && Object.keys(source.dimensions).length > 1) {
-    const dimPrompts: Record<string, { prompt?: string; coloringPrompt?: string; components: string[] }> = {};
-    for (const [dimName, dim] of Object.entries(source.dimensions)) {
-      dimPrompts[dimName] = {
-        prompt: dim.prompt,
-        coloringPrompt: dim.customColoringPrompt,
-        components: dim.components,
-      };
-    }
-    preset.dimensions = dimPrompts;
-  }
-
-  const json = JSON.stringify(preset, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-preset.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Download export data as a JSON file
- */
-export function downloadExport(data: SessionExport): void {
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `context-viewer-export-${new Date().toISOString().split("T")[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}

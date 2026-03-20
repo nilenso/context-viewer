@@ -20,7 +20,7 @@ export class ContextViewerParser implements Parser {
     const file = FileExportSchema.parse(data);
 
     // Convert ExportConversation to Conversation
-    // Parts already have component field from export - workflow will extract mapping
+    // Parts already have component field from export - pipeline will extract mapping
     return {
       messages: file.conversation.messages.map((msg) => ({
         id: msg.id,

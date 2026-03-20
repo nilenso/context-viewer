@@ -5,7 +5,7 @@ import { useConversationStore } from "./stores/conversation-store";
 import { useUIStore } from "./stores/ui-store";
 import { useUrlStore } from "./stores/url-store";
 import type { InsightsTab } from "./stores/url-store";
-import type { WorkflowState } from "@/model/types";
+import type { PipelineState } from "@/model/types";
 import { getDefaultDimension, getAllComponents } from "@/model/dimensions";
 import type { ConversationComponentData } from "./ui/components/ComponentComparisonView";
 import { aggregateComponentTokens } from "@/operations/aggregation";
@@ -62,7 +62,7 @@ export default function App() {
 
     const memberConvs = selectedGroup.fileIds
       .map((fid) => conversations.find((c) => c.id === fid))
-      .filter((c): c is WorkflowState => !!c?.conversation);
+      .filter((c): c is PipelineState => !!c?.conversation);
 
     if (memberConvs.length === 0) return null;
 
@@ -89,11 +89,11 @@ export default function App() {
       if (!conv.dimensions) continue;
       for (const [dimName, dim] of Object.entries(conv.dimensions)) {
         if (!mergedDims[dimName]) {
-          mergedDims[dimName] = { name: dimName, components: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
+          mergedDims[dimName] = { name: dimName, discoveredComponents: [], componentMapping: {}, componentTimeline: [], componentColors: {} };
         }
         const merged = mergedDims[dimName]!;
-        for (const c of dim.components) {
-          if (!merged.components.includes(c)) merged.components.push(c);
+        for (const c of dim.discoveredComponents) {
+          if (!merged.discoveredComponents.includes(c)) merged.discoveredComponents.push(c);
         }
         for (const [partId, component] of Object.entries(dim.componentMapping)) {
           merged.componentMapping[`${conv.id}-${partId}`] = component;
@@ -114,7 +114,7 @@ export default function App() {
       }
     }
 
-    const virtualState: WorkflowState = {
+    const virtualState: PipelineState = {
       id: selectedGroup.id,
       filename: selectedGroup.name,
       title: selectedGroup.title,
@@ -132,7 +132,7 @@ export default function App() {
     return { virtualState, originMap };
   }, [selectedGroup, conversations]);
 
-  const selectedConversation = useMemo((): WorkflowState | undefined => {
+  const selectedConversation = useMemo((): PipelineState | undefined => {
     if (conversations.length === 0 && !groupDisplayData) return undefined;
     if (groupDisplayData) return groupDisplayData.virtualState;
     return conversations.find((conv) => conv.id === selectedId) ?? conversations[0];
@@ -198,7 +198,7 @@ export default function App() {
       .filter((data): data is ConversationComponentData => data !== null);
   }, [selectedGroup, conversations]);
 
-  const memberWorkflowStates = useMemo(() => {
+  const memberPipelineStates = useMemo(() => {
     if (!selectedGroup) return undefined;
     return selectedGroup.fileIds
       .map((fileId) => {
@@ -276,7 +276,7 @@ export default function App() {
 
   // Switch to analysis tab when analysis starts streaming
   useEffect(() => {
-    if (selectedConversation?.status === "processing" && selectedConversation.step === "analysis") {
+    if (selectedConversation?.status === "processing" && selectedConversation.step === "analyzing") {
       useUrlStore.getState().setInsightsTab("analysis");
     }
   }, [selectedConversation?.status, selectedConversation?.step]);
@@ -475,7 +475,7 @@ export default function App() {
                     isGrouped={!!selectedGroup}
                     groupTitle={selectedGroup?.title || selectedConversation.title}
                     memberComponentData={memberComponentData}
-                    memberWorkflowStates={memberWorkflowStates}
+                    memberPipelineStates={memberPipelineStates}
                   />
                 ) : selectedConversation.status === "pending" ? (
                   <Card className="p-12 text-center">
@@ -514,10 +514,10 @@ export default function App() {
                   summary={selectedConversation.aiSummary}
                   analysis={selectedConversation.analysis}
                   isSummaryStreaming={
-                    selectedConversation.status === "processing" && selectedConversation.step === "summary"
+                    selectedConversation.status === "processing" && selectedConversation.step === "summarizing"
                   }
                   isAnalysisStreaming={
-                    selectedConversation.status === "processing" && selectedConversation.step === "analysis"
+                    selectedConversation.status === "processing" && selectedConversation.step === "analyzing"
                   }
                   activeTab={insightsTab}
                   onTabChange={(tab) => useUrlStore.getState().setInsightsTab(tab as InsightsTab)}

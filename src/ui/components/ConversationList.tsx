@@ -37,7 +37,7 @@ import {
   createFileValidator,
   SUPPORTED_EXTENSIONS_TEXT,
 } from "@/parsers/file-formats";
-import type { WorkflowState, Group, ProcessingStep } from "@/model/types";
+import type { PipelineState, Group, StageGroup } from "@/model/types";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -61,7 +61,7 @@ import {
   exportSession,
   exportPromptsAsPresetAction,
   applyPromptsToAllAction,
-  resumeWorkflowsWithApiKeyAction,
+  resumePipelinesWithApiKeyAction,
 } from "@/stores/actions";
 
 export function ConversationList() {
@@ -75,7 +75,7 @@ export function ConversationList() {
   const isCollapsed = useUrlStore((s) => s.sidebarCollapsed);
 
   // Computed
-  const pausedWorkflowCount = conversations.filter((c) => c.status === "paused-for-api-key").length;
+  const pausedPipelineCount = conversations.filter((c) => c.status === "paused-for-api-key").length;
 
   // Local handlers
   const handleToggleCollapse = () => useUrlStore.getState().setSidebarCollapsed(!isCollapsed);
@@ -116,7 +116,7 @@ export function ConversationList() {
   };
 
   // Build unified display list: individual files + group entries
-  type DisplayItem = { id: string; filename: string; title?: string; isGroup: boolean; conv?: WorkflowState };
+  type DisplayItem = { id: string; filename: string; title?: string; isGroup: boolean; conv?: PipelineState };
   const displayItems = useMemo((): DisplayItem[] => {
     const items: DisplayItem[] = [];
     for (const conv of conversations) {
@@ -171,19 +171,19 @@ export function ConversationList() {
     });
   };
 
-  const processingSteps: { key: ProcessingStep; label: string }[] = [
+  const processingSteps: { key: StageGroup; label: string }[] = [
     { key: "parsing", label: "Parse conversation" },
     { key: "counting-tokens", label: "Count tokens" },
     { key: "segmenting", label: "Segment content" },
-    { key: "summary", label: "Generate summary" },
+    { key: "summarizing", label: "Generate summary" },
     { key: "finding-components", label: "Find components" },
     { key: "coloring", label: "Assign colors" },
-    { key: "analysis", label: "Generate analysis" },
+    { key: "analyzing", label: "Generate analysis" },
   ];
 
   const getStepStatus = (
-    conversation: WorkflowState,
-    stepKey: ProcessingStep,
+    conversation: PipelineState,
+    stepKey: StageGroup,
   ): "pending" | "in-progress" | "completed" | "paused" => {
     if (conversation.status === "failed") return "pending";
     if (conversation.status === "pending") return "pending";
@@ -204,13 +204,13 @@ export function ConversationList() {
       (s) => s.key === conversation.step,
     );
 
-    if (stepKey === "summary") {
+    if (stepKey === "summarizing") {
       if (conversation.aiSummary && conversation.aiSummary.length > 0) {
         return "completed";
       }
       if (
         conversation.status === "processing" &&
-        conversation.step === "summary"
+        conversation.step === "summarizing"
       ) {
         return "in-progress";
       }
@@ -389,7 +389,7 @@ export function ConversationList() {
           <ScrollArea className="h-[calc(100vh-14rem)]">
             <div className="space-y-2">
               {/* Build unified list: conversations + group entries */}
-              {[...conversations, ...Object.values(groups).map((g): WorkflowState => ({
+              {[...conversations, ...Object.values(groups).map((g): PipelineState => ({
                 id: g.id,
                 filename: g.name,
                 title: g.title,
@@ -524,7 +524,7 @@ export function ConversationList() {
                                 : conversation.title || conversation.filename}
                             </span>
                           )}
-                          {/* Expand button to open workflow detail modal */}
+                          {/* Expand button to open pipeline detail modal */}
                           {(conversation.status === "processing" ||
                             conversation.status === "success" ||
                             conversation.status === "paused-for-api-key") && (
@@ -534,7 +534,7 @@ export function ConversationList() {
                                 setExpandedConversationId(conversation.id);
                               }}
                               className="shrink-0 p-0.5 hover:bg-accent rounded cursor-pointer"
-                              title="View workflow details"
+                              title="View pipeline details"
                             >
                               <Maximize2 className="h-4 w-4 text-gray-500 hover:text-gray-700" />
                             </div>
@@ -659,8 +659,8 @@ export function ConversationList() {
                                 step.key === "finding-components";
                               const isSegmentingStep =
                                 step.key === "segmenting";
-                              const isSummaryStep = step.key === "summary";
-                              const isAnalysisStep = step.key === "analysis";
+                              const isSummaryStep = step.key === "summarizing";
+                              const isAnalysisStep = step.key === "analyzing";
                               const isColoringStep = step.key === "coloring";
                               // Summary step is clickable when conversation is complete but summary wasn't run
                               const isSummaryClickable =
@@ -881,7 +881,7 @@ export function ConversationList() {
                                                     )}
 
                                                     <span className="text-muted-foreground flex-shrink-0">
-                                                      {new Set(dimData.components).size}
+                                                      {new Set(dimData.discoveredComponents).size}
                                                     </span>
 
                                                     <button
@@ -923,10 +923,10 @@ export function ConversationList() {
                                                   {/* Expanded: show component list and action links */}
                                                   {isExpanded && (
                                                     <div className="px-6 py-1.5 bg-muted/20 space-y-0.5">
-                                                      {dimData.components.length === 0 ? (
+                                                      {dimData.discoveredComponents.length === 0 ? (
                                                         <p className="text-muted-foreground italic">No components yet</p>
                                                       ) : (
-                                                        [...new Set(dimData.components)].map((comp) => {
+                                                        [...new Set(dimData.discoveredComponents)].map((comp) => {
                                                           const colorStyles = getComponentWaffleStyles(comp, dimData.componentColors);
                                                           return (
                                                             <div key={comp} className="flex items-center gap-1.5">
@@ -1092,19 +1092,19 @@ export function ConversationList() {
       {/* API Key Input */}
       <ApiKeyInput
         onApiKeyChange={(hasKey) => useUIStore.getState().setHasApiKeyState(hasKey)}
-        pausedWorkflowCount={pausedWorkflowCount}
-        onResumeWorkflows={() => resumeWorkflowsWithApiKeyAction()}
+        pausedPipelineCount={pausedPipelineCount}
+        onResumePipelines={() => resumePipelinesWithApiKeyAction()}
       />
 
-      {/* Workflow Detail Modal */}
+      {/* Pipeline Detail Modal */}
       {expandedConversationId &&
         (() => {
           const expandedConversation = conversations.find(
             (c) => c.id === expandedConversationId,
           );
-          // For groups, build a minimal WorkflowState from group metadata
+          // For groups, build a minimal PipelineState from group metadata
           const expandedGroup = groups[expandedConversationId];
-          const displayConv: WorkflowState | undefined = expandedConversation || (expandedGroup ? {
+          const displayConv: PipelineState | undefined = expandedConversation || (expandedGroup ? {
             id: expandedGroup.id,
             filename: expandedGroup.name,
             title: expandedGroup.title,
