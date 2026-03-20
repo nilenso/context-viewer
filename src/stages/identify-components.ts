@@ -1,12 +1,10 @@
 import { generateText } from "ai";
 import type { Conversation } from "@/model/schema";
-import type { PipelineState } from "@/model/types";
-import { timed } from "@/pipeline/notify";
+import type { DimensionData } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
-import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
 const log = createPhaseLogger("identifying-components", "Identification");
 const logError = createPhaseLogger("identifying-components", "Identification", "error");
@@ -78,63 +76,47 @@ export async function identifyComponents(
   }
 }
 
-// --- Pipeline runner ---
+// --- Single-dimension runner ---
 
-export async function runIdentifyComponents(ctx: PipelineState, onlyDims?: string[]): Promise<{ timing: number }> {
-  const { result, timing } = await timed(async () => {
-    const dims = ensureDimensions(ctx);
-    const dimNames = onlyDims ?? getDimensionNames(ctx);
+/**
+ * Identify components for a single dimension.
+ * Mutates dimData.discoveredComponents (and related fields).
+ */
+export async function identifyForDimension(
+  conversation: Conversation,
+  dimData: DimensionData,
+  config: AIConfig | null,
+  conversationId?: string,
+): Promise<{ error?: string }> {
+  const prompt = dimData.prompt;
+  const customComponents = dimData.customComponents;
 
-    const config = getAIConfig("Componentisation");
-    const errors: string[] = [];
+  let components: string[];
 
-    await Promise.all(
-      dimNames.map(async (dimName) => {
-        const dimData = dims[dimName];
-        const prompt = dimData?.prompt;
-        const customComponents = dimData?.customComponents;
+  if (customComponents && customComponents.length > 0) {
+    const cleaned = customComponents.map((c) => c.replace(/^-\s*/, ""));
+    // Idempotent: if components already match customComponents, skip
+    if (dimData.discoveredComponents?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.discoveredComponents)) {
+      return {};
+    }
+    components = cleaned;
+  } else if (config) {
+    try {
+      components = await identifyComponents(conversation, config, prompt, conversationId);
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  } else {
+    return { error: "No API key configured" };
+  }
 
-        let components: string[];
+  dimData.name = dimData.name;
+  dimData.prompt = prompt;
+  dimData.discoveredComponents = components;
+  dimData.componentMapping = dimData.componentMapping || {};
+  dimData.componentTimeline = dimData.componentTimeline || [];
+  dimData.componentColors = dimData.componentColors || {};
+  dimData.customComponents = customComponents;
 
-        if (customComponents && customComponents.length > 0) {
-          const cleaned = customComponents.map((c) => c.replace(/^-\s*/, ""));
-          // Idempotent: if components already match customComponents, skip
-          if (dimData?.discoveredComponents?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.discoveredComponents)) {
-            return;
-          }
-          components = cleaned;
-        } else if (config) {
-          try {
-            components = await identifyComponents(ctx.conversation!, config, prompt, ctx.id);
-          } catch (e: any) {
-            errors.push(`[${dimName}] ${e.message}`);
-            components = [];
-          }
-        } else {
-          errors.push(`[${dimName}] No API key configured`);
-          components = [];
-        }
-
-        dims[dimName] = {
-          ...(dims[dimName] || { name: dimName }),
-          name: dimName,
-          prompt,
-          discoveredComponents: components,
-          componentMapping: dims[dimName]?.componentMapping || {},
-          componentTimeline: dims[dimName]?.componentTimeline || [],
-          componentColors: dims[dimName]?.componentColors || {},
-          customComponents,
-        };
-      }),
-    );
-
-    return { dimensions: dims, errors };
-  });
-
-  ctx.dimensions = result.dimensions;
-  if (result.errors.length > 0) ctx.warnings!.push(result.errors.join("; "));
-
-  return { timing };
+  return {};
 }
-
-export { buildComponentTimeline } from "./classify-components";

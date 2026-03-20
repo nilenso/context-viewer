@@ -4,6 +4,9 @@
  * Conversation-level: Parse → CountTokens → Segment
  * Dimension-level:    Identify → (Classify + Color in parallel)
  *
+ * The dimension loop lives here — each stage file exposes a
+ * single-dimension function, and this module iterates over dimensions.
+ *
  * Orchestration (who runs what, error handling, store write-back)
  * lives in orchestrate.ts. This file is just the steps.
  */
@@ -22,15 +25,17 @@ import {
   markComplete,
   markFailed,
   markPausedForApiKey,
+  timed,
 } from "./notify";
-import { hasApiKey } from "@/stages/ai/config";
+import { hasApiKey, getAIConfig } from "@/stages/ai/config";
+import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
 import { runParse, restorePreProcessedImport } from "@/stages/parse";
 import { runCountTokens, runStaticComponents } from "@/stages/count-tokens";
 import { runSegment } from "@/stages/segment";
-import { runIdentifyComponents } from "@/stages/identify-components";
-import { runClassifyComponents } from "@/stages/classify-components";
-import { runAssignColors } from "@/stages/color-components";
+import { identifyForDimension } from "@/stages/identify-components";
+import { classifyForDimension } from "@/stages/classify-components";
+import { colorForDimension } from "@/stages/color-components";
 
 // ---------------------------------------------------------------------------
 // Dimension-level pipeline
@@ -56,25 +61,73 @@ export async function runDimensionSteps(
 
   if (startFrom <= PipelineStep.Classify) {
     startStep(notify, ctx, "finding-components");
+
+    const dims = ensureDimensions(ctx);
+    const activeDimNames = dimNames ?? getDimensionNames(ctx);
+    const config = getAIConfig("Componentisation");
+    const errors: string[] = [];
+
     if (startFrom <= PipelineStep.Identify) {
-      const { timing } = await runIdentifyComponents(ctx, dimNames);
+      const { timing } = await timed(async () => {
+        await Promise.all(
+          activeDimNames.map(async (dimName) => {
+            const dimData = dims[dimName];
+            if (!dimData) return;
+            const result = await identifyForDimension(
+              ctx.conversation!, dimData, config, ctx.id,
+            );
+            if (result.error) errors.push(`[${dimName}] ${result.error}`);
+          }),
+        );
+      });
       ctx.stepTimings!["identifying-components"] = timing;
     }
 
-    // Classify and Color both depend only on the component list from Identify,
-    // not on each other, so they run in parallel.
-    const [classifyResult] = await Promise.all([
-      runClassifyComponents(ctx, dimNames),
-      runAssignColors(ctx, notify, dimNames),
-    ]);
-    ctx.stepTimings!["classifying-components"] = classifyResult.timing;
+    // Classify and Color run in parallel per dimension
+    const { timing: classifyTiming } = await timed(async () => {
+      await Promise.all(
+        activeDimNames.map(async (dimName) => {
+          const dimData = dims[dimName];
+          if (!dimData || !config) return;
+
+          const [classifyResult, colorResult] = await Promise.all([
+            classifyForDimension(ctx.conversation!, dimData, config, ctx.id),
+            colorForDimension(dimData, config, ctx.id, ctx.presetColors),
+          ]);
+
+          if (classifyResult.error) errors.push(`[${dimName}] ${classifyResult.error}`);
+          if (colorResult.error) errors.push(`[${dimName}] ${colorResult.error}`);
+        }),
+      );
+    });
+    ctx.stepTimings!["classifying-components"] = classifyTiming;
+
+    ctx.dimensions = dims;
+    if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
+
     endStep(ctx, "finding-components");
     updateState(notify, ctx, ["conversation", "dimensions"]);
     return;
   }
 
   if (startFrom <= PipelineStep.Color) {
-    await runAssignColors(ctx, notify, dimNames);
+    const dims = ensureDimensions(ctx);
+    const activeDimNames = dimNames ?? getDimensionNames(ctx);
+    const config = getAIConfig("Componentisation");
+
+    startStep(notify, ctx, "coloring");
+    const { timing } = await timed(async () => {
+      await Promise.all(
+        activeDimNames.map(async (dimName) => {
+          const dimData = dims[dimName];
+          if (!dimData || !config) return;
+          await colorForDimension(dimData, config, ctx.id, ctx.presetColors);
+        }),
+      );
+    });
+    ctx.dimensions = dims;
+    ctx.stepTimings!.coloring = timing;
+    endStep(ctx, "coloring");
   }
 }
 

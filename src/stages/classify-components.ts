@@ -4,19 +4,18 @@
  * Algorithm: map/classify each conversation part to a component using AI,
  * then build a component timeline.
  *
- * Pipeline wrapper: runClassifyComponents orchestrates classification across
- * all dimensions.
+ * Single-dimension runner: classifyForDimension handles one dimension.
+ * The pipeline handles iteration over dimensions.
  */
 
 import { generateText } from "ai";
 import type { Conversation } from "@/model/schema";
-import type { PipelineState, ComponentTimelineSnapshot } from "@/model/types";
+import type { DimensionData, ComponentTimelineSnapshot } from "@/model/types";
 import {
   getPrompt,
   getDefaultComponentIdentificationPrompt,
 } from "./ai/prompts";
 import {
-  getAIConfig,
   getProviderOptions,
   createModel,
   type AIConfig,
@@ -24,8 +23,6 @@ import {
 import { stripLargeContent } from "./ai/strip-large-content";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
 import { buildComponentTimeline as buildComponentTimelineCore } from "@/operations/aggregation";
-import { timed } from "@/pipeline/notify";
-import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
 // ---------------------------------------------------------------------------
 // Loggers
@@ -229,77 +226,68 @@ export function buildComponentTimeline(
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline wrapper
+// Single-dimension runner
 // ---------------------------------------------------------------------------
 
-export async function runClassifyComponents(ctx: PipelineState, onlyDims?: string[]): Promise<{ timing: number }> {
-  const { result, timing } = await timed(async () => {
-    const dims = ensureDimensions(ctx);
-    const dimNames = onlyDims ?? getDimensionNames(ctx);
+/**
+ * Classify components for a single dimension.
+ * Mutates dimData.componentMapping, componentTimeline, discoveredComponents.
+ */
+export async function classifyForDimension(
+  conversation: Conversation,
+  dimData: DimensionData,
+  config: AIConfig,
+  conversationId?: string,
+): Promise<{ error?: string }> {
+  if (!dimData.discoveredComponents?.length) return {};
 
-    const config = getAIConfig("Componentisation");
-    const errors: string[] = [];
+  // Idempotent: if mapping already covers all parts and maps to current components, skip
+  const existingMapping = dimData.componentMapping;
+  if (existingMapping && Object.keys(existingMapping).length > 0) {
+    const allPartIds = conversation.messages.flatMap(m => m.parts.map(p => p.id));
+    const partIdSet = new Set(allPartIds);
+    const componentSet = new Set(dimData.discoveredComponents);
+    const hasOther = componentSet.has("other");
+    // Mapping keys must reference current part IDs (not stale from a previous segmentation)
+    const mappingKeysValid = Object.keys(existingMapping).every(id => partIdSet.has(id));
+    const allClassified = allPartIds.every(id => id in existingMapping || hasOther);
+    const allMappedToCurrentComponents = Object.values(existingMapping).every(comp => componentSet.has(comp));
+    if (mappingKeysValid && allClassified && allMappedToCurrentComponents) {
+      return {};
+    }
+  }
 
-    await Promise.all(
-      dimNames.map(async (dimName) => {
-        const dimData = dims[dimName];
-        if (!dimData || !config || !dimData.discoveredComponents?.length) return;
+  const prompt = dimData.prompt;
+  const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
 
-        // Idempotent: if mapping already covers all parts and maps to current components, skip
-        const mapping = dimData.componentMapping;
-        if (mapping && Object.keys(mapping).length > 0) {
-          const allPartIds = ctx.conversation!.messages.flatMap(m => m.parts.map(p => p.id));
-          const partIdSet = new Set(allPartIds);
-          const componentSet = new Set(dimData.discoveredComponents);
-          const hasOther = componentSet.has("other");
-          // Mapping keys must reference current part IDs (not stale from a previous segmentation)
-          const mappingKeysValid = Object.keys(mapping).every(id => partIdSet.has(id));
-          const allClassified = allPartIds.every(id => id in mapping || hasOther);
-          const allMappedToCurrentComponents = Object.values(mapping).every(comp => componentSet.has(comp));
-          if (mappingKeysValid && allClassified && allMappedToCurrentComponents) {
-            return;
-          }
-        }
-
-        const prompt = dimData.prompt;
-        const componentDescriptions = prompt || getDefaultComponentIdentificationPrompt();
-
-        try {
-          const mapping = await mapComponentsToIds(
-            ctx.conversation!,
-            dimData.discoveredComponents,
-            config,
-            componentDescriptions,
-            ctx.id,
-          );
-
-          const totalParts = ctx.conversation!.messages.reduce(
-            (sum, msg) => sum + msg.parts.length, 0,
-          );
-          const mappedParts = Object.keys(mapping).length;
-          const finalComponents =
-            mappedParts < totalParts && !dimData.discoveredComponents.includes("other")
-              ? [...dimData.discoveredComponents, "other"]
-              : dimData.discoveredComponents;
-
-          const timeline = buildComponentTimeline(ctx.conversation!, mapping);
-
-          // Mutate in place — classify and color run in parallel on the same dimData,
-          // so replacing the object would race with runAssignColors.
-          dimData.discoveredComponents = finalComponents;
-          dimData.componentMapping = mapping;
-          dimData.componentTimeline = timeline;
-        } catch (e: any) {
-          errors.push(`[${dimName}] Classification failed: ${e.message}`);
-        }
-      }),
+  try {
+    const mapping = await mapComponentsToIds(
+      conversation,
+      dimData.discoveredComponents,
+      config,
+      componentDescriptions,
+      conversationId,
     );
 
-    return { dimensions: dims, errors };
-  });
+    const totalParts = conversation.messages.reduce(
+      (sum, msg) => sum + msg.parts.length, 0,
+    );
+    const mappedParts = Object.keys(mapping).length;
+    const finalComponents =
+      mappedParts < totalParts && !dimData.discoveredComponents.includes("other")
+        ? [...dimData.discoveredComponents, "other"]
+        : dimData.discoveredComponents;
 
-  ctx.dimensions = result.dimensions;
-  if (result.errors.length > 0) ctx.warnings!.push(result.errors.join("; "));
+    const timeline = buildComponentTimeline(conversation, mapping, conversationId);
 
-  return { timing };
+    // Mutate in place — classify and color run in parallel on the same dimData,
+    // so replacing the object would race with colorForDimension.
+    dimData.discoveredComponents = finalComponents;
+    dimData.componentMapping = mapping;
+    dimData.componentTimeline = timeline;
+
+    return {};
+  } catch (e: any) {
+    return { error: `Classification failed: ${e.message}` };
+  }
 }

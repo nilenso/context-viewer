@@ -3,17 +3,15 @@
  *
  * Algorithm: assign colors to identified components via preset mapping or AI.
  *
- * Pipeline wrapper: runAssignColors orchestrates color assignment across
- * all dimensions.
+ * Single-dimension runner: colorForDimension handles one dimension.
+ * The pipeline handles iteration over dimensions.
  */
 
 import { generateText } from "ai";
-import type { PipelineState } from "@/model/types";
+import type { DimensionData } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
-import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
-import { ensureDimensions, getDimensionNames } from "@/model/dimensions";
 
 // ---------------------------------------------------------------------------
 // Loggers
@@ -116,44 +114,38 @@ export async function assignComponentColors(
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline wrapper
+// Single-dimension runner
 // ---------------------------------------------------------------------------
 
-export async function runAssignColors(ctx: PipelineState, notify: Notify, onlyDims?: string[]) {
-  startStep(notify, ctx, "coloring");
-  const { result, timing } = await timed(async () => {
-    const dims = ensureDimensions(ctx);
-    const dimNames = onlyDims ?? getDimensionNames(ctx);
+/**
+ * Assign colors for a single dimension.
+ * Mutates dimData.componentColors.
+ */
+export async function colorForDimension(
+  dimData: DimensionData,
+  config: AIConfig,
+  conversationId?: string,
+  presetColors?: Record<string, string>,
+): Promise<{ error?: string }> {
+  if (!dimData.discoveredComponents?.length) return {};
 
-    await Promise.all(
-      dimNames.map(async (dimName) => {
-        const dimData = dims[dimName];
-        if (!dimData || !ctx.config || !dimData.discoveredComponents?.length) return;
+  // Idempotent: if componentColors already covers exactly the current components, skip
+  const existingColorKeys = Object.keys(dimData.componentColors || {}).sort();
+  const currentComponents = [...dimData.discoveredComponents].sort();
+  if (existingColorKeys.length > 0 && JSON.stringify(existingColorKeys) === JSON.stringify(currentComponents)) {
+    return {};
+  }
 
-        // Idempotent: if componentColors already covers exactly the current components, skip
-        const existingColorKeys = Object.keys(dimData.componentColors || {}).sort();
-        const currentComponents = [...dimData.discoveredComponents].sort();
-        if (existingColorKeys.length > 0 && JSON.stringify(existingColorKeys) === JSON.stringify(currentComponents)) {
-          return;
-        }
+  const colors = await assignComponentColors(
+    dimData.discoveredComponents,
+    config,
+    conversationId,
+    presetColors,
+    dimData.customColoringPrompt,
+  );
+  // Mutate in place — color and classify run in parallel on the same dimData,
+  // so replacing the object would race with classifyForDimension.
+  dimData.componentColors = colors;
 
-        const colors = await assignComponentColors(
-          dimData.discoveredComponents,
-          ctx.config,
-          ctx.id,
-          ctx.presetColors,
-          dimData.customColoringPrompt,
-        );
-        // Mutate in place — color and classify run in parallel on the same dimData,
-        // so replacing the object would race with runClassifyComponents.
-        dimData.componentColors = colors;
-      }),
-    );
-
-    return { dimensions: dims };
-  });
-  endStep(ctx, "coloring");
-
-  ctx.dimensions = result.dimensions;
-  ctx.stepTimings!.coloring = timing;
+  return {};
 }
