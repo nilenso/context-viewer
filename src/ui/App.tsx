@@ -1,27 +1,27 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import "./parsers";
-import { useConversationStore } from "./stores/conversation-store";
-import { useUIStore } from "./stores/ui-store";
-import { useUrlStore } from "./stores/url-store";
-import type { InsightsTab } from "./stores/url-store";
+import "@/parsers";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useUIStore } from "@/stores/ui-store";
+import { useUrlStore } from "@/stores/url-store";
+import type { InsightsTab } from "@/stores/url-store";
 import type { PipelineState } from "@/model/types";
 import { getDefaultDimension, getAllComponents } from "@/model/dimensions";
-import type { ConversationComponentData } from "./ui/components/ComponentComparisonView";
+import type { ConversationComponentData } from "./components/ComponentComparisonView";
 import { aggregateComponentTokens } from "@/operations/aggregation";
-import { ConversationList } from "./ui/components/ConversationList";
-import { ConversationView } from "./ui/components/ConversationView";
-import { AISummary } from "./ui/components/AISummary";
-import { Card } from "./ui/components/ui/card";
-import { PromptEditorDialog } from "./ui/components/PromptEditorDialog";
+import { ConversationList } from "./components/ConversationList";
+import { ConversationView } from "./components/ConversationView";
+import { AISummary } from "./components/AISummary";
+import { Card } from "./components/ui/card";
+import { PromptEditorDialog } from "./components/PromptEditorDialog";
 import { Clock, Loader2, Upload, AlertCircle, Star, Github } from "lucide-react";
-import { cn } from "@/ui/lib/utils";
+import { cn } from "./lib/utils";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "@/stages/segment";
 import { loadPresetIndex, loadPreset } from "@/stages/ai/preset-loader";
-import { PresetSelector } from "./ui/components/PresetSelector";
-import { UrlImport } from "./ui/components/UrlImport";
+import { PresetSelector } from "./components/PresetSelector";
+import { UrlImport } from "./components/UrlImport";
 import { createFileValidator, SUPPORTED_EXTENSIONS_TEXT } from "@/parsers/file-formats";
-import { fetchFileFromUrl } from "@/ui/lib/url-fetch";
+import { fetchFileFromUrl } from "./lib/url-fetch";
 import {
   navigateToId,
   reprocessComponents,
