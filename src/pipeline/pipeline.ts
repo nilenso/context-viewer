@@ -19,7 +19,6 @@ import type {
   Stage,
   StageGroup,
 } from "@/model/types";
-import { PipelineStep } from "@/model/types";
 import {
   type Notify,
   updateState,
@@ -78,23 +77,27 @@ function push(notify: Notify, ctx: PipelineState, fields: readonly PipelineDataF
 // ---------------------------------------------------------------------------
 
 /**
- * Run the pipeline from `startFrom` through the end.
+ * Run the pipeline. Each stage skips if its work is already done.
  *
  * Parse → CountTokens → Segment → Identify → (Classify ∥ Color)
  *
  * Each stage returns results. The pipeline merges them into ctx.
  * Dimension stages run per-dimension in parallel.
  * Classify and Color run in parallel within each dimension.
+ *
+ * To force a stage to re-run, clear its outputs before calling:
+ *   - re-identify: clear dim.discoveredComponents
+ *   - re-color:    clear dim.componentColors
+ *   - re-segment:  segment always runs (cheap when no large parts)
  */
 async function runPipeline(
   ctx: PipelineState,
   notify: Notify,
-  startFrom: PipelineStep = PipelineStep.Parse,
   dimNames?: string[],
 ): Promise<void> {
   // --- Conversation-level stages ---
 
-  if (startFrom <= PipelineStep.Parse && !ctx.conversation) {
+  if (!ctx.conversation) {
     merge(ctx, await run("parsing", "parsing", ctx, notify, () => parse(ctx)));
     push(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
 
@@ -110,7 +113,7 @@ async function runPipeline(
     }
   }
 
-  if (startFrom <= PipelineStep.CountTokens && !ctx.staticComponents) {
+  if (!ctx.staticComponents) {
     merge(ctx, await run("counting-tokens", "counting-tokens", ctx, notify, () => countTokens(ctx)));
   }
 
@@ -122,19 +125,16 @@ async function runPipeline(
     return;
   }
 
-  if (startFrom <= PipelineStep.CountTokens) {
-    push(notify, ctx, [
-      "conversation", "summary", "metadata",
-      "staticComponents", "staticMapping", "staticTimeline",
-    ], "segmenting");
-  }
+  push(notify, ctx, [
+    "conversation", "summary", "metadata",
+    "staticComponents", "staticMapping", "staticTimeline",
+  ], "segmenting");
 
-  if (startFrom <= PipelineStep.Segment) {
-    merge(ctx, await run("segmenting", "segmenting", ctx, notify, () => segment(ctx)));
-    push(notify, ctx, ["conversation"], "finding-components");
-  }
+  // Segment always runs — it's cheap when there are no large parts
+  merge(ctx, await run("segmenting", "segmenting", ctx, notify, () => segment(ctx)));
+  push(notify, ctx, ["conversation"], "finding-components");
 
-  // --- Dimension-level stages ---
+  // --- Dimension-level stages (each has its own idempotency) ---
 
   const dims = ensureDimensions(ctx);
   const activeDimNames = dimNames ?? getDimensionNames(ctx);
@@ -143,45 +143,31 @@ async function runPipeline(
   if (!config) return;
   const errors: string[] = [];
 
-  // Identify — all dimensions in parallel
-  if (startFrom <= PipelineStep.Identify) {
-    await run("identifying-components", "finding-components", ctx, notify, () =>
-      Promise.all(activeDimNames.map(async (dimName) => {
-        const { result, error } = await identifyForDimension(
-          ctx.conversation!, dims[dimName]!, config, ctx.id,
-        );
-        Object.assign(dims[dimName]!, result);
-        if (error) errors.push(`[${dimName}] ${error}`);
-      })),
-    );
-  }
+  // Identify — all dimensions in parallel (skips if discoveredComponents exist)
+  await run("identifying-components", "finding-components", ctx, notify, () =>
+    Promise.all(activeDimNames.map(async (dimName) => {
+      const { result, error } = await identifyForDimension(
+        ctx.conversation!, dims[dimName]!, config, ctx.id,
+      );
+      Object.assign(dims[dimName]!, result);
+      if (error) errors.push(`[${dimName}] ${error}`);
+    })),
+  );
 
   // Classify + Color — parallel per dimension, both stages parallel within each
-  if (startFrom <= PipelineStep.Classify) {
-    await run("classifying-components", "finding-components", ctx, notify, () =>
-      Promise.all(activeDimNames.map(async (dimName) => {
-        const dim = dims[dimName]!;
-        const [classified, colored] = await Promise.all([
-          classifyForDimension(ctx.conversation!, dim, config, ctx.id),
-          colorForDimension(dim, config, ctx.id, ctx.presetColors),
-        ]);
-        Object.assign(dim, classified.result, colored.result);
-        if (classified.error) errors.push(`[${dimName}] ${classified.error}`);
-        if (colored.error) errors.push(`[${dimName}] ${colored.error}`);
-      })),
-    );
-  } else if (startFrom <= PipelineStep.Color) {
-    // Color only (e.g., reprocessing just the coloring prompt)
-    await run("coloring", "coloring", ctx, notify, () =>
-      Promise.all(activeDimNames.map(async (dimName) => {
-        const { result, error } = await colorForDimension(
-          dims[dimName]!, config, ctx.id, ctx.presetColors,
-        );
-        Object.assign(dims[dimName]!, result);
-        if (error) errors.push(`[${dimName}] ${error}`);
-      })),
-    );
-  }
+  // (each has internal idempotency: classify skips if mapping is valid, color skips if colors match)
+  await run("classifying-components", "finding-components", ctx, notify, () =>
+    Promise.all(activeDimNames.map(async (dimName) => {
+      const dim = dims[dimName]!;
+      const [classified, colored] = await Promise.all([
+        classifyForDimension(ctx.conversation!, dim, config, ctx.id),
+        colorForDimension(dim, config, ctx.id, ctx.presetColors),
+      ]);
+      Object.assign(dim, classified.result, colored.result);
+      if (classified.error) errors.push(`[${dimName}] ${classified.error}`);
+      if (colored.error) errors.push(`[${dimName}] ${colored.error}`);
+    })),
+  );
 
   ctx.dimensions = dims;
   if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
@@ -250,14 +236,14 @@ export async function processNewFile(
   }
 }
 
-/** Resume from API key pause. */
+/** Resume from API key pause — parse and count-tokens already done, pipeline skips them. */
 export async function resumeFromPause(
   ctx: PipelineState,
   notify: Notify,
   _callbacks: PipelineCallbacks,
 ): Promise<void> {
   try {
-    await runPipeline(ctx, notify, PipelineStep.Segment);
+    await runPipeline(ctx, notify);
     markComplete(notify, ctx, ["conversation", "dimensions"]);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
@@ -268,11 +254,14 @@ export async function resumeFromPause(
 // Reprocessing
 // ---------------------------------------------------------------------------
 
-/** Reprocess a target (file or group) from a given pipeline step. */
+/**
+ * Reprocess a target (file or group).
+ * The contextModifier should set new inputs AND clear outputs of stages
+ * that need to re-run (e.g., clear dim.discoveredComponents to force re-identify).
+ */
 export async function reprocessTarget(
   store: StoreAccessor,
   targetId: string,
-  startFrom: PipelineStep,
   contextModifier: (ctx: PipelineState) => void,
   callbacks: PipelineCallbacks,
   dimNames?: string[],
@@ -294,7 +283,7 @@ export async function reprocessTarget(
       const ctx = buildBaseContext(conv);
       contextModifier(ctx);
       try {
-        await runPipeline(ctx, notify, startFrom, dimNames);
+        await runPipeline(ctx, notify, dimNames);
 
         const regenerated = callbacks
           ? await regenerateAnalysisIfNeeded(ctx, notify, callbacks)
@@ -357,7 +346,7 @@ export async function applyPromptsToAll(
       ctx.dimensions = dims;
 
       try {
-        await runPipeline(ctx, notify, PipelineStep.Segment);
+        await runPipeline(ctx, notify);
         markComplete(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
       } catch (error: any) {
         markFailed(notify, ctx.id, error.message);

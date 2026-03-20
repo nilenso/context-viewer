@@ -11,7 +11,6 @@ import { useConversationStore } from "@/stores/conversation-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useUrlStore } from "@/stores/url-store";
 import type { PipelineState } from "@/model/types";
-import { PipelineStep } from "@/model/types";
 import { ensureDimensions, createEmptyDimension } from "@/model/dimensions";
 import { buildSessionExport } from "@/operations/export-builder";
 import { downloadExport, exportPromptsAsPreset } from "@/ui/lib/export-download";
@@ -82,7 +81,6 @@ export async function reprocessComponents(
     await reprocessTarget(
       getAccessor(),
       id,
-      PipelineStep.Identify,
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
@@ -90,6 +88,8 @@ export async function reprocessComponents(
         }
         if (options.customPrompt !== undefined) dims[dimName]!.prompt = options.customPrompt;
         if (options.customComponents !== undefined) dims[dimName]!.customComponents = options.customComponents;
+        // Clear outputs to force re-identification
+        dims[dimName]!.discoveredComponents = [];
       },
       { onAnalysisChunk: getOnAnalysisChunk() },
       [dimName],
@@ -116,10 +116,10 @@ export async function reprocessSegmentation(
     await reprocessTarget(
       getAccessor(),
       id,
-      PipelineStep.Segment,
       (ctx) => {
         ctx.customSegmentationPrompt = options.customSegmentationPrompt;
         ctx.segmentationThreshold = options.segmentationThreshold;
+        // Segment always re-runs (cheap when no large parts)
       },
       { onAnalysisChunk: getOnAnalysisChunk() },
     );
@@ -308,13 +308,14 @@ export async function applyPrompt(selectedConversation: PipelineState | undefine
     await reprocessTarget(
       getAccessor(),
       id,
-      PipelineStep.Identify,
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (!dims[dimName]) {
           dims[dimName] = createEmptyDimension(dimName);
         }
         dims[dimName]!.prompt = ui.editingPrompt;
+        // Clear outputs to force re-identification
+        dims[dimName]!.discoveredComponents = [];
       },
       { onAnalysisChunk: getOnAnalysisChunk() },
       [dimName],
@@ -360,10 +361,12 @@ export async function applyComponents(selectedConversation: PipelineState | unde
     await reprocessTarget(
       getAccessor(),
       id,
-      PipelineStep.Identify,
       (ctx) => {
         const dims = ensureDimensions(ctx);
-        if (dims[dimName]) dims[dimName]!.customComponents = components;
+        if (dims[dimName]) {
+          dims[dimName]!.customComponents = components;
+          // identify's own idempotency handles customComponents changes
+        }
       },
       { onAnalysisChunk: getOnAnalysisChunk() },
       [dimName],
@@ -435,11 +438,12 @@ export async function applyColoringPrompt(selectedConversation: PipelineState | 
     await reprocessTarget(
       getAccessor(),
       id,
-      PipelineStep.Color,
       (ctx) => {
         const dims = ensureDimensions(ctx);
         if (dims[dimName]) {
           dims[dimName]!.customColoringPrompt = ui.editingColoringPrompt;
+          // Clear colors to force re-coloring
+          dims[dimName]!.componentColors = {};
         }
       },
       {},

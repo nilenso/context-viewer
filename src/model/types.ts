@@ -248,18 +248,6 @@ export interface PipelineBatchResult {
   pipelineStates: PipelineState[];
 }
 
-/**
- * Ordered pipeline steps for conversation processing.
- * runPipelineFrom(step) runs from that step through the end.
- */
-export enum PipelineStep {
-  Parse = 0,
-  CountTokens = 1,
-  Segment = 2,
-  Identify = 3,
-  Classify = 4,
-  Color = 5,
-}
 
 /**
  * Callbacks for streaming updates
