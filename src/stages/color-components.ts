@@ -114,26 +114,26 @@ export async function assignComponentColors(
 }
 
 // ---------------------------------------------------------------------------
-// Single-dimension runner
+// Pure single-dimension stage
 // ---------------------------------------------------------------------------
 
 /**
  * Assign colors for a single dimension.
- * Mutates dimData.componentColors.
+ * Returns partial DimensionData to merge — does not mutate dimData.
  */
 export async function colorForDimension(
   dimData: DimensionData,
   config: AIConfig,
   conversationId?: string,
   presetColors?: Record<string, string>,
-): Promise<{ error?: string }> {
-  if (!dimData.discoveredComponents?.length) return {};
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
+  if (!dimData.discoveredComponents?.length) return { result: {} };
 
   // Idempotent: if componentColors already covers exactly the current components, skip
   const existingColorKeys = Object.keys(dimData.componentColors || {}).sort();
   const currentComponents = [...dimData.discoveredComponents].sort();
   if (existingColorKeys.length > 0 && JSON.stringify(existingColorKeys) === JSON.stringify(currentComponents)) {
-    return {};
+    return { result: {} };
   }
 
   const colors = await assignComponentColors(
@@ -143,9 +143,6 @@ export async function colorForDimension(
     presetColors,
     dimData.customColoringPrompt,
   );
-  // Mutate in place — color and classify run in parallel on the same dimData,
-  // so replacing the object would race with classifyForDimension.
-  dimData.componentColors = colors;
 
-  return {};
+  return { result: { componentColors: colors } };
 }

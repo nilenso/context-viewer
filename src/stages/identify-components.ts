@@ -76,18 +76,18 @@ export async function identifyComponents(
   }
 }
 
-// --- Single-dimension runner ---
+// --- Pure single-dimension stage ---
 
 /**
  * Identify components for a single dimension.
- * Mutates dimData.discoveredComponents (and related fields).
+ * Returns partial DimensionData to merge — does not mutate dimData.
  */
 export async function identifyForDimension(
   conversation: Conversation,
   dimData: DimensionData,
   config: AIConfig | null,
   conversationId?: string,
-): Promise<{ error?: string }> {
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
   const prompt = dimData.prompt;
   const customComponents = dimData.customComponents;
 
@@ -97,23 +97,22 @@ export async function identifyForDimension(
     const cleaned = customComponents.map((c) => c.replace(/^-\s*/, ""));
     // Idempotent: if components already match customComponents, skip
     if (dimData.discoveredComponents?.length && JSON.stringify(cleaned) === JSON.stringify(dimData.discoveredComponents)) {
-      return {};
+      return { result: {} };
     }
     components = cleaned;
   } else if (config) {
     try {
       components = await identifyComponents(conversation, config, prompt, conversationId);
     } catch (e: any) {
-      return { error: e.message };
+      return { result: {}, error: e.message };
     }
   } else {
-    return { error: "No API key configured" };
+    return { result: {}, error: "No API key configured" };
   }
 
-  dimData.discoveredComponents = components;
-  dimData.componentMapping = dimData.componentMapping || {};
-  dimData.componentTimeline = dimData.componentTimeline || [];
-  dimData.componentColors = dimData.componentColors || {};
-
-  return {};
+  return {
+    result: {
+      discoveredComponents: components,
+    },
+  };
 }

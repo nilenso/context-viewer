@@ -226,20 +226,20 @@ export function buildComponentTimeline(
 }
 
 // ---------------------------------------------------------------------------
-// Single-dimension runner
+// Pure single-dimension stage
 // ---------------------------------------------------------------------------
 
 /**
  * Classify components for a single dimension.
- * Mutates dimData.componentMapping, componentTimeline, discoveredComponents.
+ * Returns partial DimensionData to merge — does not mutate dimData.
  */
 export async function classifyForDimension(
   conversation: Conversation,
   dimData: DimensionData,
   config: AIConfig,
   conversationId?: string,
-): Promise<{ error?: string }> {
-  if (!dimData.discoveredComponents?.length) return {};
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
+  if (!dimData.discoveredComponents?.length) return { result: {} };
 
   // Idempotent: if mapping already covers all parts and maps to current components, skip
   const existingMapping = dimData.componentMapping;
@@ -248,12 +248,11 @@ export async function classifyForDimension(
     const partIdSet = new Set(allPartIds);
     const componentSet = new Set(dimData.discoveredComponents);
     const hasOther = componentSet.has("other");
-    // Mapping keys must reference current part IDs (not stale from a previous segmentation)
     const mappingKeysValid = Object.keys(existingMapping).every(id => partIdSet.has(id));
     const allClassified = allPartIds.every(id => id in existingMapping || hasOther);
     const allMappedToCurrentComponents = Object.values(existingMapping).every(comp => componentSet.has(comp));
     if (mappingKeysValid && allClassified && allMappedToCurrentComponents) {
-      return {};
+      return { result: {} };
     }
   }
 
@@ -280,14 +279,14 @@ export async function classifyForDimension(
 
     const timeline = buildComponentTimeline(conversation, mapping, conversationId);
 
-    // Mutate in place — classify and color run in parallel on the same dimData,
-    // so replacing the object would race with colorForDimension.
-    dimData.discoveredComponents = finalComponents;
-    dimData.componentMapping = mapping;
-    dimData.componentTimeline = timeline;
-
-    return {};
+    return {
+      result: {
+        discoveredComponents: finalComponents,
+        componentMapping: mapping,
+        componentTimeline: timeline,
+      },
+    };
   } catch (e: any) {
-    return { error: `Classification failed: ${e.message}` };
+    return { result: {}, error: `Classification failed: ${e.message}` };
   }
 }

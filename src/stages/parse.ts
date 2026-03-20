@@ -3,30 +3,23 @@
  * Also handles restoring pre-processed Context Viewer exports.
  */
 
-import type { PipelineState, ConversationMetadata } from "@/model/types";
+import type { PipelineState, ConversationMetadata, DimensionData } from "@/model/types";
 import type { Conversation } from "@/model/schema";
-import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 import { parserRegistry } from "@/parsers/parser";
 import { summarizeConversation } from "@/operations/conversation-summary";
 import { parseFileContent } from "@/parsers/file-formats";
 import { buildComponentTimeline } from "./classify-components";
 import { staticComponentise } from "@/operations/static-components";
 
-export async function runParse(ctx: PipelineState, notify: Notify) {
-  startStep(notify, ctx, "parsing");
-  const { result, timing } = await timed(async () => {
-    const text = await ctx.file!.text();
-    const data = parseFileContent(text, ctx.file!.name);
-    const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
-    const summary = summarizeConversation(conversation);
-    return { conversation, summary, metadata };
-  });
-  endStep(ctx, "parsing");
-
-  ctx.conversation = result.conversation;
-  ctx.summary = result.summary;
-  ctx.metadata = result.metadata;
-  ctx.stepTimings!.parsing = timing;
+/** Pure parse stage — returns results, no side effects. */
+export async function parse(
+  ctx: PipelineState,
+): Promise<Pick<PipelineState, "conversation" | "summary" | "metadata">> {
+  const text = await ctx.file!.text();
+  const data = parseFileContent(text, ctx.file!.name);
+  const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
+  const summary = summarizeConversation(conversation);
+  return { conversation, summary, metadata };
 }
 
 // ---------------------------------------------------------------------------
@@ -47,24 +40,16 @@ function extractComponentMappingFromParts(
   return mapping;
 }
 
+/** Pure — returns fields to merge, no mutation. */
 export function restorePreProcessedImport(
-  ctx: PipelineState,
   metadata: ConversationMetadata,
   conversation: Conversation,
-) {
+): Partial<PipelineState> {
   const componentMapping = extractComponentMappingFromParts(conversation);
   const components = [...new Set(Object.values(componentMapping))];
   const componentTimeline = buildComponentTimeline(conversation, componentMapping);
 
-  ctx.title = metadata.title;
-  ctx.aiSummary = metadata.aiSummary;
-  ctx.analysis = metadata.analysis;
-  ctx.customSegmentationPrompt = metadata.customSegmentationPrompt;
-  ctx.customSummaryPrompt = metadata.customSummaryPrompt;
-  ctx.customAnalysisPrompt = metadata.customAnalysisPrompt;
-
-  // Set up default dimension from the imported data
-  ctx.dimensions = {
+  const dimensions: Record<string, DimensionData> = {
     default: {
       name: "default",
       prompt: metadata.customPrompt,
@@ -88,7 +73,7 @@ export function restorePreProcessedImport(
           }
         }
       }
-      ctx.dimensions[dimName] = {
+      dimensions[dimName] = {
         name: dimName,
         prompt: dimExport.prompt,
         discoveredComponents: dimExport.components,
@@ -101,9 +86,19 @@ export function restorePreProcessedImport(
   }
 
   const staticResult = staticComponentise(conversation);
-  ctx.staticComponents = staticResult.components;
-  ctx.staticMapping = staticResult.mapping;
-  ctx.staticTimeline = staticResult.timeline;
+
+  return {
+    title: metadata.title,
+    aiSummary: metadata.aiSummary,
+    analysis: metadata.analysis,
+    customSegmentationPrompt: metadata.customSegmentationPrompt,
+    customSummaryPrompt: metadata.customSummaryPrompt,
+    customAnalysisPrompt: metadata.customAnalysisPrompt,
+    dimensions,
+    staticComponents: staticResult.components,
+    staticMapping: staticResult.mapping,
+    staticTimeline: staticResult.timeline,
+  };
 }
 
 export { summarizeConversation } from "@/operations/conversation-summary";

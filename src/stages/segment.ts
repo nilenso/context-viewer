@@ -1,7 +1,6 @@
 import { generateText } from "ai";
 import type { Conversation, Message } from "@/model/schema";
 import type { PipelineState } from "@/model/types";
-import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
@@ -380,24 +379,20 @@ export async function segmentConversation(
   return { conversation: newConversation };
 }
 
-// --- Pipeline runner ---
+// --- Pure stage function ---
 
-export async function runSegment(ctx: PipelineState, notify: Notify) {
-  startStep(notify, ctx, "segmenting");
-  const { result, timing } = await timed(async () => {
-    const segResult = await segmentConversation(
-      ctx.conversation!,
-      undefined,
-      ctx.customSegmentationPrompt,
-      ctx.id,
-      ctx.segmentationThreshold,
-    );
-    const conversation = await addTokenCounts(segResult.conversation);
-    return { conversation, error: segResult.error };
-  });
-  endStep(ctx, "segmenting");
-
-  ctx.conversation = result.conversation;
-  if (result.error) ctx.warnings!.push(result.error);
-  ctx.stepTimings!.segmenting = timing;
+/** Pure — returns segmented conversation with re-counted tokens. */
+export async function segment(
+  ctx: PipelineState,
+): Promise<{ conversation: Conversation; warnings?: string[] }> {
+  const segResult = await segmentConversation(
+    ctx.conversation!,
+    undefined,
+    ctx.customSegmentationPrompt,
+    ctx.id,
+    ctx.segmentationThreshold,
+  );
+  const conversation = await addTokenCounts(segResult.conversation);
+  const warnings = segResult.error ? [segResult.error] : undefined;
+  return { conversation, warnings };
 }
