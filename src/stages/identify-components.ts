@@ -110,13 +110,10 @@ export async function identifyForDimension(
     return { error: "No API key configured" };
   }
 
-  dimData.name = dimData.name;
-  dimData.prompt = prompt;
   dimData.discoveredComponents = components;
   dimData.componentMapping = dimData.componentMapping || {};
   dimData.componentTimeline = dimData.componentTimeline || [];
   dimData.componentColors = dimData.componentColors || {};
-  dimData.customComponents = customComponents;
 
   return {};
 }
