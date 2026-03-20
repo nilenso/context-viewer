@@ -225,13 +225,18 @@ Then:
 
 ## File Locations
 
+See [architecture.md](./architecture.md) for the full directory structure.
+
 | What | Where |
 |------|-------|
-| Prompts | `src/prompts.ts` |
+| Data model & types | `src/model/` |
+| Prompts | `src/stages/ai/prompts.ts` |
 | Parsers | `src/parsers/` |
-| Components | `src/components/` |
-| Schemas | `src/schema.ts`, `src/input-schemas.ts` |
-| AI logic | `src/componentisation.ts`, `src/ai-summary.ts`, `src/segmentation.ts` |
+| Pipeline stages | `src/stages/` |
+| Orchestration | `src/pipeline/` |
+| State management | `src/stores/` |
+| UI components | `src/ui/components/` |
+| Schemas | `src/model/schema.ts`, `src/parsers/input-schemas.ts` |
 
 ---
 
@@ -240,10 +245,10 @@ Then:
 To add a new input format:
 
 1. Create `src/parsers/your-format-parser.ts`
-2. Implement `Parser` interface with `canParse()` and `parse()` methods
+2. Implement `Parser` interface (from `src/model/types.ts`) with `canParse()` and `parse()` methods
 3. Register in `src/parsers/index.ts`
 
 To modify component identification:
 
-1. Edit default prompt in `src/prompts.ts` (`getDefaultComponentIdentificationPrompt`)
+1. Edit default prompt in `src/stages/ai/prompts.ts` (`getDefaultComponentIdentificationPrompt`)
 2. Or use the UI prompt editor for per-session changes

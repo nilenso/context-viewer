@@ -1,5 +1,8 @@
 # Dimension-scoped pipeline design
 
+> See [architecture.md](./architecture.md) for the full directory structure
+> and pipeline overview.
+
 ## Two layers
 
 The pipeline has two layers:

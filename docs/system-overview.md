@@ -1,7 +1,8 @@
 # Context Viewer: System Overview
 
-A document describing the data model, processing pipeline, visualizations,
-and interactive workflow of the context viewer application.
+A formal description of the data model, processing pipeline, visualizations,
+and interactive workflow. For directory structure and code organization, see
+[architecture.md](./architecture.md).
 
 ## Data Model
 
