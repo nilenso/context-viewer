@@ -58,14 +58,16 @@ import {
   ungroupConversation,
   deleteConversation,
   updateGroupSources,
+  exportSession,
+  exportPromptsAsPresetAction,
 } from "@/hooks/useWorkflowActions";
 
 export function ConversationList() {
   // Stores
   const conversations = useConversationStore((s) => s.conversations);
   const groups = useConversationStore((s) => s.groups);
-  const selectedIds = useConversationStore((s) => s.selectedIds);
-  const hasApiKeyState = useConversationStore((s) => s.hasApiKeyState);
+  const selectedIds = useUIStore((s) => s.selectedIds);
+  const hasApiKeyState = useUIStore((s) => s.hasApiKeyState);
 
   const selectedId = useUrlStore((s) => s.conversationId);
   const isCollapsed = useUrlStore((s) => s.sidebarCollapsed);
@@ -90,7 +92,7 @@ export function ConversationList() {
   // Inline title editing state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  // Dimension accordion state
+  // Dimension accordion state — keyed by "conversationId:dimName" so each conversation is independent
   const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
   const [addingDimension, setAddingDimension] = useState(false);
   const [newDimensionName, setNewDimensionName] = useState("");
@@ -144,7 +146,7 @@ export function ConversationList() {
   // Exit selection mode when selection is cleared
   const handleExitSelectionMode = () => {
     setIsSelectionMode(false);
-    useConversationStore.getState().clearSelection();
+    useUIStore.getState().clearSelection();
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -317,7 +319,7 @@ export function ConversationList() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => useConversationStore.getState().handleExportSession()}
+              onClick={() => exportSession()}
               className="h-8 w-8 p-0"
               title="Export session"
             >
@@ -346,9 +348,9 @@ export function ConversationList() {
             }
             onCheckedChange={(checked) => {
               if (checked) {
-                useConversationStore.getState().selectAll(selectableConversations.map((c) => c.id));
+                useUIStore.getState().selectAll(selectableConversations.map((c) => c.id));
               } else {
-                useConversationStore.getState().clearSelection();
+                useUIStore.getState().clearSelection();
               }
             }}
             className="shrink-0"
@@ -404,7 +406,7 @@ export function ConversationList() {
                     key={conversation.id}
                     onClick={() => {
                       if (isSelectionMode && isSelectable) {
-                        useConversationStore.getState().toggleSelect(conversation.id, !isSelected);
+                        useUIStore.getState().toggleSelect(conversation.id, !isSelected);
                       } else {
                         navigateToId(conversation.id);
                       }
@@ -434,7 +436,7 @@ export function ConversationList() {
                           toggleProgress(conversation.id);
                         }
                         if (isSelectionMode && isSelectable) {
-                          useConversationStore.getState().toggleSelect(conversation.id, !isSelected);
+                          useUIStore.getState().toggleSelect(conversation.id, !isSelected);
                         } else {
                           navigateToId(conversation.id);
                         }
@@ -447,7 +449,7 @@ export function ConversationList() {
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={(checked) => {
-                                useConversationStore.getState().toggleSelect(conversation.id, !!checked);
+                                useUIStore.getState().toggleSelect(conversation.id, !!checked);
                               }}
                               onClick={(e) => e.stopPropagation()}
                               className="shrink-0"
@@ -832,14 +834,15 @@ export function ConversationList() {
                                             {/* Dimension list */}
                                             {dimNames.map((dimName) => {
                                               const dimData = dims![dimName]!;
-                                              const isExpanded = expandedDimension === dimName;
+                                              const dimKey = `${conversation.id}:${dimName}`;
+                                              const isExpanded = expandedDimension === dimKey;
                                               return (
                                                 <div key={dimName} className="border-t">
                                                   <div
                                                     className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/30 cursor-pointer"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      setExpandedDimension(isExpanded ? null : dimName);
+                                                      setExpandedDimension(isExpanded ? null : dimKey);
                                                     }}
                                                   >
                                                     {isExpanded ? (
@@ -1032,7 +1035,7 @@ export function ConversationList() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              useConversationStore.getState().handleExportPromptsAsPreset(conversation.id);
+                              exportPromptsAsPresetAction(conversation.id);
                             }}
                             className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
                           >
@@ -1086,7 +1089,7 @@ export function ConversationList() {
 
       {/* API Key Input */}
       <ApiKeyInput
-        onApiKeyChange={(hasKey) => useConversationStore.getState().setHasApiKeyState(hasKey)}
+        onApiKeyChange={(hasKey) => useUIStore.getState().setHasApiKeyState(hasKey)}
         pausedWorkflowCount={pausedWorkflowCount}
         onResumeWorkflows={() => useConversationStore.getState().handleResumeWorkflowsWithApiKey()}
       />
