@@ -11,7 +11,6 @@
 
 import type {
   PipelineState,
-  PipelineCallbacks,
   PipelineDataField,
   PipelineOptions,
   PipelineBatchResult,
@@ -67,11 +66,6 @@ function merge(ctx: PipelineState, result: Partial<PipelineState> & { warnings?:
   if (warnings) ctx.warnings!.push(...warnings);
 }
 
-/** Push state to the store after a stage completes. */
-function push(notify: Notify, ctx: PipelineState, fields: readonly PipelineDataField[], nextStep?: StageGroup) {
-  updateState(notify, ctx, fields, nextStep);
-}
-
 // ---------------------------------------------------------------------------
 // The pipeline — imperative, reads top-to-bottom
 // ---------------------------------------------------------------------------
@@ -90,88 +84,91 @@ function push(notify: Notify, ctx: PipelineState, fields: readonly PipelineDataF
  *   - re-color:    clear dim.componentColors
  *   - re-segment:  segment always runs (cheap when no large parts)
  */
-async function runPipeline(
+export async function runPipeline(
   ctx: PipelineState,
   notify: Notify,
   dimNames?: string[],
 ): Promise<void> {
-  // --- Conversation-level stages ---
+  try {
+    // --- Conversation-level stages ---
 
-  if (!ctx.conversation) {
-    merge(ctx, await run("parsing", "parsing", ctx, notify, () => parse(ctx)));
-    push(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
+    if (!ctx.conversation) {
+      merge(ctx, await run("parsing", "parsing", ctx, notify, () => parse(ctx)));
+      updateState(notify, ctx, ["conversation", "summary", "metadata"], "counting-tokens");
 
-    if (ctx.metadata!.parserName === "Context Viewer") {
-      Object.assign(ctx, restorePreProcessedImport(ctx.metadata!, ctx.conversation!));
-      markComplete(notify, ctx, [
-        "conversation", "summary", "metadata", "title",
-        "aiSummary", "analysis", "dimensions",
+      if (ctx.metadata!.parserName === "Context Viewer") {
+        Object.assign(ctx, restorePreProcessedImport(ctx.metadata!, ctx.conversation!));
+        markComplete(notify, ctx, [
+          "conversation", "summary", "metadata", "title",
+          "aiSummary", "analysis", "dimensions",
+          "staticComponents", "staticMapping", "staticTimeline",
+          "customSegmentationPrompt", "customSummaryPrompt", "customAnalysisPrompt",
+        ]);
+        return;
+      }
+    }
+
+    if (!ctx.staticComponents) {
+      merge(ctx, await run("counting-tokens", "counting-tokens", ctx, notify, () => countTokens(ctx)));
+    }
+
+    if (!hasApiKey()) {
+      markPausedForApiKey(notify, ctx, [
+        "conversation", "summary", "metadata",
         "staticComponents", "staticMapping", "staticTimeline",
-        "customSegmentationPrompt", "customSummaryPrompt", "customAnalysisPrompt",
-      ]);
+      ], "segmenting");
       return;
     }
-  }
 
-  if (!ctx.staticComponents) {
-    merge(ctx, await run("counting-tokens", "counting-tokens", ctx, notify, () => countTokens(ctx)));
-  }
-
-  if (!hasApiKey()) {
-    markPausedForApiKey(notify, ctx, [
+    updateState(notify, ctx, [
       "conversation", "summary", "metadata",
       "staticComponents", "staticMapping", "staticTimeline",
     ], "segmenting");
-    return;
+
+    // Segment always runs — it's cheap when there are no large parts
+    merge(ctx, await run("segmenting", "segmenting", ctx, notify, () => segment(ctx)));
+    updateState(notify, ctx, ["conversation"], "finding-components");
+
+    // --- Dimension-level stages (each has its own idempotency) ---
+
+    const dims = ensureDimensions(ctx);
+    const activeDimNames = dimNames ?? getDimensionNames(ctx);
+    for (const name of activeDimNames) ensureDimension(dims, name);
+    const config = getAIConfig("Componentisation");
+    if (!config) return;
+    const errors: string[] = [];
+
+    // Identify — all dimensions in parallel (skips if discoveredComponents exist)
+    await run("identifying-components", "finding-components", ctx, notify, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const { result, error } = await identifyForDimension(
+          ctx.conversation!, dims[dimName]!, config, ctx.id,
+        );
+        Object.assign(dims[dimName]!, result);
+        if (error) errors.push(`[${dimName}] ${error}`);
+      })),
+    );
+
+    // Classify + Color — parallel per dimension, both stages parallel within each
+    await run("classifying-components", "finding-components", ctx, notify, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const dim = dims[dimName]!;
+        const [classified, colored] = await Promise.all([
+          classifyForDimension(ctx.conversation!, dim, config, ctx.id),
+          colorForDimension(dim, config, ctx.id, ctx.presetColors),
+        ]);
+        Object.assign(dim, classified.result, colored.result);
+        if (classified.error) errors.push(`[${dimName}] ${classified.error}`);
+        if (colored.error) errors.push(`[${dimName}] ${colored.error}`);
+      })),
+    );
+
+    ctx.dimensions = dims;
+    if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
+    markComplete(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
+  } catch (error: any) {
+    markFailed(notify, ctx.id, error.message);
   }
-
-  push(notify, ctx, [
-    "conversation", "summary", "metadata",
-    "staticComponents", "staticMapping", "staticTimeline",
-  ], "segmenting");
-
-  // Segment always runs — it's cheap when there are no large parts
-  merge(ctx, await run("segmenting", "segmenting", ctx, notify, () => segment(ctx)));
-  push(notify, ctx, ["conversation"], "finding-components");
-
-  // --- Dimension-level stages (each has its own idempotency) ---
-
-  const dims = ensureDimensions(ctx);
-  const activeDimNames = dimNames ?? getDimensionNames(ctx);
-  for (const name of activeDimNames) ensureDimension(dims, name);
-  const config = getAIConfig("Componentisation");
-  if (!config) return;
-  const errors: string[] = [];
-
-  // Identify — all dimensions in parallel (skips if discoveredComponents exist)
-  await run("identifying-components", "finding-components", ctx, notify, () =>
-    Promise.all(activeDimNames.map(async (dimName) => {
-      const { result, error } = await identifyForDimension(
-        ctx.conversation!, dims[dimName]!, config, ctx.id,
-      );
-      Object.assign(dims[dimName]!, result);
-      if (error) errors.push(`[${dimName}] ${error}`);
-    })),
-  );
-
-  // Classify + Color — parallel per dimension, both stages parallel within each
-  // (each has internal idempotency: classify skips if mapping is valid, color skips if colors match)
-  await run("classifying-components", "finding-components", ctx, notify, () =>
-    Promise.all(activeDimNames.map(async (dimName) => {
-      const dim = dims[dimName]!;
-      const [classified, colored] = await Promise.all([
-        classifyForDimension(ctx.conversation!, dim, config, ctx.id),
-        colorForDimension(dim, config, ctx.id, ctx.presetColors),
-      ]);
-      Object.assign(dim, classified.result, colored.result);
-      if (classified.error) errors.push(`[${dimName}] ${classified.error}`);
-      if (colored.error) errors.push(`[${dimName}] ${colored.error}`);
-    })),
-  );
-
-  ctx.dimensions = dims;
-  if (errors.length > 0) ctx.warnings!.push(errors.join("; "));
-  push(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
 }
 
 // ---------------------------------------------------------------------------
@@ -215,42 +212,6 @@ function buildBaseContext(conv: PipelineState): PipelineState {
 }
 
 // ---------------------------------------------------------------------------
-// Entry points
-// ---------------------------------------------------------------------------
-
-/** Process a new file through the full pipeline. */
-export async function processNewFile(
-  ctx: PipelineState,
-  notify: Notify,
-  _callbacks: PipelineCallbacks,
-): Promise<void> {
-  try {
-    await runPipeline(ctx, notify);
-    markComplete(notify, ctx, [
-      "conversation", "summary", "metadata", "dimensions",
-      "staticComponents", "staticMapping", "staticTimeline",
-      "customSegmentationPrompt",
-    ]);
-  } catch (error: any) {
-    markFailed(notify, ctx.id, error.message);
-  }
-}
-
-/** Resume from API key pause — parse and count-tokens already done, pipeline skips them. */
-export async function resumeFromPause(
-  ctx: PipelineState,
-  notify: Notify,
-  _callbacks: PipelineCallbacks,
-): Promise<void> {
-  try {
-    await runPipeline(ctx, notify);
-    markComplete(notify, ctx, ["conversation", "dimensions"]);
-  } catch (error: any) {
-    markFailed(notify, ctx.id, error.message);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Reprocessing
 // ---------------------------------------------------------------------------
 
@@ -263,7 +224,7 @@ export async function reprocessTarget(
   store: StoreAccessor,
   targetId: string,
   contextModifier: (ctx: PipelineState) => void,
-  callbacks: PipelineCallbacks,
+  callbacks: { onAnalysisChunk?: (id: string, chunk: string) => void },
   dimNames?: string[],
 ): Promise<void> {
   const { conversations, groups } = store.getState();
@@ -282,18 +243,11 @@ export async function reprocessTarget(
     convs.map(async (conv) => {
       const ctx = buildBaseContext(conv);
       contextModifier(ctx);
-      try {
-        await runPipeline(ctx, notify, dimNames);
+      await runPipeline(ctx, notify, dimNames);
 
-        const regenerated = callbacks
-          ? await regenerateAnalysisIfNeeded(ctx, notify, callbacks)
-          : false;
-
-        const fields: PipelineDataField[] = ["conversation", "dimensions", "customSegmentationPrompt"];
-        if (regenerated) fields.push("analysis", "aiSummary");
-        markComplete(notify, ctx, fields);
-      } catch (error: any) {
-        markFailed(notify, ctx.id, error.message);
+      // Re-generate analysis if it existed before
+      if (callbacks.onAnalysisChunk) {
+        await regenerateAnalysisIfNeeded(ctx, notify, { onAnalysisChunk: callbacks.onAnalysisChunk });
       }
     }),
   );
@@ -345,12 +299,7 @@ export async function applyPromptsToAll(
       }
       ctx.dimensions = dims;
 
-      try {
-        await runPipeline(ctx, notify);
-        markComplete(notify, ctx, ["conversation", "dimensions", "customSegmentationPrompt"]);
-      } catch (error: any) {
-        markFailed(notify, ctx.id, error.message);
-      }
+      await runPipeline(ctx, notify);
     }),
   );
 }
@@ -397,10 +346,7 @@ export async function runPipelines(
         } : undefined,
       };
 
-      await processNewFile(ctx, notify, {
-        onSummaryChunk: onAISummaryChunk,
-        onAnalysisChunk,
-      });
+      await runPipeline(ctx, notify);
 
       const { file: _file, config: _config, ...result } = ctx;
       if (!result.warnings?.length) result.warnings = undefined;
@@ -474,6 +420,17 @@ function makeGroupAwareNotify(store: StoreAccessor, id: string, group: Group | u
   };
 }
 
+function makeGroupAwareCallbacks(store: StoreAccessor, id: string, group: Group | undefined) {
+  return {
+    onSummaryChunk: group
+      ? (_: string, chunk: string) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
+      : (id: string, chunk: string) => store.appendSummaryChunk(id, chunk),
+    onAnalysisChunk: group
+      ? (_: string, chunk: string) => store.updateGroup(id, { analysis: (store.getState().groups[id]?.analysis || "") + chunk })
+      : (id: string, chunk: string) => store.appendAnalysisChunk(id, chunk),
+  };
+}
+
 export async function generateAnalysisForTarget(
   store: StoreAccessor,
   id: string,
@@ -489,14 +446,7 @@ export async function generateAnalysisForTarget(
   };
 
   try {
-    await runEnsureSummaryThenAnalysis(ctx, notify, {
-      onSummaryChunk: group
-        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
-        : (id, chunk) => store.appendSummaryChunk(id, chunk),
-      onAnalysisChunk: group
-        ? (_, chunk) => store.updateGroup(id, { analysis: (store.getState().groups[id]?.analysis || "") + chunk })
-        : (id, chunk) => store.appendAnalysisChunk(id, chunk),
-    });
+    await runEnsureSummaryThenAnalysis(ctx, notify, makeGroupAwareCallbacks(store, id, group));
     markComplete(notify, ctx, ["analysis", "aiSummary", "customAnalysisPrompt"]);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
@@ -518,11 +468,7 @@ export async function generateSummaryForTarget(
   };
 
   try {
-    await runSummary(ctx, notify, {
-      onSummaryChunk: group
-        ? (_, chunk) => store.updateGroup(id, { aiSummary: (store.getState().groups[id]?.aiSummary || "") + chunk })
-        : (id, chunk) => store.appendSummaryChunk(id, chunk),
-    });
+    await runSummary(ctx, notify, makeGroupAwareCallbacks(store, id, group));
     markComplete(notify, ctx, ["aiSummary", "customSummaryPrompt"]);
   } catch (error: any) {
     markFailed(notify, ctx.id, error.message);
@@ -542,20 +488,14 @@ export async function rerunSummaryForTarget(
   ctx.analysis = shouldRegenerateAnalysis ? "" : ctx.analysis;
   ctx.customSummaryPrompt = options.customSummaryPrompt;
   ctx.regenerateAnalysis = shouldRegenerateAnalysis;
-  ctx.stepTimings = {
-    ...ctx.stepTimings,
-    summarizing: undefined,
-    ...(shouldRegenerateAnalysis ? { analyzing: undefined } : {}),
-  };
 
   try {
-    ctx.aiSummary = "";
     await runSummary(ctx, notify, {
       onSummaryChunk: (id, chunk) => store.appendSummaryChunk(id, chunk),
     });
 
     const fields: PipelineDataField[] = ["aiSummary", "customSummaryPrompt"];
-    if (ctx.regenerateAnalysis) {
+    if (shouldRegenerateAnalysis) {
       ctx.analysis = "";
       await runAnalysis(ctx, notify, {
         onAnalysisChunk: (id, chunk) => store.appendAnalysisChunk(id, chunk),
@@ -571,12 +511,9 @@ export async function rerunSummaryForTarget(
 /** Resume all paused pipelines after API key is provided. */
 export function resumePipelinesWithApiKey(store: StoreAccessor): void {
   const { conversations } = store.getState();
-  const pausedPipelines = conversations.filter((c) => c.status === "paused-for-api-key");
-
-  for (const conv of pausedPipelines) {
-    if (!conv.conversation) continue;
+  for (const conv of conversations) {
+    if (conv.status !== "paused-for-api-key" || !conv.conversation) continue;
     const notify: Notify = (id, update) => store.updateConversation(id, update);
-    const ctx = buildBaseContext(conv);
-    resumeFromPause(ctx, notify, {});
+    runPipeline(buildBaseContext(conv), notify);
   }
 }
