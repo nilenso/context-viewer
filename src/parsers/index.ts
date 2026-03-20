@@ -1,4 +1,4 @@
-import { parserRegistry } from "../parser";
+import { parserRegistry } from "./parser";
 import { ContextViewerParser } from "./context-viewer-parser";
 import { ResponsesParser } from "./responses-parser";
 import { CompletionsParser } from "./completions-parser";

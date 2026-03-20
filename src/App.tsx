@@ -5,23 +5,23 @@ import { useConversationStore } from "./stores/conversation-store";
 import { useUIStore } from "./stores/ui-store";
 import { useUrlStore } from "./stores/url-store";
 import type { InsightsTab } from "./stores/url-store";
-import type { WorkflowState } from "./workflow/types";
-import { getDefaultDimension, getAllComponents } from "./workflow/dimensions";
-import type { ConversationComponentData } from "./components/ComponentComparisonView";
-import { aggregateComponentTokens } from "./aggregation";
-import { ConversationList } from "./components/ConversationList";
-import { ConversationView } from "./components/ConversationView";
-import { AISummary } from "./components/AISummary";
-import { Card } from "./components/ui/card";
-import { PromptEditorDialog } from "./components/PromptEditorDialog";
+import type { WorkflowState } from "@/model/types";
+import { getDefaultDimension, getAllComponents } from "@/model/dimensions";
+import type { ConversationComponentData } from "./ui/components/ComponentComparisonView";
+import { aggregateComponentTokens } from "@/operations/aggregation";
+import { ConversationList } from "./ui/components/ConversationList";
+import { ConversationView } from "./ui/components/ConversationView";
+import { AISummary } from "./ui/components/AISummary";
+import { Card } from "./ui/components/ui/card";
+import { PromptEditorDialog } from "./ui/components/PromptEditorDialog";
 import { Clock, Loader2, Upload, AlertCircle, Star, Github } from "lucide-react";
-import { cn } from "./lib/utils";
-import { DEFAULT_SEGMENTATION_THRESHOLD } from "./segmentation";
-import { loadPresetIndex, loadPreset } from "./lib/preset-loader";
-import { PresetSelector } from "./components/PresetSelector";
-import { UrlImport } from "./components/UrlImport";
-import { createFileValidator, SUPPORTED_EXTENSIONS_TEXT } from "./lib/file-formats";
-import { fetchFileFromUrl } from "./lib/url-fetch";
+import { cn } from "@/ui/lib/utils";
+import { DEFAULT_SEGMENTATION_THRESHOLD } from "@/stages/segment";
+import { loadPresetIndex, loadPreset } from "@/stages/ai/preset-loader";
+import { PresetSelector } from "./ui/components/PresetSelector";
+import { UrlImport } from "./ui/components/UrlImport";
+import { createFileValidator, SUPPORTED_EXTENSIONS_TEXT } from "@/parsers/file-formats";
+import { fetchFileFromUrl } from "@/ui/lib/url-fetch";
 import {
   navigateToId,
   reprocessComponents,
@@ -33,7 +33,7 @@ import {
   applyColoringPrompt,
   generateAnalysis,
   generateSummary,
-} from "./hooks/useWorkflowActions";
+} from "@/stores/actions";
 
 export default function App() {
   // ---- Stores ----
@@ -66,8 +66,8 @@ export default function App() {
 
     if (memberConvs.length === 0) return null;
 
-    const allMessages: import("./schema").Message[] = [];
-    const originMap: Record<string, import("./schema").OriginInfo> = {};
+    const allMessages: import("@/model/schema").Message[] = [];
+    const originMap: Record<string, import("@/model/schema").OriginInfo> = {};
 
     for (const conv of memberConvs) {
       if (!conv.conversation) continue;
@@ -79,12 +79,12 @@ export default function App() {
           return { ...part, id: newPartId };
         });
         originMap[newMsgId] = { conversationId: conv.id, filename: conv.filename, title: conv.title };
-        allMessages.push({ ...msg, id: newMsgId, parts: newParts } as import("./schema").Message);
+        allMessages.push({ ...msg, id: newMsgId, parts: newParts } as import("@/model/schema").Message);
       }
     }
 
     // Merge dimensions
-    const mergedDims: Record<string, import("./component-types").DimensionData> = {};
+    const mergedDims: Record<string, import("@/model/types").DimensionData> = {};
     for (const conv of memberConvs) {
       if (!conv.dimensions) continue;
       for (const [dimName, dim] of Object.entries(conv.dimensions)) {

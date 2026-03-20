@@ -1,6 +1,6 @@
-import type { Parser, ConversationMetadata } from "@/parser";
-import type { Conversation, Message } from "@/schema";
-import { FileExportSchema } from "@/lib/export-schema";
+import type { Parser, ConversationMetadata } from "@/model/types";
+import type { Conversation } from "@/model/schema";
+import { FileExportSchema } from "@/model/export-schema";
 
 /**
  * Parser for Context Viewer export format (FileExport).

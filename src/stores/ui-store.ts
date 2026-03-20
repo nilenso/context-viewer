@@ -5,10 +5,10 @@ import {
   getDefaultSummaryPrompt,
   getDefaultAnalysisPrompt,
   getDefaultColoringPrompt,
-} from "../prompts";
-import { DEFAULT_SEGMENTATION_THRESHOLD } from "../segmentation";
-import { hasApiKey } from "../ai-config";
-import type { PresetConfig, PresetSummary } from "../lib/preset-loader";
+} from "@/stages/ai/prompts";
+import { DEFAULT_SEGMENTATION_THRESHOLD } from "@/stages/segment";
+import { hasApiKey } from "@/stages/ai/config";
+import type { PresetConfig, PresetSummary } from "@/stages/ai/preset-loader";
 
 interface UIStore {
   // Selection state

@@ -14,7 +14,7 @@ import {
   type ComparisonSortField,
   type ComparisonSortDirection,
   ALL_MESSAGE_FILTERS,
-} from "@/lib/url-state";
+} from "@/ui/lib/url-state";
 
 // Re-export types for convenience
 export type {

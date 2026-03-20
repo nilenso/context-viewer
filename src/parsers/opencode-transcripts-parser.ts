@@ -1,10 +1,10 @@
 import { ZodError } from "zod";
-import type { Parser, ConversationMetadata } from "../parser";
+import type { Parser, ConversationMetadata } from "@/model/types";
 import {
   ConversationSchema,
   type Conversation,
   type Message,
-} from "../schema";
+} from "@/model/schema";
 import {
   OpenCodeTranscriptsInputSchema,
   type OpenCodeTranscriptsInput,
@@ -13,9 +13,9 @@ import {
   type OpenCodeTextPart,
   type OpenCodeReasoningPart,
   type OpenCodeToolPart,
-} from "../input-schemas";
+} from "./input-schemas";
 
-import { generateId } from "../lib/id-generator";
+import { generateId } from "@/lib/id-generator";
 
 /**
  * Parser for OpenCode transcript format (JSON)

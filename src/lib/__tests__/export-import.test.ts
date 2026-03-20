@@ -6,8 +6,8 @@ import {
   SessionExportSchema,
   type FileExport,
   type SessionExport,
-} from "../export-schema";
-import { buildFileExport, buildSessionExport } from "../export-builder";
+} from "@/model/export-schema";
+import { buildFileExport, buildSessionExport } from "@/operations/export-builder";
 import { ContextViewerParser } from "@/parsers/context-viewer-parser";
 
 // Path to bundled test fixtures

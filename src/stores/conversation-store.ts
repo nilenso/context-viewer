@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import type { WorkflowState, WorkflowOptions } from "../workflow/types";
-import type { Group } from "../workflow/types";
-import { generateId } from "../lib/id-generator";
-import { parseFileDropInput } from "../lib/file-import";
+import type { WorkflowState, WorkflowOptions } from "@/model/types";
+import type { Group } from "@/model/types";
+import { generateId } from "@/lib/id-generator";
+import { parseFileDropInput } from "@/parsers/file-import";
 import {
   runWorkflowMutation,
   type StoreAccessor,
-} from "../workflow/orchestrate";
+} from "@/pipeline/orchestrate";
 
 interface ConversationStore {
   // ---- State ----

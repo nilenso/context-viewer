@@ -1,16 +1,16 @@
 import { ZodError } from "zod";
-import type { Parser, ConversationMetadata } from "../parser";
+import type { Parser, ConversationMetadata } from "@/model/types";
 import {
   ConversationSchema,
   type Conversation,
   type Message,
-} from "../schema";
+} from "@/model/schema";
 import {
   TrajectoryInputSchema,
   type TrajectoryInput,
   type TrajectoryMessage,
   type TrajectoryToolCall,
-} from "../input-schemas";
+} from "./input-schemas";
 
 // Simple ID generator
 let idCounter = 0;

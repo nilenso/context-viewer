@@ -1,5 +1,5 @@
-import type { Parser } from "../parser";
-import type { Conversation } from "../schema";
+import type { Parser } from "@/model/types";
+import type { Conversation } from "@/model/schema";
 
 /**
  * Parser for plain text files.

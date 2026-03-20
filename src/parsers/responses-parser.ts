@@ -1,15 +1,15 @@
 import { ZodError } from "zod";
-import type { Parser } from "../parser";
+import type { Parser } from "@/model/types";
 import {
   ConversationSchema,
   type Conversation,
   type Message,
-} from "../schema";
+} from "@/model/schema";
 import {
   ResponsesInputSchema,
   type ResponsesInput,
   type ResponseDataItem,
-} from "../input-schemas";
+} from "./input-schemas";
 
 // Simple ID generator
 let idCounter = 0;

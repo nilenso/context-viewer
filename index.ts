@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 import { readFile } from "fs/promises";
-import { parserRegistry } from "./src/parser";
+import { parserRegistry } from "./src/parsers/parser";
 import "./src/parsers"; // Register all parsers
-import { summarizeConversation } from "./src/conversation-summary";
+import { summarizeConversation } from "./src/operations/conversation-summary";
 
 async function main() {
   const args = process.argv.slice(2);
