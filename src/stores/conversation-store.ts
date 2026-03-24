@@ -7,6 +7,7 @@ import {
   runPipelineMutation,
   type StoreAccessor,
 } from "@/pipeline/pipeline";
+import { setStoreAccessor } from "@/lib/session-recorder";
 
 interface ConversationStore {
   // ---- State ----
@@ -240,5 +241,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       }
     },
   };
+});
+
+// ---------------------------------------------------------------------------
+// Session recorder: wire up store accessor
+// ---------------------------------------------------------------------------
+
+setStoreAccessor(() => {
+  const state = useConversationStore.getState();
+  return { conversations: state.conversations, groups: state.groups };
 });
 

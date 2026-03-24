@@ -20,6 +20,7 @@ import { computeTupleTokens, generateComponentCSV } from "@/operations/aggregati
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel } from "./ai/config";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 import { type Notify, startStep, endStep, timed, updateState } from "@/pipeline/notify";
 import { getAllComponents, getDefaultDimension } from "@/model/dimensions";
 import { runSummary } from "./summarize";
@@ -44,6 +45,19 @@ const logAnalysisError = createPhaseLogger(
  * Analyzes component distribution and provides recommendations for improvement
  */
 export async function generateContextAnalysis(
+  conversation: Conversation,
+  componentTimeline: ComponentTimelineSnapshot[],
+  components: string[],
+  aiSummary: string,
+  onChunk?: (chunk: string) => void,
+  customPrompt?: string,
+  conversationId?: string,
+  dimensions?: Record<string, DimensionData>,
+): Promise<{ analysis: string; error?: string }> {
+  return recordCall("stages/analyze", "generateContextAnalysis", [{ messageCount: conversation.messages.length, components, hasCustomPrompt: !!customPrompt }], () => _generateContextAnalysis(conversation, componentTimeline, components, aiSummary, onChunk, customPrompt, conversationId, dimensions));
+}
+
+async function _generateContextAnalysis(
   conversation: Conversation,
   componentTimeline: ComponentTimelineSnapshot[],
   components: string[],

@@ -4,6 +4,7 @@ import type { PipelineState } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 import { addTokenCounts } from "@/operations/token-counting";
 
 const log = createPhaseLogger("segmenting", "Segmentation");
@@ -244,6 +245,16 @@ async function segmentMessagePart(
  * Returns a new conversation with segmented parts and error info
  */
 export async function segmentConversation(
+  conversation: Conversation,
+  onProgress?: (processed: number, total: number) => void,
+  customPrompt?: string,
+  conversationId?: string,
+  segmentationThreshold?: number,
+): Promise<{ conversation: Conversation; error?: string }> {
+  return recordCall("stages/segment", "segmentConversation", [{ messageCount: conversation.messages.length, hasCustomPrompt: !!customPrompt, segmentationThreshold }], () => _segmentConversation(conversation, onProgress, customPrompt, conversationId, segmentationThreshold));
+}
+
+async function _segmentConversation(
   conversation: Conversation,
   onProgress?: (processed: number, total: number) => void,
   customPrompt?: string,

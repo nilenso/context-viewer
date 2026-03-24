@@ -29,6 +29,7 @@ import { markStepStart, markStepEnd } from "./logging";
 import { hasApiKey, getAIConfig } from "@/stages/ai/config";
 import { ensureDimensions, ensureDimension, getDimensionNames, createEmptyDimension } from "@/model/dimensions";
 import { generateId } from "@/lib/id-generator";
+import { recordCall } from "@/lib/session-recorder";
 
 import { parse, restorePreProcessedImport } from "@/stages/parse";
 import { countTokens } from "@/stages/count-tokens";
@@ -53,7 +54,13 @@ async function run<T>(
   markStepStart(ctx.id, name);
   notify(ctx.id, { status: "processing", step: group });
   const start = Date.now();
-  const result = await fn();
+  const result = await recordCall(
+    `stages/${name}`,
+    name,
+    [{ id: ctx.id, filename: ctx.filename }],
+    () => fn(),
+    { captureStore: true },
+  );
   ctx.stepTimings![name] = Math.round((Date.now() - start) / 1000);
   markStepEnd(ctx.id, name);
   return result;
@@ -85,6 +92,20 @@ function merge(ctx: PipelineState, result: Partial<PipelineState> & { warnings?:
  *   - re-segment:  segment always runs (cheap when no large parts)
  */
 export async function runPipeline(
+  ctx: PipelineState,
+  notify: Notify,
+  dimNames?: string[],
+): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "runPipeline",
+    [{ id: ctx.id, filename: ctx.filename, dimNames }],
+    () => _runPipeline(ctx, notify, dimNames),
+    { captureStore: true },
+  );
+}
+
+async function _runPipeline(
   ctx: PipelineState,
   notify: Notify,
   dimNames?: string[],
@@ -227,6 +248,22 @@ export async function reprocessTarget(
   callbacks: { onAnalysisChunk?: (id: string, chunk: string) => void },
   dimNames?: string[],
 ): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "reprocessTarget",
+    [{ targetId, dimNames }],
+    () => _reprocessTarget(store, targetId, contextModifier, callbacks, dimNames),
+    { captureStore: true },
+  );
+}
+
+async function _reprocessTarget(
+  store: StoreAccessor,
+  targetId: string,
+  contextModifier: (ctx: PipelineState) => void,
+  callbacks: { onAnalysisChunk?: (id: string, chunk: string) => void },
+  dimNames?: string[],
+): Promise<void> {
   const { conversations, groups } = store.getState();
   const group = groups[targetId];
   const notify: Notify = (id, update) => store.updateConversation(id, update);
@@ -255,6 +292,19 @@ export async function reprocessTarget(
 
 /** Apply prompts, component list, and colors from one conversation to all others. */
 export async function applyPromptsToAll(
+  store: StoreAccessor,
+  sourceId: string,
+): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "applyPromptsToAll",
+    [{ sourceId }],
+    () => _applyPromptsToAll(store, sourceId),
+    { captureStore: true },
+  );
+}
+
+async function _applyPromptsToAll(
   store: StoreAccessor,
   sourceId: string,
 ): Promise<void> {
@@ -366,6 +416,21 @@ export async function runPipelineMutation(
   presetIds: Map<number, string> | undefined,
   options?: PipelineOptions,
 ): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "runPipelineMutation",
+    [{ fileCount: files.length, fileNames: files.map((f) => f.name), presetIds, options }],
+    () => _runPipelineMutation(store, files, presetIds, options),
+    { captureStore: true },
+  );
+}
+
+async function _runPipelineMutation(
+  store: StoreAccessor,
+  files: File[],
+  presetIds: Map<number, string> | undefined,
+  options?: PipelineOptions,
+): Promise<void> {
   const fileIds = new Map<number, string>();
   const placeholders: PipelineState[] = files.map((file, index) => {
     const id = presetIds?.get(index) || generateId();
@@ -437,6 +502,21 @@ export async function generateAnalysisForTarget(
   conv: PipelineState,
   options: { customAnalysisPrompt?: string } = {},
 ): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "generateAnalysisForTarget",
+    [{ id, options }],
+    () => _generateAnalysisForTarget(store, id, conv, options),
+    { captureStore: true },
+  );
+}
+
+async function _generateAnalysisForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: PipelineState,
+  options: { customAnalysisPrompt?: string } = {},
+): Promise<void> {
   const group = store.getState().groups[id];
   const notify = makeGroupAwareNotify(store, id, group);
   const ctx: PipelineState = {
@@ -459,6 +539,21 @@ export async function generateSummaryForTarget(
   conv: PipelineState,
   options: { customSummaryPrompt?: string } = {},
 ): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "generateSummaryForTarget",
+    [{ id, options }],
+    () => _generateSummaryForTarget(store, id, conv, options),
+    { captureStore: true },
+  );
+}
+
+async function _generateSummaryForTarget(
+  store: StoreAccessor,
+  id: string,
+  conv: PipelineState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
   const group = store.getState().groups[id];
   const notify = makeGroupAwareNotify(store, id, group);
   const ctx: PipelineState = {
@@ -476,6 +571,20 @@ export async function generateSummaryForTarget(
 }
 
 export async function rerunSummaryForTarget(
+  store: StoreAccessor,
+  conv: PipelineState,
+  options: { customSummaryPrompt?: string } = {},
+): Promise<void> {
+  return recordCall(
+    "pipeline",
+    "rerunSummaryForTarget",
+    [{ id: conv.id, options }],
+    () => _rerunSummaryForTarget(store, conv, options),
+    { captureStore: true },
+  );
+}
+
+async function _rerunSummaryForTarget(
   store: StoreAccessor,
   conv: PipelineState,
   options: { customSummaryPrompt?: string } = {},
@@ -510,6 +619,16 @@ export async function rerunSummaryForTarget(
 
 /** Resume all paused pipelines after API key is provided. */
 export function resumePipelinesWithApiKey(store: StoreAccessor): void {
+  recordCall(
+    "pipeline",
+    "resumePipelinesWithApiKey",
+    [],
+    () => _resumePipelinesWithApiKey(store),
+    { captureStore: true },
+  );
+}
+
+function _resumePipelinesWithApiKey(store: StoreAccessor): void {
   const { conversations } = store.getState();
   for (const conv of conversations) {
     if (conv.status !== "paused-for-api-key" || !conv.conversation) continue;

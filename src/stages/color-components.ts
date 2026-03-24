@@ -12,6 +12,7 @@ import type { DimensionData } from "@/model/types";
 import { getPrompt } from "./ai/prompts";
 import { getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 
 // ---------------------------------------------------------------------------
 // Loggers
@@ -28,6 +29,16 @@ const logColoring = createPhaseLogger("coloring", "Coloring");
  * Returns an object mapping component names to color names
  */
 export async function assignComponentColors(
+  components: string[],
+  config: AIConfig,
+  conversationId?: string,
+  presetColors?: Record<string, string>,
+  customColoringPrompt?: string,
+): Promise<Record<string, string>> {
+  return recordCall("stages/color-components", "assignComponentColors", [{ components, model: config.model, hasPresetColors: !!presetColors }], () => _assignComponentColors(components, config, conversationId, presetColors, customColoringPrompt));
+}
+
+async function _assignComponentColors(
   components: string[],
   config: AIConfig,
   conversationId?: string,

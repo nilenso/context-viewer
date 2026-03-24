@@ -5,6 +5,7 @@ import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel, type AIConfig } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 
 const log = createPhaseLogger("identifying-components", "Identification");
 const logError = createPhaseLogger("identifying-components", "Identification", "error");
@@ -14,6 +15,15 @@ const logError = createPhaseLogger("identifying-components", "Identification", "
  * Returns a list of component names
  */
 export async function identifyComponents(
+  conversation: Conversation,
+  config: AIConfig,
+  customPrompt?: string,
+  conversationId?: string,
+): Promise<string[]> {
+  return recordCall("stages/identify-components", "identifyComponents", [{ messageCount: conversation.messages.length, model: config.model, hasCustomPrompt: !!customPrompt }], () => _identifyComponents(conversation, config, customPrompt, conversationId));
+}
+
+async function _identifyComponents(
   conversation: Conversation,
   config: AIConfig,
   customPrompt?: string,

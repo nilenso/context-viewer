@@ -22,6 +22,7 @@ import {
 } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 import { buildComponentTimeline as buildComponentTimelineCore } from "@/operations/aggregation";
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,16 @@ async function mapPartsBatch(
  * Returns an object mapping message part IDs to component names
  */
 export async function mapComponentsToIds(
+  conversation: Conversation,
+  components: string[],
+  config: AIConfig,
+  componentDescriptions?: string,
+  conversationId?: string,
+): Promise<Record<string, string>> {
+  return recordCall("stages/classify-components", "mapComponentsToIds", [{ messageCount: conversation.messages.length, components, model: config.model }], () => _mapComponentsToIds(conversation, components, config, componentDescriptions, conversationId));
+}
+
+async function _mapComponentsToIds(
   conversation: Conversation,
   components: string[],
   config: AIConfig,

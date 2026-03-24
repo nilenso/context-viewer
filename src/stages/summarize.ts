@@ -18,6 +18,7 @@ import { getPrompt } from "./ai/prompts";
 import { getAIConfig, getProviderOptions, createModel } from "./ai/config";
 import { stripLargeContent } from "./ai/strip-large-content";
 import { createPhaseLogger } from "@/pipeline/stage-logger";
+import { recordCall } from "@/lib/session-recorder";
 import { type Notify, startStep, endStep, timed } from "@/pipeline/notify";
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,17 @@ export interface ConversationStats {
  * Returns a promise that resolves with the complete summary text and error info
  */
 export async function generateConversationSummary(
+  conversation: Conversation,
+  onChunk?: (chunk: string) => void,
+  customPrompt?: string,
+  metadata?: ConversationMetadata,
+  stats?: ConversationStats,
+  conversationId?: string,
+): Promise<{ summary: string; error?: string }> {
+  return recordCall("stages/summarize", "generateConversationSummary", [{ messageCount: conversation.messages.length, hasCustomPrompt: !!customPrompt }], () => _generateConversationSummary(conversation, onChunk, customPrompt, metadata, stats, conversationId));
+}
+
+async function _generateConversationSummary(
   conversation: Conversation,
   onChunk?: (chunk: string) => void,
   customPrompt?: string,

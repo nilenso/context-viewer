@@ -23,6 +23,7 @@ import {
   resumePipelinesWithApiKey,
   type StoreAccessor,
 } from "@/pipeline/pipeline";
+import { recordCall } from "@/lib/session-recorder";
 import {
   getDefaultComponentIdentificationPrompt,
   getDefaultSegmentationPrompt,
@@ -71,6 +72,14 @@ export async function reprocessComponents(
   selectedGroupFileIds: string[] | undefined,
   options: { customPrompt?: string; customComponents?: string[] } = {},
 ) {
+  return recordCall("actions", "reprocessComponents", [{ id: selectedConversation.id, options }], () => _reprocessComponents(selectedConversation, selectedGroupFileIds, options), { captureStore: true });
+}
+
+async function _reprocessComponents(
+  selectedConversation: PipelineState,
+  selectedGroupFileIds: string[] | undefined,
+  options: { customPrompt?: string; customComponents?: string[] } = {},
+) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   const id = selectedConversation.id;
@@ -107,6 +116,14 @@ export async function reprocessSegmentation(
   selectedGroupFileIds: string[] | undefined,
   options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {},
 ) {
+  return recordCall("actions", "reprocessSegmentation", [{ id: selectedConversation.id, options }], () => _reprocessSegmentation(selectedConversation, selectedGroupFileIds, options), { captureStore: true });
+}
+
+async function _reprocessSegmentation(
+  selectedConversation: PipelineState,
+  selectedGroupFileIds: string[] | undefined,
+  options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {},
+) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   const id = selectedConversation.id;
@@ -135,6 +152,13 @@ export async function reprocessSummary(
   selectedConversation: PipelineState,
   options: { customSummaryPrompt?: string } = {},
 ) {
+  return recordCall("actions", "reprocessSummary", [{ id: selectedConversation.id, options }], () => _reprocessSummary(selectedConversation, options), { captureStore: true });
+}
+
+async function _reprocessSummary(
+  selectedConversation: PipelineState,
+  options: { customSummaryPrompt?: string } = {},
+) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   const id = selectedConversation.id;
@@ -150,6 +174,14 @@ export async function reprocessSummary(
 }
 
 export async function generateAnalysis(
+  id: string,
+  selectedConversation: PipelineState | undefined,
+  options: { customAnalysisPrompt?: string } = {},
+) {
+  return recordCall("actions", "generateAnalysis", [{ id, options }], () => _generateAnalysis(id, selectedConversation, options), { captureStore: true });
+}
+
+async function _generateAnalysis(
   id: string,
   selectedConversation: PipelineState | undefined,
   options: { customAnalysisPrompt?: string } = {},
@@ -172,6 +204,14 @@ export async function generateAnalysis(
 }
 
 export async function generateSummary(
+  id: string,
+  selectedConversation: PipelineState | undefined,
+  options: { customSummaryPrompt?: string } = {},
+) {
+  return recordCall("actions", "generateSummary", [{ id, options }], () => _generateSummary(id, selectedConversation, options), { captureStore: true });
+}
+
+async function _generateSummary(
   id: string,
   selectedConversation: PipelineState | undefined,
   options: { customSummaryPrompt?: string } = {},
@@ -278,6 +318,10 @@ export function openColoringPromptEditor(id: string, dimensionName?: string) {
 // ---- Prompt apply actions ----
 
 export async function applyPrompt(selectedConversation: PipelineState | undefined) {
+  return recordCall("actions", "applyPrompt", [{ id: selectedConversation?.id }], () => _applyPrompt(selectedConversation), { captureStore: true });
+}
+
+async function _applyPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsPromptDialogOpen(false);
@@ -328,6 +372,10 @@ export async function applyPrompt(selectedConversation: PipelineState | undefine
 }
 
 export async function applyComponents(selectedConversation: PipelineState | undefined) {
+  return recordCall("actions", "applyComponents", [{ id: selectedConversation?.id }], () => _applyComponents(selectedConversation), { captureStore: true });
+}
+
+async function _applyComponents(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsComponentsDialogOpen(false);
@@ -382,6 +430,13 @@ export async function applySegmentationPrompt(
   selectedConversation: PipelineState | undefined,
   selectedGroupFileIds: string[] | undefined,
 ) {
+  return recordCall("actions", "applySegmentationPrompt", [{ id: selectedConversation?.id }], () => _applySegmentationPrompt(selectedConversation, selectedGroupFileIds), { captureStore: true });
+}
+
+async function _applySegmentationPrompt(
+  selectedConversation: PipelineState | undefined,
+  selectedGroupFileIds: string[] | undefined,
+) {
   const ui = useUIStore.getState();
   ui.setIsSegmentationPromptDialogOpen(false);
   if (selectedConversation?.conversation) {
@@ -393,6 +448,10 @@ export async function applySegmentationPrompt(
 }
 
 export async function applySummaryPrompt(selectedConversation: PipelineState | undefined) {
+  return recordCall("actions", "applySummaryPrompt", [{ id: selectedConversation?.id }], () => _applySummaryPrompt(selectedConversation), { captureStore: true });
+}
+
+async function _applySummaryPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   ui.setIsSummaryPromptDialogOpen(false);
   if (selectedConversation?.conversation) {
@@ -401,6 +460,10 @@ export async function applySummaryPrompt(selectedConversation: PipelineState | u
 }
 
 export async function applyAnalysisPrompt(selectedConversation: PipelineState | undefined) {
+  return recordCall("actions", "applyAnalysisPrompt", [{ id: selectedConversation?.id }], () => _applyAnalysisPrompt(selectedConversation), { captureStore: true });
+}
+
+async function _applyAnalysisPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   ui.setIsAnalysisPromptDialogOpen(false);
   if (selectedConversation?.conversation) {
@@ -411,6 +474,10 @@ export async function applyAnalysisPrompt(selectedConversation: PipelineState | 
 }
 
 export async function applyColoringPrompt(selectedConversation: PipelineState | undefined) {
+  return recordCall("actions", "applyColoringPrompt", [{ id: selectedConversation?.id }], () => _applyColoringPrompt(selectedConversation), { captureStore: true });
+}
+
+async function _applyColoringPrompt(selectedConversation: PipelineState | undefined) {
   const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   ui.setIsColoringPromptDialogOpen(false);
@@ -460,6 +527,10 @@ export async function applyColoringPrompt(selectedConversation: PipelineState | 
 // ---- Dimension management ----
 
 export function addDimension(selectedConversationId: string, name: string) {
+  return recordCall("actions", "addDimension", [{ selectedConversationId, name }], () => _addDimension(selectedConversationId, name), { captureStore: true });
+}
+
+function _addDimension(selectedConversationId: string, name: string) {
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
 
@@ -479,6 +550,10 @@ export function addDimension(selectedConversationId: string, name: string) {
 }
 
 export function removeDimension(selectedConversationId: string, name: string) {
+  return recordCall("actions", "removeDimension", [{ selectedConversationId, name }], () => _removeDimension(selectedConversationId, name), { captureStore: true });
+}
+
+function _removeDimension(selectedConversationId: string, name: string) {
   if (name === "default") return;
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
@@ -497,6 +572,10 @@ export function removeDimension(selectedConversationId: string, name: string) {
 }
 
 export function renameDimension(selectedConversationId: string, oldName: string, newName: string) {
+  return recordCall("actions", "renameDimension", [{ selectedConversationId, oldName, newName }], () => _renameDimension(selectedConversationId, oldName, newName), { captureStore: true });
+}
+
+function _renameDimension(selectedConversationId: string, oldName: string, newName: string) {
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
 
@@ -531,6 +610,10 @@ export function resumePipelinesWithApiKeyAction() {
 // ---- Export actions ----
 
 export function exportSession() {
+  return recordCall("actions", "exportSession", [], () => _exportSession(), { captureStore: false });
+}
+
+function _exportSession() {
   const { conversations, groups } = useConversationStore.getState();
   downloadExport(buildSessionExport(conversations, groups));
 }
@@ -548,6 +631,15 @@ export function groupConversations(
   existingGroupId?: string,
   groupTitle?: string,
 ) {
+  return recordCall("actions", "groupConversations", [{ idsToGroup, groupName, existingGroupId, groupTitle }], () => _groupConversations(idsToGroup, groupName, existingGroupId, groupTitle), { captureStore: true });
+}
+
+function _groupConversations(
+  idsToGroup?: string[],
+  groupName?: string,
+  existingGroupId?: string,
+  groupTitle?: string,
+) {
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
   const ids = idsToGroup || [...ui.selectedIds];
@@ -558,12 +650,20 @@ export function groupConversations(
 }
 
 export function ungroupConversation(id: string) {
+  return recordCall("actions", "ungroupConversation", [{ id }], () => _ungroupConversation(id), { captureStore: true });
+}
+
+function _ungroupConversation(id: string) {
   const currentId = useUrlStore.getState().conversationId;
   useConversationStore.getState().removeGroup(id);
   if (currentId === id) navigateToId(null);
 }
 
 export function deleteConversation(id: string) {
+  return recordCall("actions", "deleteConversation", [{ id }], () => _deleteConversation(id), { captureStore: true });
+}
+
+function _deleteConversation(id: string) {
   const currentId = useUrlStore.getState().conversationId;
   useConversationStore.getState().deleteConversation(id);
   if (currentId === id) navigateToId(null);
