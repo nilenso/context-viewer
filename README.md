@@ -44,6 +44,9 @@ cp .env.example .env
 
 # Start the development server
 bun run dev
+
+# Run tests
+npx vitest run
 ```
 
 ### Environment Configuration
