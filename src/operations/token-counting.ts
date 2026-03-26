@@ -1,5 +1,6 @@
 import type { Conversation, Message } from "@/model/schema";
 import { encoding_for_model, type Tiktoken } from "tiktoken";
+import { recordCall } from "@/lib/session-recorder";
 
 // Reusable encoder instance - created once, reused for all token counting
 let encoderInstance: Tiktoken | null = null;
@@ -28,6 +29,12 @@ function countTokens(text: string): number {
  * @returns The same conversation with token counts added to all parts
  */
 export async function addTokenCounts(
+  conversation: Conversation
+): Promise<Conversation> {
+  return recordCall("operations/token-counting", "addTokenCounts", [{ messageCount: conversation.messages.length }], () => _addTokenCounts(conversation));
+}
+
+async function _addTokenCounts(
   conversation: Conversation
 ): Promise<Conversation> {
   const messages: Message[] = [];

@@ -3,6 +3,8 @@
  * what file types the app accepts and how to parse them.
  */
 
+import { recordCall } from "@/lib/session-recorder";
+
 export interface FileFormat {
   extensions: string[];
   parse: (text: string) => unknown;
@@ -56,6 +58,10 @@ export function createFileValidator() {
 
 // Parse file content based on extension
 export function parseFileContent(text: string, filename: string): unknown {
+  return recordCall("parsers/file-formats", "parseFileContent", [{ filename, textLength: text.length }], () => _parseFileContent(text, filename));
+}
+
+function _parseFileContent(text: string, filename: string): unknown {
   const ext = "." + (filename.split(".").pop()?.toLowerCase() || "");
 
   // Find format by extension

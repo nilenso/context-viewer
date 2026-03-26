@@ -1,6 +1,7 @@
 import type { Conversation } from "@/model/schema";
 import type { ComponentTimelineSnapshot } from "@/model/types";
 import { buildComponentTimeline } from "./aggregation";
+import { recordCall } from "@/lib/session-recorder";
 
 /**
  * Static componentisation - deterministic component identification
@@ -77,9 +78,10 @@ export function staticComponentise(conversation: Conversation): {
   mapping: Record<string, string>;
   timeline: ComponentTimelineSnapshot[];
 } {
-  const components = buildStaticComponents(conversation);
-  const mapping = buildStaticComponentMapping(conversation);
-  const timeline = buildStaticComponentTimeline(conversation, mapping);
-
-  return { components, mapping, timeline };
+  return recordCall("operations/static-components", "staticComponentise", [{ messageCount: conversation.messages.length }], () => {
+    const components = buildStaticComponents(conversation);
+    const mapping = buildStaticComponentMapping(conversation);
+    const timeline = buildStaticComponentTimeline(conversation, mapping);
+    return { components, mapping, timeline };
+  });
 }

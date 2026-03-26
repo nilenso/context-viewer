@@ -10,9 +10,16 @@ import { summarizeConversation } from "@/operations/conversation-summary";
 import { parseFileContent } from "@/parsers/file-formats";
 import { buildComponentTimeline } from "./classify-components";
 import { staticComponentise } from "@/operations/static-components";
+import { recordCall } from "@/lib/session-recorder";
 
 /** Pure parse stage — returns results, no side effects. */
 export async function parse(
+  ctx: PipelineState,
+): Promise<Pick<PipelineState, "conversation" | "summary" | "metadata">> {
+  return recordCall("stages/parse", "parse", [{ filename: ctx.filename }], () => _parse(ctx));
+}
+
+async function _parse(
   ctx: PipelineState,
 ): Promise<Pick<PipelineState, "conversation" | "summary" | "metadata">> {
   const text = await ctx.file!.text();

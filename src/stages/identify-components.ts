@@ -98,6 +98,15 @@ export async function identifyForDimension(
   config: AIConfig | null,
   conversationId?: string,
 ): Promise<{ result: Partial<DimensionData>; error?: string }> {
+  return recordCall("stages/identify-components", "identifyForDimension", [{ dimName: dimData.name, componentCount: dimData.discoveredComponents?.length, hasCustomComponents: !!dimData.customComponents?.length }], () => _identifyForDimension(conversation, dimData, config, conversationId));
+}
+
+async function _identifyForDimension(
+  conversation: Conversation,
+  dimData: DimensionData,
+  config: AIConfig | null,
+  conversationId?: string,
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
   const prompt = dimData.prompt;
   const customComponents = dimData.customComponents;
 

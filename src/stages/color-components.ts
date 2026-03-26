@@ -138,6 +138,15 @@ export async function colorForDimension(
   conversationId?: string,
   presetColors?: Record<string, string>,
 ): Promise<{ result: Partial<DimensionData>; error?: string }> {
+  return recordCall("stages/color-components", "colorForDimension", [{ dimName: dimData.name, components: dimData.discoveredComponents, hasPresetColors: !!presetColors }], () => _colorForDimension(dimData, config, conversationId, presetColors));
+}
+
+async function _colorForDimension(
+  dimData: DimensionData,
+  config: AIConfig,
+  conversationId?: string,
+  presetColors?: Record<string, string>,
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
   if (!dimData.discoveredComponents?.length) return { result: {} };
 
   // Idempotent: if componentColors already covers exactly the current components, skip

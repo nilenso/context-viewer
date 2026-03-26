@@ -250,6 +250,15 @@ export async function classifyForDimension(
   config: AIConfig,
   conversationId?: string,
 ): Promise<{ result: Partial<DimensionData>; error?: string }> {
+  return recordCall("stages/classify-components", "classifyForDimension", [{ dimName: dimData.name, components: dimData.discoveredComponents }], () => _classifyForDimension(conversation, dimData, config, conversationId));
+}
+
+async function _classifyForDimension(
+  conversation: Conversation,
+  dimData: DimensionData,
+  config: AIConfig,
+  conversationId?: string,
+): Promise<{ result: Partial<DimensionData>; error?: string }> {
   if (!dimData.discoveredComponents?.length) return { result: {} };
 
   // Idempotent: if mapping already covers all parts and maps to current components, skip

@@ -1,7 +1,14 @@
 import type { Conversation } from "@/model/schema";
 import type { ConversationSummary } from "@/model/types";
+import { recordCall } from "@/lib/session-recorder";
 
 export function summarizeConversation(
+  conversation: Conversation
+): ConversationSummary {
+  return recordCall("operations/conversation-summary", "summarizeConversation", [{ messageCount: conversation.messages.length }], () => _summarizeConversation(conversation));
+}
+
+function _summarizeConversation(
   conversation: Conversation
 ): ConversationSummary {
   const summary: ConversationSummary = {

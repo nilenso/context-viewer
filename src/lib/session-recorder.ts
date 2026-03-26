@@ -59,15 +59,61 @@ export interface CallEntry {
   durationMs: number;
   /** Index of the parent call (computed from time containment at session end) */
   parentIndex?: number;
-  /** Store snapshot BEFORE the call */
-  storeBefore?: StoreSnapshot;
-  /** Store snapshot AFTER the call */
-  storeAfter?: StoreSnapshot;
+  /** Store diff: what changed during this call (only for captureStore calls) */
+  storeDiff?: StoreDiff;
 }
 
-export interface StoreSnapshot {
-  conversations: unknown[];
-  groups: Record<string, unknown>;
+// ---------------------------------------------------------------------------
+// Store diff types
+// ---------------------------------------------------------------------------
+
+/** Compact summary of a conversation for diffing (small fields in full, large fields by shape) */
+export interface ConversationCompact {
+  id: string;
+  filename: string;
+  status?: string;
+  step?: string;
+  error?: string;
+  title?: string;
+  messageCount: number;
+  totalParts: number;
+  summary?: unknown;
+  parserName?: string;
+  aiSummaryLength: number;
+  analysisLength: number;
+  dimensions?: Record<string, DimensionCompact>;
+  staticComponents?: string[];
+  staticMappingCount: number;
+  staticTimelineLength: number;
+  stepTimings?: unknown;
+  warnings?: string[];
+  customSegmentationPrompt?: boolean;
+  customSummaryPrompt?: boolean;
+  customAnalysisPrompt?: boolean;
+}
+
+export interface DimensionCompact {
+  discoveredComponents: string[];
+  customComponents?: string[];
+  componentColors: Record<string, string>;
+  mappingCount: number;
+  timelineLength: number;
+  hasPrompt: boolean;
+  hasCustomColoringPrompt: boolean;
+}
+
+export interface StoreDiff {
+  conversations: {
+    added?: ConversationCompact[];
+    removed?: string[];
+    /** id → { field: [oldValue, newValue] } */
+    changed?: Record<string, Record<string, [unknown, unknown]>>;
+  };
+  groups: {
+    added?: Record<string, unknown>;
+    removed?: string[];
+    changed?: Record<string, Record<string, [unknown, unknown]>>;
+  };
 }
 
 export interface SessionLog {
@@ -147,26 +193,188 @@ export function safeSerialize(value: unknown, depth = 0, seen = new WeakSet()): 
 }
 
 // ---------------------------------------------------------------------------
-// Store snapshot
+// Store diffing
 // ---------------------------------------------------------------------------
 
-let getStoreState: (() => { conversations: unknown[]; groups: Record<string, unknown> }) | null = null;
+let getStoreState: (() => { conversations: any[]; groups: Record<string, any> }) | null = null;
 
 export function setStoreAccessor(accessor: typeof getStoreState) {
   getStoreState = accessor;
 }
 
-function captureStoreSnapshot(): StoreSnapshot | undefined {
-  if (!getStoreState) return undefined;
+/** Raw store snapshot — kept in memory only, never serialized directly */
+interface RawSnapshot {
+  conversations: Map<string, any>; // id → raw conversation object
+  groups: Map<string, any>;        // id → raw group object
+  /** Pre-computed compact summaries for diffing */
+  convCompact: Map<string, ConversationCompact>;
+  groupCompact: Map<string, Record<string, unknown>>;
+}
+
+function compactConversation(conv: any): ConversationCompact {
+  const dims = conv.dimensions
+    ? Object.fromEntries(
+        Object.entries(conv.dimensions).map(([k, d]: [string, any]) => [k, {
+          discoveredComponents: d.discoveredComponents || [],
+          customComponents: d.customComponents,
+          componentColors: d.componentColors || {},
+          mappingCount: Object.keys(d.componentMapping || {}).length,
+          timelineLength: d.componentTimeline?.length ?? 0,
+          hasPrompt: !!d.prompt,
+          hasCustomColoringPrompt: !!d.customColoringPrompt,
+        } as DimensionCompact]),
+      )
+    : undefined;
+
+  return {
+    id: conv.id,
+    filename: conv.filename,
+    status: conv.status,
+    step: conv.step,
+    error: conv.error,
+    title: conv.title,
+    messageCount: conv.conversation?.messages?.length ?? 0,
+    totalParts: conv.conversation?.messages?.reduce((s: number, m: any) => s + (m.parts?.length ?? 0), 0) ?? 0,
+    summary: conv.summary,
+    parserName: conv.metadata?.parserName,
+    aiSummaryLength: conv.aiSummary?.length ?? 0,
+    analysisLength: conv.analysis?.length ?? 0,
+    dimensions: dims,
+    staticComponents: conv.staticComponents,
+    staticMappingCount: conv.staticMapping ? Object.keys(conv.staticMapping).length : 0,
+    staticTimelineLength: conv.staticTimeline?.length ?? 0,
+    stepTimings: conv.stepTimings,
+    warnings: conv.warnings,
+    customSegmentationPrompt: conv.customSegmentationPrompt ? true : undefined,
+    customSummaryPrompt: conv.customSummaryPrompt ? true : undefined,
+    customAnalysisPrompt: conv.customAnalysisPrompt ? true : undefined,
+  };
+}
+
+function compactGroup(group: any): Record<string, unknown> {
+  return {
+    id: group.id,
+    name: group.name,
+    title: group.title,
+    fileIds: group.fileIds,
+    aiSummaryLength: group.aiSummary?.length ?? 0,
+    analysisLength: group.analysis?.length ?? 0,
+    customSummaryPrompt: group.customSummaryPrompt ? true : undefined,
+    customAnalysisPrompt: group.customAnalysisPrompt ? true : undefined,
+  };
+}
+
+function captureRawSnapshot(): RawSnapshot | null {
+  if (!getStoreState) return null;
   try {
     const state = getStoreState();
-    return {
-      conversations: safeSerialize(state.conversations) as unknown[],
-      groups: safeSerialize(state.groups) as Record<string, unknown>,
-    };
+    const convCompact = new Map<string, ConversationCompact>();
+    const conversations = new Map<string, any>();
+    for (const conv of state.conversations) {
+      if (conv && conv.id) {
+        conversations.set(conv.id, conv);
+        convCompact.set(conv.id, compactConversation(conv));
+      }
+    }
+    const groupCompact = new Map<string, Record<string, unknown>>();
+    const groups = new Map<string, any>();
+    for (const [id, group] of Object.entries(state.groups)) {
+      groups.set(id, group);
+      groupCompact.set(id, compactGroup(group));
+    }
+    return { conversations, groups, convCompact, groupCompact };
   } catch {
-    return undefined;
+    return null;
   }
+}
+
+/** Shallow diff two plain objects, returning { field: [old, new] } for changed fields */
+function diffObjects(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): Record<string, [unknown, unknown]> | null {
+  const changes: Record<string, [unknown, unknown]> = {};
+  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of allKeys) {
+    const bVal = before[key];
+    const aVal = after[key];
+    // Fast reference check, then JSON comparison for value equality
+    if (bVal !== aVal && JSON.stringify(bVal) !== JSON.stringify(aVal)) {
+      changes[key] = [bVal, aVal];
+    }
+  }
+  return Object.keys(changes).length > 0 ? changes : null;
+}
+
+function computeStoreDiff(before: RawSnapshot | null, after: RawSnapshot | null): StoreDiff | undefined {
+  if (!before || !after) return undefined;
+
+  const diff: StoreDiff = { conversations: {}, groups: {} };
+  let hasChanges = false;
+
+  // --- Conversations ---
+  const added: ConversationCompact[] = [];
+  const removed: string[] = [];
+  const changed: Record<string, Record<string, [unknown, unknown]>> = {};
+
+  for (const [id, compact] of after.convCompact) {
+    if (!before.convCompact.has(id)) {
+      added.push(compact);
+      hasChanges = true;
+    } else {
+      const fieldDiff = diffObjects(
+        before.convCompact.get(id)! as unknown as Record<string, unknown>,
+        compact as unknown as Record<string, unknown>,
+      );
+      if (fieldDiff) {
+        changed[id] = fieldDiff;
+        hasChanges = true;
+      }
+    }
+  }
+  for (const id of before.convCompact.keys()) {
+    if (!after.convCompact.has(id)) {
+      removed.push(id);
+      hasChanges = true;
+    }
+  }
+
+  if (added.length > 0) diff.conversations.added = added;
+  if (removed.length > 0) diff.conversations.removed = removed;
+  if (Object.keys(changed).length > 0) diff.conversations.changed = changed;
+
+  // --- Groups ---
+  const gAdded: Record<string, unknown> = {};
+  const gRemoved: string[] = [];
+  const gChanged: Record<string, Record<string, [unknown, unknown]>> = {};
+
+  for (const [id, compact] of after.groupCompact) {
+    if (!before.groupCompact.has(id)) {
+      gAdded[id] = compact;
+      hasChanges = true;
+    } else {
+      const fieldDiff = diffObjects(
+        before.groupCompact.get(id)! as Record<string, unknown>,
+        compact as Record<string, unknown>,
+      );
+      if (fieldDiff) {
+        gChanged[id] = fieldDiff;
+        hasChanges = true;
+      }
+    }
+  }
+  for (const id of before.groupCompact.keys()) {
+    if (!after.groupCompact.has(id)) {
+      gRemoved.push(id);
+      hasChanges = true;
+    }
+  }
+
+  if (Object.keys(gAdded).length > 0) diff.groups.added = gAdded;
+  if (gRemoved.length > 0) diff.groups.removed = gRemoved;
+  if (Object.keys(gChanged).length > 0) diff.groups.changed = gChanged;
+
+  return hasChanges ? diff : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,9 +432,7 @@ export function recordCall<T>(
     durationMs: 0,
   };
 
-  if (options.captureStore) {
-    entry.storeBefore = captureStoreSnapshot();
-  }
+  const snapshotBefore = options.captureStore ? captureRawSnapshot() : null;
 
   function finalize(result?: unknown, err?: any) {
     const end = performance.now();
@@ -237,7 +443,10 @@ export function recordCall<T>(
     } else {
       entry.result = safeSerialize(result);
     }
-    if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
+    if (options.captureStore) {
+      const snapshotAfter = captureRawSnapshot();
+      entry.storeDiff = computeStoreDiff(snapshotBefore, snapshotAfter);
+    }
     entries.push(entry);
   }
 

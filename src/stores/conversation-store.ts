@@ -7,7 +7,7 @@ import {
   runPipelineMutation,
   type StoreAccessor,
 } from "@/pipeline/pipeline";
-import { setStoreAccessor } from "@/lib/session-recorder";
+import { setStoreAccessor, recordCall } from "@/lib/session-recorder";
 
 interface ConversationStore {
   // ---- State ----
@@ -210,35 +210,37 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     },
 
     processFileDrop: async (files, loadedPreset) => {
-      const { filesToProcess, oldIdToIndex, sessionGroups } = await parseFileDropInput(files);
+      return recordCall("stores/conversation-store", "processFileDrop", [{ fileCount: files.length, fileNames: files.map((f: File) => f.name), hasPreset: !!loadedPreset }], async () => {
+        const { filesToProcess, oldIdToIndex, sessionGroups } = await parseFileDropInput(files);
 
-      if (sessionGroups.length > 0) {
-        set({ pendingSessionImport: { oldIdToIndex, groups: sessionGroups } });
-      } else {
-        set({ pendingSessionImport: null });
-      }
-
-      if (filesToProcess.length > 0) {
-        const presetIds = new Map<number, string>();
-        for (const [oldId, index] of oldIdToIndex) {
-          presetIds.set(index, oldId);
+        if (sessionGroups.length > 0) {
+          set({ pendingSessionImport: { oldIdToIndex, groups: sessionGroups } });
+        } else {
+          set({ pendingSessionImport: null });
         }
 
-        const options: PipelineOptions | undefined = loadedPreset
-          ? {
-              customComponents: loadedPreset.components,
-              presetColors: loadedPreset.colors,
-              customPrompt: loadedPreset.componentIdentificationPrompt,
-              customSegmentationPrompt: loadedPreset.segmentationPrompt,
-            }
-          : undefined;
+        if (filesToProcess.length > 0) {
+          const presetIds = new Map<number, string>();
+          for (const [oldId, index] of oldIdToIndex) {
+            presetIds.set(index, oldId);
+          }
 
-        await get().runPipelines(
-          filesToProcess,
-          presetIds.size > 0 ? presetIds : undefined,
-          options,
-        );
-      }
+          const options: PipelineOptions | undefined = loadedPreset
+            ? {
+                customComponents: loadedPreset.components,
+                presetColors: loadedPreset.colors,
+                customPrompt: loadedPreset.componentIdentificationPrompt,
+                customSegmentationPrompt: loadedPreset.segmentationPrompt,
+              }
+            : undefined;
+
+          await get().runPipelines(
+            filesToProcess,
+            presetIds.size > 0 ? presetIds : undefined,
+            options,
+          );
+        }
+      }, { captureStore: true });
     },
   };
 });

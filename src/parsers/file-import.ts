@@ -3,6 +3,7 @@
  */
 
 import { SessionExportSchema, FileExportSchema } from "@/model/export-schema";
+import { recordCall } from "@/lib/session-recorder";
 
 interface FileDropResult {
   filesToProcess: File[];
@@ -11,6 +12,10 @@ interface FileDropResult {
 }
 
 export async function parseFileDropInput(files: File[]): Promise<FileDropResult> {
+  return recordCall("parsers/file-import", "parseFileDropInput", [{ fileCount: files.length, fileNames: files.map(f => f.name) }], () => _parseFileDropInput(files));
+}
+
+async function _parseFileDropInput(files: File[]): Promise<FileDropResult> {
   const filesToProcess: File[] = [];
   const oldIdToIndex = new Map<string, number>();
   let sessionGroups: Array<{ id: string; name: string; title?: string; fileIds: string[] }> = [];
