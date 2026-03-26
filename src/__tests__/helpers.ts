@@ -35,10 +35,4 @@ export function loadRecording(filename: string): any {
   return JSON.parse(fs.readFileSync(filepath, "utf-8"));
 }
 
-/** Load a file from sample-logs/ and parse it */
-export function loadSampleLog(relativePath: string) {
-  const filepath = path.resolve(__dirname, "../../sample-logs", relativePath);
-  const text = fs.readFileSync(filepath, "utf-8");
-  const data = parseFileContent(text, path.basename(filepath));
-  return parserRegistry.parseWithMetadata(data);
-}
+

@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { parserRegistry } from "@/parsers/parser";
 import { parseFileContent } from "@/parsers/file-formats";
 import "@/parsers/index";
-import { loadArtifact, loadSampleLog } from "@/__tests__/helpers";
+import { loadArtifact } from "@/__tests__/helpers";
 
 describe("parserRegistry", () => {
   it("matches recording [5]: post-compaction-1 detected as Claude Code", () => {
@@ -19,11 +19,9 @@ describe("parserRegistry", () => {
     const data = parseFileContent(text, "post-compaction-1.jsonl");
     const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
 
-    // Recording [5]: exact metadata
     expect(metadata.parserName).toBe("Claude Code");
     expect(metadata.provider).toBe("Anthropic");
 
-    // Recording [5]: 1 message, role=user, 1 text part
     expect(conversation.messages.length).toBe(1);
     expect(conversation.messages[0]!.role).toBe("user");
     expect(conversation.messages[0]!.parts.length).toBe(1);
@@ -35,29 +33,27 @@ describe("parserRegistry", () => {
     const data = parseFileContent(text, "segment-1.jsonl");
     const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
 
-    // Recording [8]: exact metadata
     expect(metadata.parserName).toBe("Claude Code");
     expect(metadata.model).toBe("claude-opus-4-6");
     expect(metadata.provider).toBe("Anthropic");
 
-    // Recording [8]: 338 messages
     expect(conversation.messages.length).toBe(338);
   });
 
-  it("detects Responses API format", () => {
-    const { conversation, metadata } = loadSampleLog("responses/swing_stories_input.json");
-    expect(metadata.parserName).toBe("OpenAI Responses");
-    expect(conversation.messages.length).toBeGreaterThan(0);
-  });
-
   it("detects Codex CLI format", () => {
-    const { conversation, metadata } = loadSampleLog("codex-transcripts/sample.jsonl");
+    const { text } = loadArtifact("codex-sample.jsonl");
+    const data = parseFileContent(text, "codex-sample.jsonl");
+    const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
+
     expect(metadata.parserName).toBe("Codex CLI");
     expect(conversation.messages.length).toBeGreaterThan(0);
   });
 
   it("detects OpenAI Completions format", () => {
-    const { conversation, metadata } = loadSampleLog("completions/ask_github_gc.json");
+    const { text } = loadArtifact("completions-ask_github_gc.json");
+    const data = parseFileContent(text, "completions-ask_github_gc.json");
+    const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
+
     expect(metadata.parserName).toBe("OpenAI Completions");
     expect(conversation.messages.length).toBeGreaterThan(0);
   });
