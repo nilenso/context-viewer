@@ -500,15 +500,20 @@ function computeParentIndices(entries: CallEntry[]): void {
       if (candidate.index === child.index) continue;
       // candidate contains child?
       if (candidate.startMs <= child.startMs && child.endMs <= candidate.endMs) {
-        // For identical intervals: lower index = outer caller = parent
+        // For identical intervals: only a lower index can be a parent (called first = outer)
         if (candidate.startMs === child.startMs && candidate.endMs === child.endMs) {
-          if (candidate.index > child.index) continue; // candidate was called AFTER child — not a parent
+          if (candidate.index > child.index) continue;
         }
-        // Tightest = latest startMs, then earliest endMs, then lowest index for ties
+        // Pick tightest container. When intervals differ: latest start, then earliest end.
+        // When intervals are identical: highest index still < child (most immediate caller).
+        const sameInterval = bestParent &&
+          candidate.startMs === bestParent.startMs &&
+          candidate.endMs === bestParent.endMs;
+
         if (!bestParent ||
             candidate.startMs > bestParent.startMs ||
             (candidate.startMs === bestParent.startMs && candidate.endMs < bestParent.endMs) ||
-            (candidate.startMs === bestParent.startMs && candidate.endMs === bestParent.endMs && candidate.index < bestParent.index)) {
+            (sameInterval && candidate.index > bestParent.index)) {
           bestParent = candidate;
         }
       }
