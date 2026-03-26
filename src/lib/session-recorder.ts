@@ -29,7 +29,7 @@
  * - Return value or error
  * - Duration
  * - Store state before/after (for functions marked as having side effects)
- * - Call nesting (parent-child relationships via a call stack)
+ * - Call nesting (parent-child relationships derived from time containment)
  */
 
 // ---------------------------------------------------------------------------
@@ -37,10 +37,14 @@
 // ---------------------------------------------------------------------------
 
 export interface CallEntry {
-  /** Monotonic index within this session */
+  /** Monotonic index within this session (assigned at call start) */
   index: number;
-  /** ISO timestamp */
+  /** ISO timestamp of call start */
   timestamp: string;
+  /** High-resolution start time (ms, relative to session start) */
+  startMs: number;
+  /** High-resolution end time (ms, relative to session start) */
+  endMs: number;
   /** Module path, e.g. "stages/parse" */
   module: string;
   /** Function name, e.g. "parse" */
@@ -53,7 +57,7 @@ export interface CallEntry {
   error?: string;
   /** Duration in ms */
   durationMs: number;
-  /** Index of the parent call (for nested calls) */
+  /** Index of the parent call (computed from time containment at session end) */
   parentIndex?: number;
   /** Store snapshot BEFORE the call */
   storeBefore?: StoreSnapshot;
@@ -172,10 +176,10 @@ function captureStoreSnapshot(): StoreSnapshot | undefined {
 let _isRecording = false;
 let sessionName = "";
 let sessionStartTime = 0;
+/** performance.now() baseline for relative timestamps */
+let perfBaseline = 0;
 let callIndex = 0;
 let entries: CallEntry[] = [];
-/** Stack of active call indices for tracking nesting */
-let callStack: number[] = [];
 
 // ---------------------------------------------------------------------------
 // Core recording function — called explicitly by instrumented code
@@ -192,6 +196,10 @@ let callStack: number[] = [];
  *
  * The `fn` callback is always called (even when not recording), so there's
  * zero overhead when recording is off — just one boolean check.
+ *
+ * Parent-child relationships are NOT tracked via a call stack (which breaks
+ * with concurrent async calls). Instead, each entry records its startMs/endMs
+ * and parentIndex is computed from time containment at session end.
  */
 export function recordCall<T>(
   module: string,
@@ -203,34 +211,41 @@ export function recordCall<T>(
   if (!_isRecording) return fn();
 
   const myIndex = callIndex++;
-  const parentIndex = callStack.length > 0 ? callStack[callStack.length - 1] : undefined;
-  callStack.push(myIndex);
+  const start = performance.now();
 
   const entry: CallEntry = {
     index: myIndex,
     timestamp: new Date().toISOString(),
+    startMs: Math.round(start - perfBaseline),
+    endMs: 0, // filled on completion
     module,
     functionName,
     args: args.map((a) => safeSerialize(a)),
     durationMs: 0,
-    parentIndex,
   };
 
   if (options.captureStore) {
     entry.storeBefore = captureStoreSnapshot();
   }
 
-  const start = performance.now();
+  function finalize(result?: unknown, err?: any) {
+    const end = performance.now();
+    entry.endMs = Math.round(end - perfBaseline);
+    entry.durationMs = Math.round(end - start);
+    if (err) {
+      entry.error = err?.message || String(err);
+    } else {
+      entry.result = safeSerialize(result);
+    }
+    if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
+    entries.push(entry);
+  }
 
   let result: T;
   try {
     result = fn();
   } catch (err: any) {
-    entry.durationMs = Math.round(performance.now() - start);
-    entry.error = err?.message || String(err);
-    if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
-    callStack.pop();
-    entries.push(entry);
+    finalize(undefined, err);
     throw err;
   }
 
@@ -238,31 +253,59 @@ export function recordCall<T>(
   if (result && typeof result === "object" && typeof (result as any).then === "function") {
     return (result as any).then(
       (resolved: any) => {
-        entry.durationMs = Math.round(performance.now() - start);
-        entry.result = safeSerialize(resolved);
-        if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
-        callStack.pop();
-        entries.push(entry);
+        finalize(resolved);
         return resolved;
       },
       (err: any) => {
-        entry.durationMs = Math.round(performance.now() - start);
-        entry.error = err?.message || String(err);
-        if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
-        callStack.pop();
-        entries.push(entry);
+        finalize(undefined, err);
         throw err;
       },
     ) as T;
   }
 
   // Sync result
-  entry.durationMs = Math.round(performance.now() - start);
-  entry.result = safeSerialize(result);
-  if (options.captureStore) entry.storeAfter = captureStoreSnapshot();
-  callStack.pop();
-  entries.push(entry);
+  finalize(result);
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Parent computation from time containment
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute parentIndex for each entry based on time containment.
+ *
+ * Entry B is a child of entry A if:
+ *   A.startMs <= B.startMs AND B.endMs <= A.endMs  (B is fully contained in A)
+ *
+ * Among all such candidates, the parent is the one with the LATEST startMs
+ * (i.e., the tightest containing interval — the most immediate parent).
+ */
+function computeParentIndices(entries: CallEntry[]): void {
+  // Sort by startMs for efficient processing
+  const sorted = [...entries].sort((a, b) => a.startMs - b.startMs || b.durationMs - a.durationMs);
+
+  // Build index map: entry.index → entry reference
+  const byIndex = new Map<number, CallEntry>();
+  for (const e of entries) byIndex.set(e.index, e);
+
+  // For each entry, find its tightest containing parent
+  for (const child of sorted) {
+    let bestParent: CallEntry | undefined;
+    for (const candidate of sorted) {
+      if (candidate.index === child.index) continue;
+      // candidate contains child?
+      if (candidate.startMs <= child.startMs && child.endMs <= candidate.endMs) {
+        // Tightest = latest startMs (or shortest duration if same start)
+        if (!bestParent ||
+            candidate.startMs > bestParent.startMs ||
+            (candidate.startMs === bestParent.startMs && candidate.durationMs < bestParent.durationMs)) {
+          bestParent = candidate;
+        }
+      }
+    }
+    child.parentIndex = bestParent?.index;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -314,9 +357,9 @@ export const sessionRecorder = {
   start(name?: string) {
     sessionName = name || `session-${new Date().toISOString().replace(/[:.]/g, "-")}`;
     sessionStartTime = Date.now();
+    perfBaseline = performance.now();
     callIndex = 0;
     entries = [];
-    callStack = [];
     _isRecording = true;
     console.log(`%c🔴 Session recording started: "${sessionName}"`, "color: red; font-weight: bold");
     console.log(`   Interact with the UI, then call window.__session.stop() to download the log.`);
@@ -329,6 +372,12 @@ export const sessionRecorder = {
     }
     _isRecording = false;
     const endTime = Date.now();
+
+    // Compute parent-child relationships from time containment
+    computeParentIndices(entries);
+
+    // Sort entries by start time (they arrive in completion order due to async)
+    entries.sort((a, b) => a.startMs - b.startMs || a.index - b.index);
 
     const log: SessionLog = {
       sessionName,
@@ -356,7 +405,6 @@ export const sessionRecorder = {
     );
 
     entries = [];
-    callStack = [];
     return log;
   },
 
