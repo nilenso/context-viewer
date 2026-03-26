@@ -553,6 +553,194 @@ describe("runPipeline", () => {
 });
 ```
 
+### Reprocessing — test `reprocessTarget` with context modifiers
+
+In recordings, you'll see chains like:
+```
+applyPrompt → reprocessTarget → runPipeline → (stages...)
+applySegmentationPrompt → reprocessSegmentation → reprocessTarget → runPipeline → (stages...)
+```
+
+The `reprocessTarget` function takes a `contextModifier` callback that
+mutates the pipeline context before re-running. In recordings, you can
+see what changed by comparing the `storeDiff` — e.g. a `reprocessTarget`
+entry with `dimNames: ["default"]` shows only the default dimension was
+re-run.
+
+```typescript
+import { reprocessTarget, type StoreAccessor } from "@/pipeline/pipeline";
+
+describe("reprocessTarget", () => {
+  it("reprocesses only specified dimensions", async () => {
+    // Build a StoreAccessor mock with a conversation that already has results
+    const conv: PipelineState = {
+      id: "test-1",
+      filename: "test.jsonl",
+      conversation: loadedConversation,
+      dimensions: {
+        default: {
+          name: "default",
+          discoveredComponents: ["A", "B"],
+          componentMapping: existingMapping,
+          componentTimeline: existingTimeline,
+          componentColors: { A: "blue", B: "green" },
+        },
+      },
+      warnings: [],
+      stepTimings: {},
+    };
+
+    const store: StoreAccessor = {
+      getState: () => ({ conversations: [conv], groups: {}, pendingSessionImport: null }),
+      updateConversation: vi.fn(),
+      updateGroup: vi.fn(),
+      appendSummaryChunk: vi.fn(),
+      appendAnalysisChunk: vi.fn(),
+      set: vi.fn(),
+    };
+
+    // Clear discoveredComponents to force re-identification
+    await reprocessTarget(
+      store, "test-1",
+      (ctx) => {
+        const dim = ctx.dimensions!.default!;
+        dim.discoveredComponents = [];
+        dim.prompt = "new custom prompt";
+      },
+      {},
+      ["default"],
+    );
+
+    // Verify updateConversation was called with new dimension data
+    expect(store.updateConversation).toHaveBeenCalled();
+  });
+});
+```
+
+### `applyPromptsToAll` — cross-conversation prompt copying
+
+In recordings, this shows as:
+```
+applyPromptsToAll(sourceId: "1") → runPipeline (for each target conversation)
+```
+
+The `storeDiff` shows other conversations' dimensions updated to match
+the source. Test that prompts, components, and colors are copied and
+only the necessary stages re-run.
+
+```typescript
+import { applyPromptsToAll } from "@/pipeline/pipeline";
+
+describe("applyPromptsToAll", () => {
+  it("copies prompts from source to all other successful conversations", async () => {
+    const source = buildConvWithDimensions("source-1", { prompt: "custom", components: ["X", "Y"] });
+    const target = buildConvWithDimensions("target-1", { prompt: "default", components: ["A", "B"] });
+
+    const store: StoreAccessor = {
+      getState: () => ({
+        conversations: [
+          { ...source, status: "success" },
+          { ...target, status: "success" },
+        ],
+        groups: {},
+        pendingSessionImport: null,
+      }),
+      updateConversation: vi.fn(),
+      // ...
+    };
+
+    await applyPromptsToAll(store, "source-1");
+
+    // From recording: target's dimensions should be updated
+    // and a runPipeline should have been called for the target
+    expect(store.updateConversation).toHaveBeenCalled();
+  });
+});
+```
+
+### Group operations — test `groupConversations`
+
+In recordings, the `groupConversations` entry shows:
+- `args`: `[{}]` (uses selected IDs from UI store, or explicit IDs)
+- `storeDiff.groups.added`: the new group with its ID, name, and fileIds
+
+This is an action in `stores/actions.ts` that calls
+`useConversationStore.getState().groupConversations(...)`.
+Test the store method directly:
+
+```typescript
+import { useConversationStore } from "@/stores/conversation-store";
+
+describe("groupConversations", () => {
+  beforeEach(() => {
+    // Reset store
+    useConversationStore.setState({
+      conversations: [
+        { id: "1", filename: "a.jsonl", status: "success", conversation: { messages: [] } },
+        { id: "2", filename: "b.jsonl", status: "success", conversation: { messages: [] } },
+      ],
+      groups: {},
+    });
+  });
+
+  it("creates a group from two conversations", () => {
+    const store = useConversationStore.getState();
+    const groupId = store.groupConversations(["1", "2"], "Test Group");
+
+    expect(groupId).toBeTruthy();
+    const group = store.getGroup(groupId);
+    expect(group).toBeDefined();
+    expect(group!.fileIds).toEqual(["1", "2"]);
+    expect(group!.name).toBe("Test Group");
+  });
+
+  it("rejects groups with fewer than 2 valid conversations", () => {
+    const store = useConversationStore.getState();
+    const groupId = store.groupConversations(["1"], "Solo");
+    expect(groupId).toBe("");
+  });
+});
+```
+
+### Segmentation — testing varying behavior
+
+In recordings, `segmentConversation` shows two behaviors:
+- **Long runs (seconds)**: conversation has large parts above the token
+  threshold, AI is called to find split points
+- **Fast runs (< 50ms)**: no parts exceed threshold, returns immediately
+
+Test both paths:
+
+```typescript
+describe("segmentConversation", () => {
+  it("returns original conversation when no parts exceed threshold", async () => {
+    // Small conversation — all parts under 500 tokens
+    const { conversation } = loadConversation("...");
+    const result = await segmentConversation(conversation);
+
+    // From recording: fast return, same message count
+    expect(result.conversation.messages.length).toBe(conversation.messages.length);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("segments large parts into chunks", async () => {
+    // Conversation with a large part (>500 tokens)
+    // Mock generateText to return split point regexes
+    (generateText as any).mockResolvedValue({
+      text: '["(?=## Section 1)", "(?=## Section 2)"]',
+    });
+
+    const { conversation } = loadConversation("...");
+    const result = await segmentConversation(conversation);
+
+    // From recording: message count may increase (parts split into sub-parts)
+    expect(result.conversation.messages.length).toBeGreaterThanOrEqual(
+      conversation.messages.length
+    );
+  });
+});
+```
+
 ## Reading the Session Log — Step by Step
 
 When given a session recording file:
@@ -563,22 +751,35 @@ When given a session recording file:
 2. **Build the call tree** from `parentIndex`. This shows you the
    execution flow and which functions call which.
 
-3. **For each function**, find all entries with that `functionName`:
+3. **Identify the session type** from the top-level entries (those with
+   no `parentIndex`). Common patterns:
+   - **File drop**: `processFileDrop` → `runPipelineMutation` → parallel `runPipeline`s
+   - **Prompt edit + reprocess**: `applyPrompt` → `reprocessTarget` → `runPipeline`
+   - **Segmentation change**: `applySegmentationPrompt` → `reprocessSegmentation` → `reprocessTarget` → `runPipeline`
+   - **Apply to all**: `applyPromptsToAll` → `runPipeline` (for each target)
+   - **Group creation**: `groupConversations` (store mutation only, no pipeline)
+   - **Summary/analysis**: `generateSummary` / `generateAnalysis` → `generateSummaryForTarget` / `generateAnalysisForTarget`
+
+4. **For each function**, find all entries with that `functionName`:
    - Look at `args` to understand what kind of inputs it receives
    - Look at `result` to know the expected output — **use these as
      assertion values in tests**
    - Look at `storeDiff` to know what side effects to verify
    - Check if it has children that are AI calls (the function itself
      may be pure but orchestrate AI calls)
+   - **Compare multiple entries** of the same function: one may show a
+     full run (AI called, result populated) while another shows
+     idempotency (result is `{}`, no AI called). Test both paths.
 
-4. **Find the sample input files** used in the session. The `parsing`
+5. **Find the sample input files** used in the session. The `parsing`
    entries show `filename` in their args. Match these to files in
    `sample-logs/` or elsewhere in the repo.
 
-5. **Write one test file per module.** Within each file, write at least
+6. **Write one test file per module.** Within each file, write at least
    one test per function. If the recording has multiple entries for the
    same function with different inputs (e.g. two files processed in
-   parallel), write multiple test cases.
+   parallel, or the same file reprocessed with a different prompt),
+   write multiple test cases covering each variation.
 
 ## What to test, what to mock
 
@@ -588,7 +789,16 @@ When given a session recording file:
 | `parsers/` | No AI calls | Nothing | Correct format detection, parsed structure |
 | `stages/` (AI) | Yes: `vi.mock("ai")` | Mock `@/stages/ai/config` | Return values, that AI was called correctly |
 | `stages/` (orchestrators) | Yes | Nothing else | Idempotency, delegation, error handling |
-| `pipeline/` | Yes | Nothing else | Stage ordering, state transitions, notifications |
+| `pipeline/` | Yes | Nothing else | Stage ordering, state transitions, ctx population |
+| `pipeline/` (reprocess) | Yes | Nothing else | Selective re-run, dimension targeting, context modification |
+| `stores/` (conv store) | N/A | Nothing | Group CRUD, conversation CRUD, state shape |
+| `actions/` | Yes | Mock UI stores (`useUIStore`, `useUrlStore`) | Correct delegation to pipeline, store mutations |
+
+**Note on actions**: Functions in `stores/actions.ts` glue the UI to the
+pipeline. They read from `useUIStore` (dialog state, editing prompts) and
+`useConversationStore`, then call pipeline functions. If you test them,
+you need to mock the UI stores. Alternatively, skip action tests and test
+the pipeline functions they delegate to — the recording shows both levels.
 
 ## Important Notes
 
