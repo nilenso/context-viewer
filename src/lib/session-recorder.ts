@@ -487,28 +487,28 @@ export function recordCall<T>(
  * Entry B is a child of entry A if:
  *   A.startMs <= B.startMs AND B.endMs <= A.endMs  (B is fully contained in A)
  *
- * Among all such candidates, the parent is the one with the LATEST startMs
- * (i.e., the tightest containing interval — the most immediate parent).
+ * Among all such candidates, the parent is the tightest containing interval.
+ *
+ * When two entries have identical time intervals (common when a wrapper
+ * immediately delegates to an inner function within the same ms), the one
+ * with the LOWER index is the outer/parent (it was called first).
  */
 function computeParentIndices(entries: CallEntry[]): void {
-  // Sort by startMs for efficient processing
-  const sorted = [...entries].sort((a, b) => a.startMs - b.startMs || b.durationMs - a.durationMs);
-
-  // Build index map: entry.index → entry reference
-  const byIndex = new Map<number, CallEntry>();
-  for (const e of entries) byIndex.set(e.index, e);
-
-  // For each entry, find its tightest containing parent
-  for (const child of sorted) {
+  for (const child of entries) {
     let bestParent: CallEntry | undefined;
-    for (const candidate of sorted) {
+    for (const candidate of entries) {
       if (candidate.index === child.index) continue;
       // candidate contains child?
       if (candidate.startMs <= child.startMs && child.endMs <= candidate.endMs) {
-        // Tightest = latest startMs (or shortest duration if same start)
+        // For identical intervals: lower index = outer caller = parent
+        if (candidate.startMs === child.startMs && candidate.endMs === child.endMs) {
+          if (candidate.index > child.index) continue; // candidate was called AFTER child — not a parent
+        }
+        // Tightest = latest startMs, then earliest endMs, then lowest index for ties
         if (!bestParent ||
             candidate.startMs > bestParent.startMs ||
-            (candidate.startMs === bestParent.startMs && candidate.durationMs < bestParent.durationMs)) {
+            (candidate.startMs === bestParent.startMs && candidate.endMs < bestParent.endMs) ||
+            (candidate.startMs === bestParent.startMs && candidate.endMs === bestParent.endMs && candidate.index < bestParent.index)) {
           bestParent = candidate;
         }
       }
