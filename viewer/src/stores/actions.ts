@@ -466,12 +466,43 @@ export async function applyPromptsToAllAction(sourceId: string) {
     options.segmentationThreshold = source.segmentationThreshold;
   }
 
-  // Apply to every other completed conversation
+  // Apply to every other completed conversation (exclude source)
   const targets = store.conversations.filter(
     (c) => c.id !== sourceId && c.conversation && c.sessionId,
   );
 
-  await Promise.all(targets.map((conv) => reprocessWithSession(conv, options)));
+  // Group by sessionId so we only call analyze() once per session
+  const bySession = new Map<string, ViewerConversationState[]>();
+  for (const conv of targets) {
+    const group = bySession.get(conv.sessionId!) || [];
+    group.push(conv);
+    bySession.set(conv.sessionId!, group);
+  }
+
+  const interceptors = buildInterceptors();
+  const config = getAnalyzerConfig();
+
+  await Promise.all([...bySession.entries()].map(async ([sessionId, convs]) => {
+    const targetIds = new Set(convs.map((c) => c.id));
+    try {
+      const result = await analyze(
+        { sessionId, interceptors, ...options },
+        config,
+      );
+      for (const state of result.states) {
+        if (targetIds.has(state.id)) {
+          store.updateConversation(state.id, { ...state, status: "success", step: undefined });
+        }
+      }
+    } catch (error) {
+      for (const conv of convs) {
+        store.updateConversation(conv.id, {
+          status: "failed", step: undefined,
+          error: error instanceof Error ? error.message : "Apply prompts failed",
+        });
+      }
+    }
+  }));
 }
 
 export async function resumePipelinesWithApiKeyAction() {
