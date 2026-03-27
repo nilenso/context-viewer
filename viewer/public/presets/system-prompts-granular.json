@@ -1,0 +1,21 @@
+{
+  "id": "system-prompts-granular",
+  "name": "System Prompts (Granular)",
+  "description": "For analyzing AI system prompts with granular markdown-based segmentation",
+  "componentIdentificationPrompt": "- code_style: Standards for generated and modified code. Covers formatting, naming conventions, and patterns to match existing codebase style, as well as security practices, accessibility, and performance considerations.\n- environment_details: Runtime context the AI operates within. Includes system information (OS, shell, working directory, date/time), security rules around secrets, credentials, and dangerous operations, and sandboxing constraints like network restrictions, file system boundaries, and approval requirements for sensitive operations.\n- personality_steering: Defines who the AI is, how it communicates, and behavioral constraints. Encompasses identity and role, tone and interaction style, decision-making constraints (e.g., avoiding assumptions, not over-engineering), output formatting rules, general interaction principles, and emphatic instructions (caps, repetition, specific prohibitions) used to override model defaults.\n- tool_descriptions_instructions: Everything about available tools and project-specific configuration. Includes tool definitions, usage conditions, invocation patterns, parameter schemas, and meta-policies governing tool selection, parallelization, and fallback behaviors. Covers file operations, shell execution, search and code navigation, communication mechanisms, and advanced capabilities like web access, sub-agents, notebooks, and integrations. Also includes paths to project configuration files (e.g., CLAUDE.md, AGENTS.md).\n- workflow_guidance: Structured approaches to problem-solving. Covers task tracking and progress management, operational modes (planning, architect, suggest, autopilot), and version control practices including commit conventions, branch management, PR creation, git command safety constraints, and example workflows for features, bug fixes, and refactoring.",
+  "components": [
+    "code_style",
+    "environment_details",
+    "personality_steering",
+    "tool_descriptions_instructions",
+    "workflow_guidance"
+  ],
+  "colors": {
+    "code_style": "#6B9ECE",
+    "environment_details": "#3CB4A4",
+    "personality_steering": "#E54B6B",
+    "tool_descriptions_instructions": "#78909C",
+    "workflow_guidance": "#F4A156",
+    "other": "#9CA3AF"
+  }
+}

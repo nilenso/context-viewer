@@ -44,6 +44,9 @@ cp .env.example .env
 
 # Start the development server
 bun run dev
+
+# Run tests
+npx vitest run
 ```
 
 ### Environment Configuration
@@ -56,7 +59,22 @@ Create a `.env` file based on `.env.example`:
 # AI API Configuration for Semantic Segmentation
 VITE_AI_API_KEY=your-openai-api-key
 VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
+
+# Optional: Use a different provider (Ollama, Cerebras, Groq, etc.)
+VITE_AI_BASE_URL=http://localhost:11434/v1  # e.g. Ollama
+VITE_AI_API_MODE=chat  # "chat" for non-OpenAI providers, "responses" (default) for OpenAI
 ```
+
+#### Alternative providers
+
+Any OpenAI-compatible API works. Set `VITE_AI_API_MODE=chat` for non-OpenAI providers.
+
+| Provider | Base URL | Example model | Notes |
+|----------|----------|---------------|-------|
+| **Ollama** (local) | `http://localhost:11434/v1` | `gemma3:1b` | Free, no API key needed (set any value) |
+| **Cerebras** | `https://api.cerebras.ai/v1` | `llama3.1-8b` | Free tier: 24M tokens/day, very fast |
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` | ~$0.06/1M tokens, fast |
+| **OpenAI** (default) | _(not needed)_ | `gpt-4o-mini` | Uses Responses API by default |
 
 ## Documentation
 
@@ -83,9 +101,10 @@ evolving, still. To begin with, it will support the completions and
 responses API formats. They're implemented behind an interface so it's
 easy to add another format's parser.
 
-Currently this tool only supports open-ai as the LLM provider, but the
-idea is to be fully model and format agnostic. It uses vercel's AI
-SDK, so it should be easy enough to add support for other providers.
+This tool supports any OpenAI-compatible LLM provider, including local
+models via Ollama. It uses Vercel's AI SDK with a configurable base
+URL and API mode, so you can use OpenAI, Cerebras, Groq, or run a
+small model like Gemma 3 1B locally.
 
 ## License
 

@@ -1,0 +1,42 @@
+{
+  "id": "workflow-tasks",
+  "name": "Workflow Tasks",
+  "description": "For analyzing conversation transcripts with granular workflow tasks mapped to tool calls",
+  "componentIdentificationPrompt": "Classify each message/step into one of these workflow tasks based on the tool calls being made:\n\n## Workflow Tasks\n\n- **understand.read-requirements** — Read TASK.md or issue files to understand what needs to be done. Tool: read(filePath: \"TASK.md\")\n\n- **understand.read-tests** — Read test files to understand expected behavior and acceptance criteria. Tool: read(filePath: \"tests/...\")\n\n- **explore.search-files** — Find files by name pattern using glob. Tool: glob(pattern: \"**/hostblock.py\")\n\n- **explore.search-keywords** — Search for code patterns, function names, or imports. Tool: grep(pattern: \"...\", include: \"*.py\")\n\n- **explore.read-source** — Read implementation files to understand existing code. Tool: read(filePath: \"src/...\")\n\n- **explore.read-section** — Read specific portions of large files. Tool: read(filePath, offset, limit)\n\n- **explore.delegate-exploration** — Spawn subagent for broader codebase investigation. Tool: task(subagent_type: \"explore\")\n\n- **analyze.check-environment** — Check Python paths, module locations, venv status. Tool: bash(\"python -c 'import ...'\")\n\n- **analyze.run-tests-diagnostic** — Run tests to see current failures and understand what's broken. Tool: bash(\"pytest ... -v | head\")\n\n- **plan.update-tasks** — Create or update task/step list to track progress. Tools: todowrite(...) or update_plan(...)\n\n- **implement.write-code** — Modify existing code via string replacement. Tool: edit(filePath, oldString, newString)\n\n- **implement.apply-patch** — Apply unified diff-style patches to add/modify code. Tool: apply_patch(patchText: \"*** Begin Patch...\")\n\n- **implement.create-file** — Create new files that don't exist yet. Tool: apply_patch(\"*** Add File: ...\")\n\n- **verify.run-tests-verify** — Run tests after implementation to verify the fix works. Tool: bash(\"pytest ... -v | tail\")\n\n- **verify.run-tests-specific** — Run targeted tests for the feature being worked on. Tool: bash(\"pytest ...::test_name -v\")\n\n- **complete.update-tasks** — Mark all tasks/steps as completed in final status. Tools: todowrite/update_plan with status: completed",
+  "components": [
+    "understand.read-requirements",
+    "understand.read-tests",
+    "explore.search-files",
+    "explore.search-keywords",
+    "explore.read-source",
+    "explore.read-section",
+    "explore.delegate-exploration",
+    "analyze.check-environment",
+    "analyze.run-tests-diagnostic",
+    "plan.update-tasks",
+    "implement.write-code",
+    "implement.apply-patch",
+    "implement.create-file",
+    "verify.run-tests-verify",
+    "verify.run-tests-specific",
+    "complete.update-tasks"
+  ],
+  "colors": {
+    "understand.read-requirements": "#2563eb",
+    "understand.read-tests": "#60a5fa",
+    "explore.search-files": "#0d9488",
+    "explore.search-keywords": "#14b8a6",
+    "explore.read-source": "#2dd4bf",
+    "explore.read-section": "#5eead4",
+    "explore.delegate-exploration": "#99f6e4",
+    "analyze.check-environment": "#f43f5e",
+    "analyze.run-tests-diagnostic": "#fb7185",
+    "plan.update-tasks": "#f59e0b",
+    "implement.write-code": "#7c3aed",
+    "implement.apply-patch": "#8b5cf6",
+    "implement.create-file": "#a78bfa",
+    "verify.run-tests-verify": "#84cc16",
+    "verify.run-tests-specific": "#a3e635",
+    "complete.update-tasks": "#64748b"
+  }
+}

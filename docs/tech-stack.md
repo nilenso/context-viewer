@@ -24,8 +24,8 @@
 ## Model-Agnostic AI Client
 - [Vercel AI SDK (“ai”)](https://ai-sdk.dev/docs/introduction)
 
-## State management
-- [useState](https://react.dev/reference/react/useState)
+## State Management
+- [Zustand](https://zustand.docs.pmnd.rs/) — three stores: conversation, UI, URL
 
 ## UI Components
 - [shadcn/ui](https://ui.shadcn.com/docs)
