@@ -434,13 +434,52 @@ export function renameDimension(selectedConversationId: string, oldName: string,
 // ---- Orchestration actions ----
 
 export async function applyPromptsToAllAction(sourceId: string) {
-  // TODO: implement via session iteration for each conversation
-  console.warn("applyPromptsToAll not yet implemented with analyzer sessions");
+  const store = useConversationStore.getState();
+  const source = store.conversations.find((c) => c.id === sourceId);
+  if (!source?.dimensions) return;
+
+  // Extract prompts & components from the source conversation
+  const dimensions: Record<string, {
+    prompt?: string;
+    components?: Array<{ name: string; description: string }>;
+    coloringPrompt?: string;
+  }> = {};
+
+  for (const [dimName, dim] of Object.entries(source.dimensions)) {
+    dimensions[dimName] = {
+      prompt: dim.prompt,
+      coloringPrompt: dim.customColoringPrompt,
+    };
+    if (dim.customComponents?.length) {
+      dimensions[dimName].components = dim.customComponents.map((name) => ({
+        name,
+        description: dim.componentDescriptions?.[name] || name,
+      }));
+    }
+  }
+
+  const options: Record<string, any> = { dimensions };
+  if (source.customSegmentationPrompt) {
+    options.prompts = { segmentation: source.customSegmentationPrompt };
+  }
+  if (source.segmentationThreshold != null) {
+    options.segmentationThreshold = source.segmentationThreshold;
+  }
+
+  // Apply to every other completed conversation
+  const targets = store.conversations.filter(
+    (c) => c.id !== sourceId && c.conversation && c.sessionId,
+  );
+
+  await Promise.all(targets.map((conv) => reprocessWithSession(conv, options)));
 }
 
-export function resumePipelinesWithApiKeyAction() {
-  // TODO: re-run paused pipelines with the newly-provided API key
-  console.warn("resumePipelinesWithApiKey not yet implemented with analyzer sessions");
+export async function resumePipelinesWithApiKeyAction() {
+  const store = useConversationStore.getState();
+  const paused = store.conversations.filter((c) => c.status === "paused-for-api-key" && c.sessionId);
+
+  // Re-run each paused conversation through the pipeline (no option changes, just resumed)
+  await Promise.all(paused.map((conv) => reprocessWithSession(conv, {})));
 }
 
 // ---- Export actions ----

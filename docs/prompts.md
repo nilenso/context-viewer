@@ -8411,3 +8411,147 @@ understand the dimensions aspect of it well too.
 make a mermaid diagram, or an ascii diagram, or an md file, whatever you think is appropriate and show it to me visually.
 
 i want to be able to see the pipeline at a glance.
+
+### Mar 20, 2026 12:20:56
+how easy was it to understand this from the code?
+
+### Mar 20, 2026 12:23:31
+>   The per-dimension loop is reimplemented in each stage rather than being a pipeline-level concern.
+do you get this?
+
+### Mar 20, 2026 12:24:33
+do you need the context (current session) for the refactor or should I start a new session?
+
+### Mar 20, 2026 12:24:44
+okay, do it
+
+### Mar 20, 2026 12:27:10
+help me appreciate th notify/callbacks. what's the point of it? how are notify and callback different? what can we do to simplify this?
+
+### Mar 20, 2026 12:29:26
+ensure no regression, re-read the code for correctness and clarity
+
+### Mar 20, 2026 12:29:54
+is each step in the pipeline modeled somehow? is there something that represents it?
+
+### Mar 20, 2026 12:30:46
+is there a single function that runs a stage of the pipeline?
+
+### Mar 20, 2026 12:32:17
+what happens in start and end steps?
+
+### Mar 20, 2026 12:33:16
+i have now refactored dimensions to be directly in the pipeline, read it
+
+### Mar 20, 2026 12:34:58
+I see [segmenting] Successfully split part 4 into 49 segments
+logging.ts:114 [segmenting] Completed segmenting in 7.5s
+logging.ts:114 [finding-components] Starting finding-components...
+config.ts:69 [Componentisation] Config loaded: model=gpt-5.4-nano, reasoning=none
+logging.ts:114 [finding-components] Completed finding-components in 7ms
+
+in the logs, but componentisation actually doesn't happen.
+
+### Mar 20, 2026 12:37:45
+do the stages depend on each other?
+
+### Mar 20, 2026 12:51:05
+if I were to write the pipeline like an imperative temporal like workflow, where each activity were idempotent, and the workflow itself is repeatable... is that possible easily now? would that make it simpler, easier to understand at a glance?
+
+further, i want the activities (temporal) / stages (what we call it) to be wrapped with runner functions or interceptors / middleware, where i can put the store-updates and logging functions.
+
+don't implement, don't even plan. just reflect, think about what we can to improve.
+
+### Mar 20, 2026 12:54:47
+can i actually separate store updates (apart from streaming) into side effects / post-interceptor?
+
+### Mar 20, 2026 12:55:44
+okay, do this in an agent. create a plan.
+
+### Mar 20, 2026 13:12:55
+- don't separate into so many files
+- don't separate into so many tasks. 
+- don't call it workflow, iv'e moved away from that terminology, i want to call it pipeline and stages (not workflow and activity)
+- keep summary and analysis outside of pipeline. can still be called stages, but not inside the pipeline. they're strictly on-demand only right now.
+
+
+i want to separate the mutation. help me understand the fighting of updates / parallelism
+
+### Mar 20, 2026 13:14:27
+is identify components also inside dimensions?
+
+### Mar 20, 2026 13:17:03
+why are we combining these stages? why not deal with them as separate stages with independent returns? what's the actual concern? can we not do concurrent updates to store?
+
+### Mar 20, 2026 13:17:52
+okay, make a top high level plan now.
+
+### Mar 20, 2026 13:27:59
+lets ensure this mirrors what we were going for with our refactor. re-read the conversation from earlier, understand intent well, reflect on where we are
+
+### Mar 20, 2026 13:29:13
+before doing any of that, double check the code for correctness, fix all linter errors, and other minor things.
+
+### Mar 20, 2026 13:33:54
+now reflect on the contents of pipeline and orchestrate. what's their purposes?
+
+### Mar 20, 2026 13:35:15
+did you commit all this?
+
+### Mar 20, 2026 13:35:45
+fine, commit it
+
+### Mar 20, 2026 13:36:17
+can you write the pipeline here as pseudocode, in an imperative way?
+
+### Mar 20, 2026 13:37:06
+factor in the entry points too
+
+### Mar 20, 2026 13:50:32
+Why do the entry points matter if each stage is item potent? We should be able to run through the pipeline from the start every time, right?
+
+### Mar 20, 2026 13:53:33
+- if it's parsed, don't parse again? this should be okay because the source file isn't changeable. once parsed, we're done.
+- if we've counted tokens already, don't count => this follows from the above, right? it's a once onlyy task?
+- if the segmentation prompt is the same, then don't segment => i thought this happened already?. we could have an explicit flag to resegment if the user wants to re-run it with the same prompt?
+
+also counting tokens would happen after resegmenting right?
+
+### Mar 20, 2026 13:54:53
+i also don't like the declarative pipeline structure. i said i wanted it imperative, temporal style. we need to model the stages, but not the pipeline.
+
+### Mar 20, 2026 13:56:55
+yes, I want to see the parallelism, and the result-passing-around in the imperative pipeline, it basically should resemble the pseudocode we're going for. as long as the pipeline fits into a 50-100 line function it's fine.
+
+with all this i want to see orchestrator disappear too.
+
+### Mar 20, 2026 14:02:49
+why do we still have start from comparisons?
+
+### Mar 20, 2026 14:03:25
+yes, do it
+
+### Mar 20, 2026 14:11:48
+commit this
+
+### Mar 20, 2026 14:12:16
+this entire entry point section, tell me why it needs to exist.
+
+// ---------------------------------------------------------------------------
+// Entry points
+// ---------------------------------------------------------------------------
+
+### Mar 20, 2026 14:13:04
+in the same vein, go through the entire file and make fixes
+
+### Mar 20, 2026 14:18:30
+commit this
+
+### Mar 20, 2026 14:19:31
+what is reprocessTaret
+
+### Mar 20, 2026 14:21:36
+who calls runpipelinemutation
+
+### Mar 20, 2026 14:22:03
+does that fn belong in pipeline

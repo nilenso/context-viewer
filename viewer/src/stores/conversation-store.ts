@@ -252,14 +252,17 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         );
 
         // Map analyzer states back to our placeholders and mark complete
+        const hasKey = !!config.apiKey;
         for (let i = 0; i < result.states.length; i++) {
           const state = result.states[i]!;
           const placeholder = placeholders[i]!;
+          const completed = hasKey || !state.conversation;
           updateFn(placeholder.id, {
             ...state,
             id: placeholder.id, // keep our ID
             sessionId: result.sessionId,
-            status: "success",
+            status: completed ? "success" : "paused-for-api-key",
+            pausedAtStep: completed ? undefined : "segmenting",
             step: undefined,
           });
         }

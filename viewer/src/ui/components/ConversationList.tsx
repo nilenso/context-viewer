@@ -38,7 +38,7 @@ import {
 } from "context-analyzer";
 import type { Group,  } from "context-analyzer";
 import type { ViewerConversationState as PipelineState } from "@/stores/conversation-store";
-import type { StageGroup } from "@/lib/stage-groups";
+import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -172,14 +172,14 @@ export function ConversationList() {
     });
   };
 
-  const processingSteps: { key: StageGroup; label: string }[] = [
+  const processingSteps: { key: StageGroup; label: string; optional?: boolean }[] = [
     { key: "parsing", label: "Parse conversation" },
     { key: "counting-tokens", label: "Count tokens" },
     { key: "segmenting", label: "Segment content" },
-    { key: "summarizing", label: "Generate summary" },
     { key: "finding-components", label: "Find components" },
     { key: "coloring", label: "Assign colors" },
-    { key: "analyzing", label: "Generate analysis" },
+    { key: "summarizing", label: "Generate summary", optional: true },
+    { key: "analyzing", label: "Generate analysis", optional: true },
   ];
 
   const getStepStatus = (
@@ -201,8 +201,9 @@ export function ConversationList() {
     }
 
     const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
+    const mappedStep = stageToGroup(conversation.step);
     const currentStepIndex = processingSteps.findIndex(
-      (s) => s.key === conversation.step,
+      (s) => s.key === mappedStep,
     );
 
     if (stepKey === "summarizing") {
@@ -473,13 +474,13 @@ export function ConversationList() {
                           {!isGroupEntry(conversation.id) &&
                             conversation.status === "success" &&
                             !conversation.step &&
-                            !conversation.warnings && (
+                            (!conversation.warnings || conversation.warnings.length === 0) && (
                               <FileText className="h-4 w-4 shrink-0" />
                             )}
                           {!isGroupEntry(conversation.id) &&
                             conversation.status === "success" &&
                             !conversation.step &&
-                            conversation.warnings && (
+                            conversation.warnings && conversation.warnings.length > 0 && (
                               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
                             )}
                           {!isGroupEntry(conversation.id) &&
@@ -631,7 +632,7 @@ export function ConversationList() {
 
                           {conversation.status === "success" &&
                             !conversation.step &&
-                            conversation.warnings && (
+                            conversation.warnings && conversation.warnings.length > 0 && (
                               <Badge
                                 variant="outline"
                                 className="self-start text-xs border-yellow-600 text-yellow-700 bg-yellow-50"
@@ -678,6 +679,13 @@ export function ConversationList() {
                               const isClickable = isSummaryClickable || isAnalysisClickable;
                               return (
                                 <div key={step.key}>
+                                  {step.optional && processingSteps.indexOf(step) > 0 && processingSteps[processingSteps.indexOf(step) - 1]?.optional !== true && (
+                                    <div className="flex items-center gap-2 my-1.5">
+                                      <div className="flex-1 border-t border-dashed border-gray-300" />
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">optional</span>
+                                      <div className="flex-1 border-t border-dashed border-gray-300" />
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-2 text-xs">
                                     {status === "completed" &&
                                       !isClickable && (

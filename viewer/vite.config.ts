@@ -22,6 +22,7 @@ function githubPages404(): Plugin {
 
 export default defineConfig({
   base: process.env.NODE_ENV === "production" ? "/context-viewer/" : "/",
+  envDir: path.resolve(__dirname, ".."),
   plugins: [react(), wasm(), topLevelAwait(), githubPages404()],
   resolve: {
     alias: {

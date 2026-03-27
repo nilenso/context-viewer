@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
 import type { DimensionData,  } from "context-analyzer";
-import type { StageGroup } from "@/lib/stage-groups";
+import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import {
@@ -61,6 +61,7 @@ interface StepInfo {
   key: StageGroup;
   label: string;
   description: string;
+  optional?: boolean;
 }
 
 const processingSteps: StepInfo[] = [
@@ -80,11 +81,6 @@ const processingSteps: StepInfo[] = [
     description: "Split large text parts into smaller segments using AI",
   },
   {
-    key: "summarizing",
-    label: "Generate summary",
-    description: "Generate an AI summary of the conversation",
-  },
-  {
     key: "finding-components",
     label: "Find components",
     description: "Identify semantic components in the conversation using AI",
@@ -95,9 +91,16 @@ const processingSteps: StepInfo[] = [
     description: "Assign colors to identified components",
   },
   {
+    key: "summarizing",
+    label: "Generate summary",
+    description: "Generate an AI summary of the conversation",
+    optional: true,
+  },
+  {
     key: "analyzing",
     label: "Generate analysis",
     description: "Generate detailed context analysis using AI",
+    optional: true,
   },
 ];
 
@@ -184,8 +187,9 @@ export function WorkflowDetailModal({
     if (status === "pending") return "pending";
 
     const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
+    const mappedStep = stageToGroup(currentStep);
     const currentStepIndex = processingSteps.findIndex(
-      (s) => s.key === currentStep,
+      (s) => s.key === mappedStep,
     );
 
     // Special handling for summary step - check if aiSummary exists
@@ -337,8 +341,15 @@ export function WorkflowDetailModal({
               const isAnalysisStep = step.key === "analyzing";
 
               return (
+                <React.Fragment key={step.key}>
+                {step.optional && processingSteps.indexOf(step) > 0 && processingSteps[processingSteps.indexOf(step) - 1]?.optional !== true && (
+                  <div className="flex items-center gap-2 my-1">
+                    <div className="flex-1 border-t border-dashed border-gray-300" />
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">optional</span>
+                    <div className="flex-1 border-t border-dashed border-gray-300" />
+                  </div>
+                )}
                 <Collapsible
-                  key={step.key}
                   open={isExpanded}
                   onOpenChange={() => toggleStep(step.key)}
                 >
@@ -762,6 +773,7 @@ export function WorkflowDetailModal({
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
+                </React.Fragment>
               );
             })}
 

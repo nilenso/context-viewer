@@ -4,11 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run vite",
-    "build": "bun run vite build",
-    "preview": "bun run vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "vite --config viewer/vite.config.ts viewer",
+    "build": "vite build --config viewer/vite.config.ts viewer",
+    "preview": "vite preview --config viewer/vite.config.ts viewer",
+    "test": "cd viewer && vitest run",
+    "test:watch": "cd viewer && vitest"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.5",
