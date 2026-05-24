@@ -346,7 +346,7 @@ https://nilenso.github.io/context-viewer/g/context-lens-abc123/comparison?import
 
 The JSON block should be small enough for an LLM to read directly. It should not include the full conversation or internal pipeline states.
 
-After running, publish `exportPath` as a secret gist, replace `RAW_URL` in `contextViewerUrlTemplate` with the gist raw URL, and give the user one Markdown link:
+After running, optionally edit `exportPath` first to improve viewer labels: set `files[].title` and `groups[].title`, but keep `ids`/`fileIds` unchanged. Then publish `exportPath` as a secret gist, replace `RAW_URL` in `contextViewerUrlTemplate` with the gist raw URL, and give the user one Markdown link:
 
 ```md
 [Open in Context Viewer](<viewer-url>)

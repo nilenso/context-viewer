@@ -92,6 +92,10 @@ Share:
   [Open in Context Viewer](<viewer-url>)
   For multiple files this link opens the comparison tab automatically.
 
+Optional display names:
+  Before uploading, you may edit exportPath to improve viewer labels:
+  set files[].title and groups[].title. Keep ids/fileIds unchanged.
+
 Also present the result as a Markdown waffle-chart comparison:
   - Use the analytics as datasets: each has label/title, total value, and
     components with name, color/emoji if provided, value, and percentage.
