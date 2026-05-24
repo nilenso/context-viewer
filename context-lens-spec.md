@@ -29,6 +29,7 @@ The tool returns:
 
 - compact analytics on stdout for direct LLM reading
 - a path to a full Context Viewer export written under `/tmp`
+- a Context Viewer URL template; for multi-file analyses it targets the group comparison route
 
 ## Command shape
 
@@ -294,12 +295,12 @@ Agents should usually provide colors up front when dimensions are known.
 
 ## Output behavior
 
-The default stdout is an agent-readable report, not necessarily pure JSON.
+The default stdout is an agent-readable report, not necessarily pure JSON. Concise progress is printed to stderr as one start/end line per file and stage.
 
-It should contain:
+Stdout should contain:
 
-1. a compact JSON analytics block
-2. a final human-readable line pointing to the full export file
+1. a compact JSON analytics block containing `exportPath` and `contextViewerUrlTemplate`
+2. a final human-readable line pointing to the full export file and URL template
 
 Example stdout:
 
@@ -307,6 +308,13 @@ Example stdout:
 {
   "format": "Claude Code",
   "model": "claude-sonnet-4",
+  "exportPath": "/tmp/context-lens-export-a8f31c.json",
+  "contextViewerUrlTemplate": "https://nilenso.github.io/context-viewer/g/context-lens-abc123/comparison?import=RAW_URL",
+  "group": {
+    "id": "context-lens-abc123",
+    "name": "Context Lens comparison (2 files)",
+    "fileIds": ["1", "2"]
+  },
   "analytics": [
     {
       "filename": "session.jsonl",
@@ -334,6 +342,9 @@ Example stdout:
 
 Full Context Viewer export written to:
 /tmp/context-lens-export-a8f31c.json
+
+Context Viewer URL template:
+https://nilenso.github.io/context-viewer/g/context-lens-abc123/comparison?import=RAW_URL
 ```
 
 The JSON block should be small enough for an LLM to read directly. It should not include the full conversation or internal pipeline states.
@@ -345,7 +356,8 @@ EXPORT=/tmp/context-lens-export-a8f31c.json
 GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
 GIST_ID=$(basename "$GIST_URL")
 RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
-VIEWER_URL="https://nilenso.github.io/context-viewer/?import=$RAW_URL"
+VIEWER_URL="<contextViewerUrlTemplate from stdout>"
+VIEWER_URL="${VIEWER_URL/RAW_URL/$RAW_URL}"
 echo "[Open in Context Viewer]($VIEWER_URL)"
 ```
 
@@ -355,13 +367,14 @@ echo "[Open in Context Viewer]($VIEWER_URL)"
 
 The CLI should write a full Context Viewer-compatible export to `/tmp`.
 
-Use the existing analyzer export helper:
+Use the existing analyzer export helper. For two or more files, create one viewer group referencing all file IDs in input order:
 
 ```ts
-buildSessionExport(result.states)
+const groups = states.length >= 2 ? { [groupId]: { id: groupId, name, fileIds: states.map(s => s.id) } } : undefined;
+buildSessionExport(result.states, groups)
 ```
 
-The export file should contain the full annotated conversation and component/dimension metadata needed by Context Viewer.
+The export file should contain the full annotated conversation, component/dimension metadata, and when applicable the group needed by Context Viewer. The multi-file `contextViewerUrlTemplate` should point at `/g/<groupId>/comparison?import=RAW_URL` so the viewer opens all waffle charts together.
 
 Filename pattern:
 

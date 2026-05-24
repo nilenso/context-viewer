@@ -220,7 +220,29 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         fileInputs.push({ content, filename: file.name, placeholderId: id });
       }
 
-      set((state) => ({ conversations: [...state.conversations, ...placeholders] }));
+      const importedGroups: Record<string, Group> = {};
+      for (const group of sessionGroups) {
+        const newIds: string[] = [];
+        for (const oldId of group.fileIds) {
+          const fileIndex = oldIdToIndex.get(oldId);
+          if (fileIndex !== undefined && placeholders[fileIndex]) {
+            newIds.push(placeholders[fileIndex]!.id);
+          }
+        }
+        if (newIds.length >= 2) {
+          importedGroups[group.id] = {
+            id: group.id,
+            name: group.name,
+            title: group.title,
+            fileIds: newIds,
+          };
+        }
+      }
+
+      set((state) => ({
+        conversations: [...state.conversations, ...placeholders],
+        groups: { ...state.groups, ...importedGroups },
+      }));
 
       const config = getAnalyzerConfig();
       const updateFn = (id: string, update: Partial<ViewerConversationState>) =>
@@ -267,21 +289,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           });
         }
 
-        // Handle session import groups
-        if (sessionGroups.length > 0) {
-          for (const group of sessionGroups) {
-            const newIds: string[] = [];
-            for (const oldId of group.fileIds) {
-              const fileIndex = oldIdToIndex.get(oldId);
-              if (fileIndex !== undefined && placeholders[fileIndex]) {
-                newIds.push(placeholders[fileIndex]!.id);
-              }
-            }
-            if (newIds.length >= 2) {
-              get().createGroup(newIds, group.name, group.id, group.title);
-            }
-          }
-        }
       } catch (error) {
         for (const p of placeholders) {
           updateFn(p.id, {

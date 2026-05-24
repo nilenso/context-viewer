@@ -13,7 +13,10 @@ import {
   type Analyze2Options,
   type AnalyzerConfig,
   type AIApiMode,
+  type Group,
+  type Interceptor,
   type ReasoningEffort,
+  type Stage,
 } from "context-analyzer";
 
 const HELP = `context-lens — analyze AI conversation transcripts
@@ -80,16 +83,20 @@ API key lookup order:
   --api-key, OPENAI_API_KEY, VITE_AI_API_KEY, AI_API_KEY, ~/.context-lens/.env
 
 Output:
-  stdout contains compact analytics JSON for the agent, followed by the path
-  to a full Context Viewer export written under /tmp.
+  stdout contains compact analytics JSON, exportPath, and
+  contextViewerUrlTemplate, followed by human-readable copies. Progress is
+  printed to stderr as one start/end line per file and stage.
 
 After running, publish the /tmp export as a secret gist and give the user a
-single Markdown link to Context Viewer, not a naked long URL:
+single Markdown link to Context Viewer, not a naked long URL. Use the
+contextViewerUrlTemplate from stdout; for multiple files it opens the group
+comparison tab directly:
   EXPORT=/tmp/context-lens-export-....json
   GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
   GIST_ID=$(basename "$GIST_URL")
   RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
-  VIEWER_URL="https://nilenso.github.io/context-viewer/?import=$RAW_URL"
+  VIEWER_URL="<contextViewerUrlTemplate from stdout>"
+  VIEWER_URL="\${VIEWER_URL/RAW_URL/$RAW_URL}"
   echo "[Open in Context Viewer]($VIEWER_URL)"
 Note: gh gist create is secret by default; there is no --private flag.
 
@@ -376,6 +383,60 @@ Return ONLY a valid JSON array of regex strings with positive lookahead patterns
 Example: ["(?=## Section one)", "(?=## Section two)"]`;
 }
 
+const STATUS_STAGES: Stage[] = [
+  "parsing",
+  "counting-tokens",
+  "segmenting",
+  "identifying-components",
+  "classifying-components",
+];
+
+const STATUS_LABELS: Partial<Record<Stage, string>> = {
+  "counting-tokens": "counting tokens",
+  "identifying-components": "identifying components",
+  "classifying-components": "classifying/coloring",
+};
+
+function displayFilename(filename: string): string {
+  const relative = path.relative(process.cwd(), filename);
+  const display = relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? relative
+    : filename;
+  if (display.length <= 80) return display;
+  return path.join(path.basename(path.dirname(display)), path.basename(display));
+}
+
+function formatDuration(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function createStatusInterceptors(): Interceptor[] {
+  const startedAt = new Map<string, number>();
+  return STATUS_STAGES.flatMap((stage) => {
+    const label = STATUS_LABELS[stage] || stage;
+    return [
+      {
+        stage,
+        timing: "pre" as const,
+        fn: (ctx) => {
+          startedAt.set(`${ctx.id}:${stage}`, Date.now());
+          console.error(`[context-lens] ${displayFilename(ctx.filename)} ${label} started`);
+        },
+      },
+      {
+        stage,
+        timing: "post" as const,
+        fn: (ctx) => {
+          const key = `${ctx.id}:${stage}`;
+          const elapsed = Date.now() - (startedAt.get(key) || Date.now());
+          startedAt.delete(key);
+          console.error(`[context-lens] ${displayFilename(ctx.filename)} ${label} done ${formatDuration(elapsed)}`);
+        },
+      },
+    ];
+  });
+}
+
 function optionsFromSpec(spec: Spec, files: Analyze2Options["files"]): Analyze2Options {
   return {
     files,
@@ -387,6 +448,7 @@ function optionsFromSpec(spec: Spec, files: Analyze2Options["files"]): Analyze2O
       : undefined,
     dimensions: spec.dimensions,
     colors: spec.colors,
+    interceptors: createStatusInterceptors(),
   };
 }
 
@@ -399,6 +461,36 @@ function exportFilePath(resultShape: unknown): string {
     .slice(0, 12);
   const dir = existsSync("/tmp") ? "/tmp" : tmpdir();
   return path.join(dir, `context-lens-export-${hash}.json`);
+}
+
+function buildMultiFileGroup(
+  states: Array<{ id: string; filename: string; title?: string; conversation?: unknown }>,
+): Record<string, Group> | undefined {
+  const exportableStates = states.filter((state) => state.conversation);
+  if (exportableStates.length < 2) return undefined;
+
+  const fingerprint = createHash("sha256")
+    .update(exportableStates.map((state) => `${state.id}\0${state.filename}\0${state.title || ""}`).join("\0"))
+    .digest("hex")
+    .slice(0, 10);
+  const groupId = `context-lens-${fingerprint}`;
+  const group: Group = {
+    id: groupId,
+    name: `Context Lens comparison (${exportableStates.length} files)`,
+    title: "Context Lens comparison",
+    fileIds: exportableStates.map((state) => state.id),
+  };
+  return { [groupId]: group };
+}
+
+function firstGroup(groups: Record<string, Group> | undefined): Group | undefined {
+  if (!groups) return undefined;
+  return Object.values(groups)[0];
+}
+
+function contextViewerUrlTemplate(group: Group | undefined): string {
+  if (!group) return "https://nilenso.github.io/context-viewer/?import=RAW_URL";
+  return `https://nilenso.github.io/context-viewer/g/${encodeURIComponent(group.id)}/comparison?import=RAW_URL`;
 }
 
 async function main(): Promise<void> {
@@ -423,7 +515,9 @@ async function main(): Promise<void> {
 
   const result = await analyze2(optionsFromSpec(spec, files), config);
 
-  const exportData = buildSessionExport(result.states);
+  const exportGroups = buildMultiFileGroup(result.states);
+  const exportGroup = firstGroup(exportGroups);
+  const exportData = buildSessionExport(result.states, exportGroups);
   const fullExportPath = exportFilePath({ analytics: result.analytics, filenames: args.files });
   const exportJson = JSON.stringify(exportData, null, 2);
   await writeFile(fullExportPath, exportJson, { mode: 0o600 });
@@ -432,6 +526,15 @@ async function main(): Promise<void> {
     format: result.format,
     model: result.model,
     analysisModel: config.model || "gpt-4o-mini",
+    exportPath: fullExportPath,
+    contextViewerUrlTemplate: contextViewerUrlTemplate(exportGroup),
+    group: exportGroup
+      ? {
+          id: exportGroup.id,
+          name: exportGroup.name,
+          fileIds: exportGroup.fileIds,
+        }
+      : null,
     analytics: result.analytics,
     errors: result.errors,
     warnings: result.warnings,
@@ -443,6 +546,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify(report, null, 2));
   console.log(`\nFull Context Viewer export written to:\n${fullExportPath}`);
+  console.log(`\nContext Viewer URL template:\n${report.contextViewerUrlTemplate}`);
 
   if (result.errors.length > 0) process.exitCode = 1;
 }
