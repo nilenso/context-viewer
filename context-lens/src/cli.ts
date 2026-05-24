@@ -83,22 +83,14 @@ API key lookup order:
   --api-key, OPENAI_API_KEY, VITE_AI_API_KEY, AI_API_KEY, ~/.context-lens/.env
 
 Output:
-  stdout contains compact analytics JSON, exportPath, and
-  contextViewerUrlTemplate, followed by human-readable copies. Progress is
-  printed to stderr as one start/end line per file and stage.
+  stdout: analytics JSON with exportPath and contextViewerUrlTemplate.
+  stderr: progress.
 
-After running, publish the /tmp export as a secret gist and give the user a
-single Markdown link to Context Viewer, not a naked long URL. Use the
-contextViewerUrlTemplate from stdout; for multiple files it opens the group
-comparison tab directly:
-  EXPORT=/tmp/context-lens-export-....json
-  GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
-  GIST_ID=$(basename "$GIST_URL")
-  RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
-  VIEWER_URL="<contextViewerUrlTemplate from stdout>"
-  VIEWER_URL="\${VIEWER_URL/RAW_URL/$RAW_URL}"
-  echo "[Open in Context Viewer]($VIEWER_URL)"
-Note: gh gist create is secret by default; there is no --private flag.
+Share:
+  Upload exportPath as a secret gist, replace RAW_URL in
+  contextViewerUrlTemplate with the gist raw_url, and give the user only:
+  [Open in Context Viewer](<viewer-url>)
+  For multiple files this link opens the comparison tab automatically.
 
 Also present the result as a Markdown waffle-chart comparison:
   - Use the analytics as datasets: each has label/title, total value, and

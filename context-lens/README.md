@@ -44,9 +44,9 @@ mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=gpt-4o-mini\
 
 `--api-key`, `OPENAI_API_KEY`, `VITE_AI_API_KEY`, and `AI_API_KEY` are also accepted for one-off use.
 
-The CLI prints compact analytics JSON to stdout, writes a full Context Viewer export under `/tmp`, and prints concise progress to stderr as one start/end line per file and stage. The JSON includes `exportPath` and `contextViewerUrlTemplate`. For multi-file analyses, the export includes a viewer group and the template opens `/g/<group-id>/comparison` directly.
+The CLI prints analytics JSON to stdout, including `exportPath` and `contextViewerUrlTemplate`; progress goes to stderr.
 
-Agents should publish the export as a secret gist with `gh gist create`, fetch the raw URL with `gh api gists/<id>`, substitute it for `RAW_URL` in `contextViewerUrlTemplate`, and give users a Markdown link like:
+To share results, publish `exportPath` as a secret gist, replace `RAW_URL` in `contextViewerUrlTemplate` with the gist raw URL, and give users one Markdown link:
 
 ```md
 [Open in Context Viewer](https://nilenso.github.io/context-viewer/g/<group-id>/comparison?import=<raw-gist-url>)

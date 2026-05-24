@@ -295,12 +295,9 @@ Agents should usually provide colors up front when dimensions are known.
 
 ## Output behavior
 
-The default stdout is an agent-readable report, not necessarily pure JSON. Concise progress is printed to stderr as one start/end line per file and stage.
+The default stdout is an agent-readable report; progress goes to stderr.
 
-Stdout should contain:
-
-1. a compact JSON analytics block containing `exportPath` and `contextViewerUrlTemplate`
-2. a final human-readable line pointing to the full export file and URL template
+Stdout should contain a compact JSON analytics block with `exportPath` and `contextViewerUrlTemplate`. It may also repeat those fields in human-readable lines.
 
 Example stdout:
 
@@ -349,19 +346,11 @@ https://nilenso.github.io/context-viewer/g/context-lens-abc123/comparison?import
 
 The JSON block should be small enough for an LLM to read directly. It should not include the full conversation or internal pipeline states.
 
-After running, the agent should publish the `/tmp` export file as a secret gist and give the user a Markdown Context Viewer link, not a naked long URL or just the local file path:
+After running, publish `exportPath` as a secret gist, replace `RAW_URL` in `contextViewerUrlTemplate` with the gist raw URL, and give the user one Markdown link:
 
-```bash
-EXPORT=/tmp/context-lens-export-a8f31c.json
-GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
-GIST_ID=$(basename "$GIST_URL")
-RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
-VIEWER_URL="<contextViewerUrlTemplate from stdout>"
-VIEWER_URL="${VIEWER_URL/RAW_URL/$RAW_URL}"
-echo "[Open in Context Viewer]($VIEWER_URL)"
+```md
+[Open in Context Viewer](<viewer-url>)
 ```
-
-`gh gist create` is secret by default; do not use `--private`.
 
 ## Full export file
 
