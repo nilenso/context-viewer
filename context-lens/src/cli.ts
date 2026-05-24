@@ -84,12 +84,13 @@ Output:
   to a full Context Viewer export written under /tmp.
 
 After running, publish the /tmp export as a secret gist and give the user a
-single Context Viewer URL, not just the local file path:
+single Markdown link to Context Viewer, not a naked long URL:
   EXPORT=/tmp/context-lens-export-....json
   GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
   GIST_ID=$(basename "$GIST_URL")
   RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
-  echo "https://nilenso.github.io/context-viewer/?import=$RAW_URL"
+  VIEWER_URL="https://nilenso.github.io/context-viewer/?import=$RAW_URL"
+  echo "[Open in Context Viewer]($VIEWER_URL)"
 Note: gh gist create is secret by default; there is no --private flag.
 
 Also present the result as a Markdown waffle-chart comparison:

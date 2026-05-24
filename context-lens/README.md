@@ -44,10 +44,10 @@ mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=gpt-4o-mini\
 
 `--api-key`, `OPENAI_API_KEY`, `VITE_AI_API_KEY`, and `AI_API_KEY` are also accepted for one-off use.
 
-The CLI prints compact analytics JSON to stdout and writes a full Context Viewer export under `/tmp`. Agents should publish that export as a secret gist with `gh gist create`, fetch the raw URL with `gh api gists/<id>`, and give users a Context Viewer link like:
+The CLI prints compact analytics JSON to stdout and writes a full Context Viewer export under `/tmp`. Agents should publish that export as a secret gist with `gh gist create`, fetch the raw URL with `gh api gists/<id>`, and give users a Markdown link like:
 
-```txt
-https://nilenso.github.io/context-viewer/?import=<raw-gist-url>
+```md
+[Open in Context Viewer](https://nilenso.github.io/context-viewer/?import=<raw-gist-url>)
 ```
 
 Run:
