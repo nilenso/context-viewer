@@ -83,7 +83,16 @@ Output:
   stdout contains compact analytics JSON for the agent, followed by the path
   to a full Context Viewer export written under /tmp.
 
-After running, present the result as a Markdown waffle-chart comparison:
+After running, publish the /tmp export as a secret gist and give the user a
+single Context Viewer URL, not just the local file path:
+  EXPORT=/tmp/context-lens-export-....json
+  GIST_URL=$(gh gist create "$EXPORT" --desc "Context Lens export")
+  GIST_ID=$(basename "$GIST_URL")
+  RAW_URL=$(gh api "gists/$GIST_ID" --jq '.files | to_entries[0].value.raw_url')
+  echo "https://nilenso.github.io/context-viewer/?import=$RAW_URL"
+Note: gh gist create is secret by default; there is no --private flag.
+
+Also present the result as a Markdown waffle-chart comparison:
   - Use the analytics as datasets: each has label/title, total value, and
     components with name, color/emoji if provided, value, and percentage.
   - Render one 10x10 waffle grid per dataset, vertically one below another.
