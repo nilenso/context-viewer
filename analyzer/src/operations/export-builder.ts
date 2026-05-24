@@ -16,7 +16,7 @@ function buildConversationWithComponents(
   componentMapping?: Record<string, string>,
   dimensions?: Record<string, DimensionData>,
 ): ExportConversation {
-  const hasDimensions = dimensions && Object.keys(dimensions).length > 1;
+  const hasDimensions = dimensions && Object.keys(dimensions).length > 0;
   return {
     messages: conversation.messages.map((message) => ({
       id: message.id,
@@ -43,15 +43,21 @@ function buildConversationWithComponents(
   };
 }
 
+function getLegacyDimension(dimensions?: Record<string, DimensionData>): DimensionData | undefined {
+  if (!dimensions) return undefined;
+  return dimensions.default || Object.values(dimensions)[0];
+}
+
 export function buildFileExport(conv: PipelineState): FileExport {
   if (!conv.conversation) {
     throw new Error(`Cannot export conversation ${conv.id}: no conversation data`);
   }
 
   const defaultDim = conv.dimensions?.["default"];
+  const legacyDim = getLegacyDimension(conv.dimensions);
   const conversationWithComponents = buildConversationWithComponents(
     conv.conversation,
-    defaultDim?.componentMapping,
+    legacyDim?.componentMapping,
     conv.dimensions,
   );
 
@@ -85,7 +91,7 @@ export function buildFileExport(conv: PipelineState): FileExport {
     id: conv.id,
     filename: conv.filename,
     conversation: conversationWithComponents,
-    colors: defaultDim?.componentColors || {},
+    colors: legacyDim?.componentColors || {},
     summary: conv.aiSummary || null,
     analysis: conv.analysis || null,
     metadata: conv.metadata,
@@ -103,9 +109,9 @@ export function buildFileExport(conv: PipelineState): FileExport {
 function buildAnalytics(conversations: PipelineState[]): AnalyticsExport {
   return {
     componentComparison: conversations.map((conv) => {
-      const defaultDim = conv.dimensions?.["default"];
+      const legacyDim = getLegacyDimension(conv.dimensions);
       const { componentTokens, totalTokens } = conv.conversation
-        ? aggregateComponentTokens(conv.conversation, defaultDim?.componentMapping || {})
+        ? aggregateComponentTokens(conv.conversation, legacyDim?.componentMapping || {})
         : { componentTokens: {} as Record<string, number>, totalTokens: 0 };
 
       const analytics: AnalyticsExport["componentComparison"][number] = {

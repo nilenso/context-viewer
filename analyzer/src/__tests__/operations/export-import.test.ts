@@ -205,6 +205,50 @@ describe("Export → Import round-trip", () => {
     expect(metadata.customPrompt).toBe(pipelineState.dimensions.default.prompt);
   });
 
+  it("exports a single named dimension without default mappings", () => {
+    const pipelineState = {
+      id: "test-named-dim",
+      filename: "named-dim.json",
+      conversation: {
+        messages: [
+          {
+            id: "msg-1",
+            role: "system" as const,
+            parts: [
+              { id: "p1", type: "text" as const, text: "You are Codex", token_count: 10 },
+              { id: "p2", type: "text" as const, text: "Use apply_patch", token_count: 20 },
+            ],
+          },
+        ],
+      },
+      dimensions: {
+        instruction_area: {
+          name: "instruction_area",
+          discoveredComponents: ["role_identity", "tool_workflow"],
+          componentMapping: { p1: "role_identity", p2: "tool_workflow" },
+          componentTimeline: [],
+          componentColors: { role_identity: "#2563eb", tool_workflow: "#64748b" },
+        },
+      },
+    };
+
+    const exported = buildFileExport(pipelineState);
+    expect(FileExportSchema.safeParse(exported).success).toBe(true);
+
+    const parts = exported.conversation.messages.flatMap((m) => m.parts);
+    expect(parts.find((p) => p.id === "p1")?.component).toBe("role_identity");
+    expect(parts.find((p) => p.id === "p1")?.dimensions).toEqual({ instruction_area: "role_identity" });
+    expect(parts.find((p) => p.id === "p2")?.component).toBe("tool_workflow");
+    expect(parts.find((p) => p.id === "p2")?.dimensions).toEqual({ instruction_area: "tool_workflow" });
+    expect(exported.colors).toEqual(pipelineState.dimensions.instruction_area.componentColors);
+
+    const session = buildSessionExport([pipelineState]);
+    expect(session.analytics.componentComparison[0]!.componentTokens).toEqual({
+      role_identity: 10,
+      tool_workflow: 20,
+    });
+  });
+
   it("round-trips a multi-dimension conversation", () => {
     const pipelineState = {
       id: "test-multi",

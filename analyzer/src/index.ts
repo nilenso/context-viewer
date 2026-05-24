@@ -1,9 +1,11 @@
 /**
  * context-analyzer — headless library for analyzing AI conversation transcripts.
  *
- * Primary export:
- *   analyze()        — the single entry point. First run creates a session.
- *                      Subsequent calls with a sessionId iterate.
+ * Primary exports:
+ *   analyze2()       — preferred stage-oriented entry point for agents/UIs.
+ *   analyze()        — lower-level compatibility entry point.
+ *                      First run creates a session; subsequent calls with a
+ *                      sessionId iterate.
  *
  * Optional exports:
  *   group()          — merge multiple analyzed files into a virtual conversation
@@ -85,6 +87,33 @@ export interface AnalyzeOptions {
   segmentationThreshold?: number;
 
   /** Interceptors for hooking into pipeline stage boundaries. */
+  interceptors?: Interceptor[];
+}
+
+/** Stage-oriented analyze2() options for agents and visual interfaces. */
+export interface Analyze2Options {
+  /** Session ID from a previous analyze2() call. Enables iteration. */
+  sessionId?: string;
+
+  /** Input files. Required on first call, ignored when sessionId is provided. */
+  files?: FileInput[];
+
+  /** Segmentation-stage inputs. A custom prompt is recommended; defaults exist as fallback. */
+  segmentation?: {
+    threshold?: number;
+    prompt?: string;
+  };
+
+  /** Classification dimensions supplied as explicit taxonomies. */
+  dimensions?: Array<{
+    name: string;
+    components: ComponentDef[];
+  }>;
+
+  /** Per-dimension component colors, keyed by dimension name then component name. */
+  colors?: Record<string, Record<string, string>>;
+
+  /** Optional UI hooks for observing pipeline stage boundaries. */
   interceptors?: Interceptor[];
 }
 
@@ -209,6 +238,19 @@ export async function analyze(
     errors: allErrors,
     warnings: allWarnings,
   };
+}
+
+/**
+ * Stage-oriented variant of analyze(). This is the preferred shape for agents:
+ * provide files, segmentation options, explicit dimensions/components, and
+ * per-dimension colors. Internally it maps to the same pipeline/session model
+ * as analyze().
+ */
+export async function analyze2(
+  options: Analyze2Options,
+  config: AnalyzerConfig,
+): Promise<AnalyzeResult> {
+  return analyze(toAnalyzeOptions(options), config);
 }
 
 // ============================================================================
@@ -373,6 +415,40 @@ function resolveState(result: AnalyzeResult | GroupResult, fileIndex?: number): 
   return result.states[fileIndex ?? 0]!;
 }
 
+/** Convert stage-oriented analyze2() options into analyze() options. */
+function toAnalyzeOptions(options: Analyze2Options): AnalyzeOptions {
+  const prompts: Record<string, string> = {};
+  if (options.segmentation?.prompt !== undefined) {
+    prompts.segmentation = options.segmentation.prompt;
+  }
+
+  const dimensionInputs = new Map<string, { components?: ComponentDef[]; colors?: Record<string, string> }>();
+  for (const dim of options.dimensions || []) {
+    dimensionInputs.set(dim.name, {
+      components: dim.components,
+      colors: options.colors?.[dim.name],
+    });
+  }
+  for (const [name, colors] of Object.entries(options.colors || {})) {
+    dimensionInputs.set(name, {
+      ...dimensionInputs.get(name),
+      colors,
+    });
+  }
+  const dimensions = dimensionInputs.size > 0
+    ? Object.fromEntries(dimensionInputs)
+    : undefined;
+
+  return {
+    sessionId: options.sessionId,
+    files: options.files,
+    segmentationThreshold: options.segmentation?.threshold,
+    prompts: Object.keys(prompts).length > 0 ? prompts : undefined,
+    dimensions,
+    interceptors: options.interceptors,
+  };
+}
+
 /** Convert AnalyzeOptions into the shape applyIterationInputs expects. */
 function buildIterationInputs(options: AnalyzeOptions) {
   const inputs: Parameters<typeof applyIterationInputs>[1] = {};
@@ -397,6 +473,7 @@ function buildIterationInputs(options: AnalyzeOptions) {
         componentDescriptions: dim.components
           ? Object.fromEntries(dim.components.map((c) => [c.name, c.description]))
           : undefined,
+        componentColors: dim.colors,
         coloringPrompt: dim.coloringPrompt,
       };
     }

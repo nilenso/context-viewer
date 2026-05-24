@@ -17,7 +17,7 @@ vi.mock("../config", async (importOriginal) => {
 });
 
 import { generateText } from "ai";
-import { analyze, deleteSession } from "../index";
+import { analyze, analyze2, deleteSession } from "../index";
 import type { AnalyzerConfig } from "../config";
 import type { PipelineState, Stage } from "../model/types";
 import "../parsers/index";
@@ -89,6 +89,37 @@ describe("session — first run", () => {
     expect(result.states[0]!.staticComponents).toBeDefined();
     // No dimensions (no AI)
     expect(result.states[0]!.dimensions).toBeUndefined();
+  });
+
+  it("supports analyze2 stage-oriented options", async () => {
+    mockFullPipeline(["greeting"], { greeting: "#ff0000" });
+
+    const result = await analyze2({
+      files: [{ content: minimalContent, filename: "test.jsonl" }],
+      segmentation: {
+        threshold: 123,
+        prompt: "Keep greeting messages as a single segment.",
+      },
+      dimensions: [{
+        name: "topic",
+        components: [{
+          name: "greeting",
+          description: "Greeting and introductory text.",
+        }],
+      }],
+      colors: {
+        topic: { greeting: "#ff0000" },
+      },
+    }, config);
+
+    const state = result.states[0]!;
+    expect(state.customSegmentationPrompt).toBe("Keep greeting messages as a single segment.");
+    expect(state.segmentationThreshold).toBe(123);
+    expect(state.dimensions?.topic?.discoveredComponents).toEqual(["greeting"]);
+    expect(state.dimensions?.topic?.componentDescriptions).toEqual({
+      greeting: "Greeting and introductory text.",
+    });
+    expect(result.analytics[0]!.dimensions.topic!.components[0]!.color).toBe("#ff0000");
   });
 
   it("throws when no files and no sessionId", async () => {
@@ -166,6 +197,27 @@ describe("session — iteration", () => {
 
   it("throws on unknown session ID", async () => {
     await expect(analyze({ sessionId: "nonexistent" }, config)).rejects.toThrow("Session not found");
+  });
+
+  it("updates per-dimension colors through analyze2 iteration", async () => {
+    mockFullPipeline(["greeting"], { greeting: "#ff0000" });
+
+    const result1 = await analyze2({
+      files: [{ content: minimalContent, filename: "test.jsonl" }],
+      dimensions: [{
+        name: "topic",
+        components: [{ name: "greeting", description: "Greeting text." }],
+      }],
+      colors: { topic: { greeting: "#ff0000" } },
+    }, config);
+
+    const result2 = await analyze2({
+      sessionId: result1.sessionId,
+      colors: { topic: { greeting: "#00ff00" } },
+    }, config);
+
+    expect(result2.states[0]!.dimensions?.topic?.componentColors.greeting).toBe("#00ff00");
+    expect(result2.analytics[0]!.dimensions.topic!.components[0]!.color).toBe("#00ff00");
   });
 });
 

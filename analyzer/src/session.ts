@@ -75,6 +75,7 @@ interface TrackedInputs {
     prompt: string | undefined;
     customComponents: string[] | undefined;
     componentDescriptions: Record<string, string> | undefined;
+    componentColors: Record<string, string> | undefined;
     coloringPrompt: string | undefined;
   }>;
 }
@@ -87,6 +88,7 @@ function extractInputs(ctx: PipelineState): TrackedInputs {
         prompt: dim.prompt,
         customComponents: dim.customComponents,
         componentDescriptions: dim.componentDescriptions,
+        componentColors: dim.componentColors,
         coloringPrompt: dim.customColoringPrompt,
       };
     }
@@ -143,6 +145,7 @@ export function applyIterationInputs(
       prompt?: string;
       customComponents?: string[];
       componentDescriptions?: Record<string, string>;
+      componentColors?: Record<string, string>;
       coloringPrompt?: string;
     }>;
   },
@@ -215,6 +218,12 @@ export function applyIterationInputs(
           // Clear mapping and timeline but keep discovered components
           dim.componentMapping = {};
           dim.componentTimeline = [];
+          affectedDims.add(dimName);
+        }
+
+        // Direct colors changed → use caller-provided colors
+        if (newDim.componentColors !== undefined && !jsonEq(newDim.componentColors, beforeDim?.componentColors)) {
+          dim.componentColors = newDim.componentColors;
           affectedDims.add(dimName);
         }
 

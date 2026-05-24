@@ -42,12 +42,50 @@ bun add context-analyzer
 
 ```typescript
 import { readFile } from "fs/promises";
-import { analyze } from "context-analyzer";
+import { analyze2 } from "context-analyzer";
 
 const content = await readFile("session.jsonl", "utf-8");
 
-const result = await analyze(
-  { files: { content, filename: "session.jsonl" } },
+const result = await analyze2(
+  {
+    files: [{ content, filename: "session.jsonl" }],
+
+    // Recommended: provide a task-specific segmentation prompt.
+    // A default exists, but explicit instructions produce better chunks.
+    segmentation: {
+      threshold: 500,
+      prompt: "Split large message parts into semantically self-contained chunks. Keep code, errors, and the discussion explaining them together.",
+    },
+
+    // Recommended: inspect the files first, then provide explicit dimensions.
+    // The analyzer owns the classification prompt; you provide the taxonomy.
+    dimensions: [{
+      name: "engineering_area",
+      components: [
+        {
+          name: "frontend_ui",
+          description: "React components, styling, visual layout, interactions, and browser behavior.",
+        },
+        {
+          name: "data_model",
+          description: "Schemas, TypeScript types, data transformations, and persistence-related structures.",
+        },
+        {
+          name: "tests",
+          description: "Test files, fixtures, assertions, test failures, and test-running discussion.",
+        },
+      ],
+    }],
+
+    // Recommended: if dimensions are known, provide stable colors up front.
+    colors: {
+      engineering_area: {
+        frontend_ui: "#2563eb",
+        data_model: "#16a34a",
+        tests: "#f59e0b",
+      },
+    },
+  },
   { apiKey: process.env.OPENAI_API_KEY! },
 );
 
@@ -57,7 +95,7 @@ const result = await analyze(
 
 for (const file of result.analytics) {
   console.log(file.filename, file.totalTokens, "tokens");
-  for (const c of file.dimensions.default.components) {
+  for (const c of file.dimensions.engineering_area.components) {
     console.log(`  ${c.component}: ${c.tokens} (${c.percentage.toFixed(1)}%) ${c.color}`);
   }
 }
@@ -65,32 +103,26 @@ for (const file of result.analytics) {
 
 ## Sessions and iteration
 
-`analyze()` returns a `sessionId`. Pass it back to iterate — change prompts, refine components — without re-running unchanged stages.
+`analyze2()` returns a `sessionId`. Pass it back to iterate — refine dimensions, segmentation, or colors — without re-running unchanged stages.
 
 ```typescript
-// First run
-const result = await analyze(
-  { files: [...] },
-  config,
-);
-
-// Iterate — change component identification prompt
-const result2 = await analyze(
-  { sessionId: result.sessionId, prompts: { "component-identification": "Focus on..." } },
-  config,
-);
-
-// Iterate — provide custom components
-const result3 = await analyze(
-  {
-    sessionId: result.sessionId,
+// Iterate — update the taxonomy for one dimension
+const result2 = await analyze2({
+  sessionId: result.sessionId,
+  dimensions: [{
+    name: "engineering_area",
     components: [
-      { name: "auth", description: "Authentication, login, sessions" },
-      { name: "api", description: "REST endpoints, request handlers" },
+      { name: "frontend_ui", description: "React components, styling, and browser interactions." },
+      { name: "backend_api", description: "API handlers, request/response contracts, and server behavior." },
     ],
+  }],
+  colors: {
+    engineering_area: {
+      frontend_ui: "#2563eb",
+      backend_api: "#dc2626",
+    },
   },
-  config,
-);
+}, config);
 ```
 
 The session stores pipeline state in memory. Changed inputs automatically clear affected outputs — the pipeline's idempotency handles the rest.
@@ -115,9 +147,31 @@ Interceptors are called with the `PipelineState` after the stage has merged its 
 
 ## API
 
+### `analyze2(options, config)`
+
+Preferred stage-oriented API for agents, CLIs, TUIs, and visual interfaces. Runs the full pipeline on first call, iterates on subsequent calls.
+
+**Options:**
+```typescript
+{
+  sessionId?: string;              // for iteration
+  files?: FileInput[];             // required on first call
+  segmentation?: {
+    threshold?: number;            // default: 500
+    prompt?: string;               // recommended: provide task-specific instructions
+  };
+  dimensions?: Array<{
+    name: string;
+    components: ComponentDef[];    // { name, description } pairs
+  }>;
+  colors?: Record<string, Record<string, string>>; // dimension -> component -> hex
+  interceptors?: Interceptor[];    // optional UI hooks
+}
+```
+
 ### `analyze(options, config)`
 
-The single entry point. Runs the full pipeline on first call, iterates on subsequent calls.
+Lower-level compatibility API. Prefer `analyze2()` for new agent-facing integrations.
 
 **Options:**
 ```typescript

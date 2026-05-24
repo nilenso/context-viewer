@@ -1,0 +1,30 @@
+{
+  "name": "@nilenso/context-lens",
+  "version": "0.1.0",
+  "description": "Agent-facing CLI for analyzing AI conversation context",
+  "type": "module",
+  "bin": {
+    "context-lens": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun build src/cli.ts --outfile dist/cli.js --target node --format esm && node scripts/fix-shebang.mjs",
+    "dev": "bun run src/cli.ts",
+    "check": "bunx tsc --noEmit && bun run build && node dist/cli.js --help >/dev/null"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.53",
+    "ai": "^5.0.76",
+    "tiktoken": "^1.0.22",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "context-analyzer": "file:../analyzer",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3"
+  },
+  "license": "MIT"
+}
