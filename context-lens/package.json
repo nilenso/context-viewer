@@ -1,6 +1,6 @@
 {
   "name": "@nilenso/context-lens",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent-facing CLI for analyzing AI conversation context",
   "type": "module",
   "bin": {
