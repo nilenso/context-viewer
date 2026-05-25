@@ -645,7 +645,7 @@ keep it expanded by default
 ### [Dropped] ability to turn off reasoning and use gpt-5-nano
 i want to use gpt-5-nano, but i feel like the vercel-ai-sdk doesn't
 have a way to set reasoning to off, I think nano is still very slow
-because of that. look at the openai spec, with the repsonses api, and
+because of that. look at the openai spec, with the responses api, and
 see if there's a way i can turn off reasoning through vercel.
 ###
 
