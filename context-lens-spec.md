@@ -182,7 +182,7 @@ The analyzer runtime config should come from `~/.context-lens/.env`, environment
 Recommended API key setup:
 
 ```bash
-mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=gpt-4o-mini\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env
+mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=gpt-5.4-mini\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env
 ```
 
 API key lookup order:
@@ -195,7 +195,7 @@ AI_API_KEY
 ~/.context-lens/.env
 ```
 
-At least one API key source is required for AI stages. If `~/.context-lens/.env` is missing and no other key is provided, the CLI should print the setup command above. The setup includes `OPENAI_MODEL=gpt-4o-mini` as the default model.
+At least one API key source is required for AI stages. If `~/.context-lens/.env` is missing and no other key is provided, the CLI should print the setup command above. The setup includes `OPENAI_MODEL=gpt-5.4-mini` as the default model.
 
 Optional flags:
 
@@ -211,7 +211,7 @@ Optional flags:
 Defaults should match the analyzer defaults where possible:
 
 ```txt
-model: gpt-4o-mini
+model: gpt-5.4-mini
 apiMode: responses
 logLevel: silent
 ```

@@ -28,7 +28,7 @@ import {
 import type { PipelineState } from "../../model/types";
 
 const testConfig: AIConfig = {
-  apiKey: "test-key", model: "gpt-4o-mini", baseURL: undefined,
+  apiKey: "test-key", model: "gpt-5.4-mini", baseURL: undefined,
   apiMode: "responses" as const, reasoningEffort: undefined,
 };
 

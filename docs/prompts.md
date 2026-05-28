@@ -1150,7 +1150,7 @@ there's a div with this style: "min-width: 100%;display: table;". removing displ
 colors didn't work. check out this log.
 
 [Componentisation] Using 57 custom components
-componentisation.ts:217 [Componentisation] Mapping 41 parts in batches of 20 (model: gpt-4o-mini)
+componentisation.ts:217 [Componentisation] Mapping 41 parts in batches of 20 (model: gpt-5.4-mini)
 componentisation.ts:225 [Componentisation] Processing 3 batches in parallel
 componentisation.ts:230 [Componentisation] Starting batch 1/3 (20 parts)
 componentisation.ts:230 [Componentisation] Starting batch 2/3 (20 parts)
@@ -1163,7 +1163,7 @@ componentisation.ts:264 [Componentisation] Building component timeline
 componentisation.ts:278 [Componentisation] Mapping coverage: 41/41 parts (100%)
 componentisation.ts:304 [Componentisation] Built timeline with 2 snapshots
 componentisation.ts:409 [Componentisation] Completed componentisation
-componentisation.ts:322 [Componentisation] Calling AI to assign colors (model: gpt-4o-mini)
+componentisation.ts:322 [Componentisation] Calling AI to assign colors (model: gpt-5.4-mini)
 componentisation.ts:332 [Componentisation] AI response for colors: ```json
 {
   "- identity": "emerald",
@@ -1227,7 +1227,7 @@ componentisation.ts:332 [Componentisation] AI response for colors: ```json
 ```
 componentisation.ts:348 [Componentisation] Assigned colors to 57 components
 ai-summary.ts:136 [Context Analysis] Starting analysis generation
-ai-summary.ts:27 [AI Summary] Config loaded: model=gpt-4o-mini
+ai-summary.ts:27 [AI Summary] Config loaded: model=gpt-5.4-mini
 ai-summary.ts:171 [Context Analysis] Generated analysis (3792 chars)
 
 ### Dec 18, 2025 14:44:32
@@ -1237,7 +1237,7 @@ that made it worse. [Image #1] previously, the components in the ui didn't have 
 in the same way that I can customize the conversation prompt, allow me to customise the segmentation prompt too. i want that edit prompt link next to segmentation in the side bar, and then i want it to proceed with the rest of the workflow from there.
 
 ### Dec 22, 2025 13:35:07
-i changed my model from gpt-4o-mini to gpt-5.2. then, i see this in the logs, and i see that my messages aren't getting segmented.
+i changed my model from gpt-5.4-mini to gpt-5.2. then, i see this in the logs, and i see that my messages aren't getting segmented.
 
 [Segmentation] Calling AI to segment text (8905 chars, model: gpt-5.2) with custom prompt
 segmentation.ts:83 [Segmentation] AI response: [
@@ -5185,7 +5185,7 @@ there's a div with this style: "min-width: 100%;display: table;". removing displ
 colors didn't work. check out this log.
 
 [Componentisation] Using 57 custom components
-componentisation.ts:217 [Componentisation] Mapping 41 parts in batches of 20 (model: gpt-4o-mini)
+componentisation.ts:217 [Componentisation] Mapping 41 parts in batches of 20 (model: gpt-5.4-mini)
 componentisation.ts:225 [Componentisation] Processing 3 batches in parallel
 componentisation.ts:230 [Componentisation] Starting batch 1/3 (20 parts)
 componentisation.ts:230 [Componentisation] Starting batch 2/3 (20 parts)
@@ -5198,7 +5198,7 @@ componentisation.ts:264 [Componentisation] Building component timeline
 componentisation.ts:278 [Componentisation] Mapping coverage: 41/41 parts (100%)
 componentisation.ts:304 [Componentisation] Built timeline with 2 snapshots
 componentisation.ts:409 [Componentisation] Completed componentisation
-componentisation.ts:322 [Componentisation] Calling AI to assign colors (model: gpt-4o-mini)
+componentisation.ts:322 [Componentisation] Calling AI to assign colors (model: gpt-5.4-mini)
 componentisation.ts:332 [Componentisation] AI response for colors:
 ```
 
@@ -5273,7 +5273,7 @@ componentisation.ts:332 [Componentisation] AI response for colors:
 ```
 componentisation.ts:348 [Componentisation] Assigned colors to 57 components
 ai-summary.ts:136 [Context Analysis] Starting analysis generation
-ai-summary.ts:27 [AI Summary] Config loaded: model=gpt-4o-mini
+ai-summary.ts:27 [AI Summary] Config loaded: model=gpt-5.4-mini
 ai-summary.ts:171 [Context Analysis] Generated analysis (3792 chars)
 ```
 
@@ -5288,7 +5288,7 @@ that made it worse. [Image #1] previously, the components in the ui didn't have 
 
 ```
 ### Dec 22, 2025 13:35:07
-i changed my model from gpt-4o-mini to gpt-5.2. then, i see this in the logs, and i see that my messages aren't getting segmented.
+i changed my model from gpt-5.4-mini to gpt-5.2. then, i see this in the logs, and i see that my messages aren't getting segmented.
 
 [Segmentation] Calling AI to segment text (8905 chars, model: gpt-5.2) with custom prompt
 segmentation.ts:83 [Segmentation] AI response: [

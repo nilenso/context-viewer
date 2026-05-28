@@ -207,7 +207,7 @@ interface AnalyzerConfig {
 ```
 
 - `apiKey`: required for AI stages.
-- `model`: defaults to `"gpt-4o-mini"`.
+- `model`: defaults to `"gpt-5.4-mini"`.
 - `baseURL`: use for OpenAI-compatible providers.
 - `apiMode`: use `"chat"` for many non-OpenAI providers; default is `"responses"`.
 - `logLevel` / `logger`: optional diagnostics.

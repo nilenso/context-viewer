@@ -18,7 +18,7 @@ export type AIApiMode = "responses" | "chat";
 
 export interface AnalyzerConfig {
   apiKey: string;
-  model?: string;              // default: "gpt-4o-mini"
+  model?: string;              // default: "gpt-5.4-mini"
   baseURL?: string;
   apiMode?: AIApiMode;         // default: "responses"
   reasoningEffort?: ReasoningEffort;
@@ -41,7 +41,7 @@ export interface AIConfig {
 export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
   return {
     apiKey: config.apiKey,
-    model: config.model || "gpt-4o-mini",
+    model: config.model || "gpt-5.4-mini",
     baseURL: config.baseURL,
     apiMode: config.apiMode || "responses",
     reasoningEffort: config.reasoningEffort,

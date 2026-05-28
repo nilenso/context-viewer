@@ -191,7 +191,7 @@ Lower-level compatibility API. Prefer `analyze2()` for new agent-facing integrat
 ```typescript
 {
   apiKey: string;
-  model?: string;              // default: "gpt-4o-mini"
+  model?: string;              // default: "gpt-5.4-mini"
   baseURL?: string;
   apiMode?: "responses" | "chat";
   reasoningEffort?: "none" | "low" | "medium" | "high";

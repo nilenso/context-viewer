@@ -276,7 +276,7 @@ The application follows a multi-stage workflow for each conversation:
 
 ### AI
 - Vercel AI SDK (@ai-sdk/openai)
-- OpenAI models (gpt-4o-mini, gpt-5.2)
+- OpenAI models (gpt-5.4-mini, gpt-5.2)
 - Streaming text generation
 
 ### Token Counting

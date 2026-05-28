@@ -68,7 +68,7 @@ Spec interface:
 Options:
   --spec <path|->                 Read analysis spec from file or stdin
   --api-key <key>                 API key for one-off use
-  --model <model>                 Default: gpt-4o-mini
+  --model <model>                 Default: gpt-5.4-mini
   --base-url <url>                OpenAI-compatible base URL
   --api-mode <responses|chat>     Default: responses
   --reasoning-effort <level>      none, low, medium, high
@@ -77,7 +77,7 @@ Options:
 
 API key setup:
   context-lens reads ~/.context-lens/.env. If it does not exist, run:
-  mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\\nOPENAI_MODEL=gpt-4o-mini\\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env
+  mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\\nOPENAI_MODEL=gpt-5.4-mini\\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env
 
 API key lookup order:
   --api-key, OPENAI_API_KEY, VITE_AI_API_KEY, AI_API_KEY, ~/.context-lens/.env
@@ -131,7 +131,7 @@ type Spec = Omit<Analyze2Options, "files" | "sessionId" | "interceptors">;
 type EnvValues = Record<string, string>;
 
 const CONTEXT_LENS_ENV_PATH = path.join(homedir(), ".context-lens", ".env");
-const API_KEY_SETUP_COMMAND = "mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\\nOPENAI_MODEL=gpt-4o-mini\\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env";
+const API_KEY_SETUP_COMMAND = "mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\\nOPENAI_MODEL=gpt-5.4-mini\\n' 'sk-REPLACE_WITH_YOUR_OPENAI_KEY' > ~/.context-lens/.env && chmod 600 ~/.context-lens/.env";
 
 function printHelp(): void {
   console.log(HELP);
@@ -521,7 +521,7 @@ async function main(): Promise<void> {
   const report = {
     format: result.format,
     model: result.model,
-    analysisModel: config.model || "gpt-4o-mini",
+    analysisModel: config.model || "gpt-5.4-mini",
     exportPath: fullExportPath,
     contextViewerUrlTemplate: contextViewerUrlTemplate(exportGroup),
     group: exportGroup

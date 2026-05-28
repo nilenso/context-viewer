@@ -22,7 +22,7 @@ import type { AnalyzerConfig } from "../config";
 import type { PipelineState, Stage } from "../model/types";
 import "../parsers/index";
 
-const config: AnalyzerConfig = { apiKey: "test-key", model: "gpt-4o-mini" };
+const config: AnalyzerConfig = { apiKey: "test-key", model: "gpt-5.4-mini" };
 const noAiConfig: AnalyzerConfig = { apiKey: "" };
 
 // Minimal JSONL content that parses as a Claude Code transcript

@@ -58,7 +58,7 @@ Create a `.env` file based on `.env.example`:
 ```bash
 # AI API Configuration for Semantic Segmentation
 VITE_AI_API_KEY=your-openai-api-key
-VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
+VITE_AI_MODEL=gpt-5.4-mini  # Optional, defaults to gpt-5.4-mini
 
 # Optional: Use a different provider (Ollama, Cerebras, Groq, etc.)
 VITE_AI_BASE_URL=http://localhost:11434/v1  # e.g. Ollama
@@ -74,7 +74,7 @@ Any OpenAI-compatible API works. Set `VITE_AI_API_MODE=chat` for non-OpenAI prov
 | **Ollama** (local) | `http://localhost:11434/v1` | `gemma3:1b` | Free, no API key needed (set any value) |
 | **Cerebras** | `https://api.cerebras.ai/v1` | `llama3.1-8b` | Free tier: 24M tokens/day, very fast |
 | **Groq** | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` | ~$0.06/1M tokens, fast |
-| **OpenAI** (default) | _(not needed)_ | `gpt-4o-mini` | Uses Responses API by default |
+| **OpenAI** (default) | _(not needed)_ | `gpt-5.4-mini` | Uses Responses API by default |
 
 ## Documentation
 

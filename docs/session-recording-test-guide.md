@@ -332,7 +332,7 @@ vi.mock("@/stages/ai/config", async (importOriginal) => {
     hasApiKey: () => true,
     getAIConfig: () => ({
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       apiKey: "test-key",
     }),
     createModel: () => ({}),
@@ -357,7 +357,7 @@ describe("identifyComponents", () => {
     });
 
     const { conversation } = loadConversation("claude-transcripts/large.jsonl");
-    const config = { provider: "openai", model: "gpt-4o-mini", apiKey: "k" };
+    const config = { provider: "openai", model: "gpt-5.4-mini", apiKey: "k" };
 
     const result = await identifyComponents(conversation, config);
     expect(result).toEqual(expectedComponents);
@@ -380,7 +380,7 @@ describe("mapComponentsToIds", () => {
 
     const { conversation } = loadConversation("claude-transcripts/large.jsonl");
     const tokenized = await addTokenCounts(conversation);
-    const config = { provider: "openai", model: "gpt-4o-mini", apiKey: "k" };
+    const config = { provider: "openai", model: "gpt-5.4-mini", apiKey: "k" };
 
     const result = await mapComponentsToIds(
       tokenized, ["EXPLORE", "IMPLEMENT", "VERIFY"], config
@@ -405,7 +405,7 @@ describe("assignComponentColors", () => {
       text: JSON.stringify(expectedColors),
     });
 
-    const config = { provider: "openai", model: "gpt-4o-mini", apiKey: "k" };
+    const config = { provider: "openai", model: "gpt-5.4-mini", apiKey: "k" };
     const result = await assignComponentColors(components, config);
 
     expect(Object.keys(result)).toEqual(components);
@@ -415,7 +415,7 @@ describe("assignComponentColors", () => {
     const components = ["EXPLORE", "IMPLEMENT"];
     const presetColors = { EXPLORE: "#ff0000", IMPLEMENT: "#00ff00" };
 
-    const config = { provider: "openai", model: "gpt-4o-mini", apiKey: "k" };
+    const config = { provider: "openai", model: "gpt-5.4-mini", apiKey: "k" };
     const result = await assignComponentColors(
       components, config, undefined, presetColors
     );

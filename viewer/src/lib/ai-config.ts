@@ -31,7 +31,7 @@ export function isApiKeyFromEnv(): boolean {
  */
 export function getAnalyzerConfig() {
   const apiKey = runtimeApiKey || import.meta.env.VITE_AI_API_KEY || "";
-  const model = import.meta.env.VITE_AI_MODEL || "gpt-4o-mini";
+  const model = import.meta.env.VITE_AI_MODEL || "gpt-5.4-mini";
   const baseURL = import.meta.env.VITE_AI_BASE_URL || undefined;
   const apiModeEnv = (import.meta.env.VITE_AI_API_MODE || "").toLowerCase();
   const apiMode = apiModeEnv === "chat" ? "chat" as const : "responses" as const;
