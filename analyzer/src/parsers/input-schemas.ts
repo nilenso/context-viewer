@@ -687,6 +687,7 @@ const AtifRunMetadataSchema = z.object({
   atif: z.object({
     schema_version: z.string().optional(),
     session_id: z.string().optional(),
+    original_step_count: z.number().optional(),
     agent: z.object({
       name: z.string().optional(),
       version: z.string().optional(),

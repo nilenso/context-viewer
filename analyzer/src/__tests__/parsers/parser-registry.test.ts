@@ -76,19 +76,35 @@ describe("parserRegistry", () => {
       "tool",
     ]);
 
+    const user = conversation.messages[0]!;
+    expect(user.parts[0]!.type).toBe("text");
+    if (user.parts[0]!.type === "text") {
+      expect(user.parts[0]!.text).toBe("[ATIF step 1 of 2]\nSolve the task.");
+    }
+
     const assistant = conversation.messages[1]!;
     expect(assistant.parts.map((p) => p.type)).toEqual([
       "reasoning",
       "text",
       "tool-call",
     ]);
+    expect(assistant.parts[0]!.type).toBe("reasoning");
+    if (assistant.parts[0]!.type === "reasoning") {
+      expect(assistant.parts[0]!.text).toBe(
+        "[ATIF step 2 of 2]\nI should inspect the files.",
+      );
+    }
 
     const toolCall = assistant.parts[2]!;
     expect(toolCall.type).toBe("tool-call");
     if (toolCall.type === "tool-call") {
       expect(toolCall.toolCallId).toBe("call_0_1");
       expect(toolCall.toolName).toBe("bash_command");
-      expect(toolCall.input).toEqual({ keystrokes: "ls", duration: 1.0 });
+      expect(toolCall.input).toEqual({
+        atif_step: "2/2",
+        atif_step_label: "ATIF step 2 of 2",
+        input: { keystrokes: "ls", duration: 1.0 },
+      });
     }
 
     const tool = conversation.messages[2]!;
@@ -98,7 +114,7 @@ describe("parserRegistry", () => {
       // The source ATIF export has tool_call_id: null; the parser links by atif_step_id.
       expect(tool.parts[0]!.toolCallId).toBe("call_0_1");
       expect(tool.parts[0]!.toolName).toBe("bash_command");
-      expect(tool.parts[0]!.output).toBe("file.txt\n");
+      expect(tool.parts[0]!.output).toBe("[ATIF step 2 of 2]\nfile.txt\n");
     }
   });
 

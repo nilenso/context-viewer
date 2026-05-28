@@ -14,6 +14,13 @@ import {
   type AtifContentPart,
 } from "./input-schemas";
 
+interface AtifStepInfo {
+  step: number;
+  totalSteps?: number;
+  label: string;
+  displayLabel: string;
+}
+
 /**
  * Parser for ATIF agent-run exports as exposed by Docent.
  *
@@ -120,13 +127,15 @@ export class AtifParser implements Parser {
     const messages: Message[] = [];
     const toolCallNames = new Map<string, string>();
     const toolCallIdsByStep = new Map<number, string[]>();
+    const totalSteps = this.totalSteps(input);
 
     for (const transcript of input.transcripts) {
       for (const message of transcript.messages) {
         const transformed = this.transformMessage(
           message,
           toolCallNames,
-          toolCallIdsByStep
+          toolCallIdsByStep,
+          totalSteps
         );
         if (transformed) messages.push(transformed);
       }
@@ -138,17 +147,19 @@ export class AtifParser implements Parser {
   private transformMessage(
     message: AtifMessage,
     toolCallNames: Map<string, string>,
-    toolCallIdsByStep: Map<number, string[]>
+    toolCallIdsByStep: Map<number, string[]>,
+    totalSteps: number | undefined
   ): Message | null {
     const timestamp = message.metadata?.atif_timestamp;
     const id = this.messageId(message.id);
+    const stepInfo = this.stepInfo(message, totalSteps);
 
     switch (message.role) {
       case "system":
         return {
           id,
           role: "system",
-          parts: this.textPartsFromContent(message.content),
+          parts: this.textPartsFromContent(message.content, stepInfo),
           timestamp,
         };
 
@@ -156,7 +167,7 @@ export class AtifParser implements Parser {
         return {
           id,
           role: "user",
-          parts: this.textPartsFromContent(message.content),
+          parts: this.textPartsFromContent(message.content, stepInfo),
           timestamp,
         };
 
@@ -167,7 +178,8 @@ export class AtifParser implements Parser {
           parts: this.assistantPartsFromMessage(
             message,
             toolCallNames,
-            toolCallIdsByStep
+            toolCallIdsByStep,
+            stepInfo
           ),
           timestamp,
         };
@@ -179,7 +191,8 @@ export class AtifParser implements Parser {
           parts: this.toolResultPartsFromMessage(
             message,
             toolCallNames,
-            toolCallIdsByStep
+            toolCallIdsByStep,
+            stepInfo
           ),
           timestamp,
         };
@@ -189,7 +202,8 @@ export class AtifParser implements Parser {
   private assistantPartsFromMessage(
     message: AtifMessage,
     toolCallNames: Map<string, string>,
-    toolCallIdsByStep: Map<number, string[]>
+    toolCallIdsByStep: Map<number, string[]>,
+    stepInfo: AtifStepInfo | undefined
   ): Array<
     | { id: string; type: "text"; text: string }
     | { id: string; type: "reasoning"; text: string }
@@ -214,10 +228,14 @@ export class AtifParser implements Parser {
     > = [];
 
     if (typeof message.content === "string") {
-      parts.push({ id: generateId(), type: "text", text: message.content });
+      parts.push({
+        id: generateId(),
+        type: "text",
+        text: this.withStepLabel(message.content, stepInfo),
+      });
     } else if (Array.isArray(message.content)) {
       for (const block of message.content) {
-        const converted = this.assistantPartFromContentBlock(block);
+        const converted = this.assistantPartFromContentBlock(block, stepInfo);
         if (converted) parts.push(converted);
       }
     }
@@ -234,7 +252,7 @@ export class AtifParser implements Parser {
         type: "tool-call",
         toolCallId,
         toolName,
-        input,
+        input: this.withStepObject(input, stepInfo, "input"),
       });
     }
 
@@ -251,7 +269,8 @@ export class AtifParser implements Parser {
   }
 
   private assistantPartFromContentBlock(
-    block: AtifContentPart
+    block: AtifContentPart,
+    stepInfo: AtifStepInfo | undefined
   ):
     | { id: string; type: "text"; text: string }
     | { id: string; type: "reasoning"; text: string }
@@ -259,25 +278,34 @@ export class AtifParser implements Parser {
     if (block.type === "reasoning") {
       const text = this.reasoningText(block);
       if (text === null) return null;
-      return { id: generateId(), type: "reasoning", text };
+      return {
+        id: generateId(),
+        type: "reasoning",
+        text: this.withStepLabel(text, stepInfo),
+      };
     }
 
     if (block.type === "text") {
       const text = this.stringValue(block.text) ?? "";
-      return { id: generateId(), type: "text", text };
+      return {
+        id: generateId(),
+        type: "text",
+        text: this.withStepLabel(text, stepInfo),
+      };
     }
 
     return {
       id: generateId(),
       type: "text",
-      text: this.safeStringify(block),
+      text: this.withStepLabel(this.safeStringify(block), stepInfo),
     };
   }
 
   private toolResultPartsFromMessage(
     message: AtifMessage,
     toolCallNames: Map<string, string>,
-    toolCallIdsByStep: Map<number, string[]>
+    toolCallIdsByStep: Map<number, string[]>,
+    stepInfo: AtifStepInfo | undefined
   ): Array<{
     id: string;
     type: "tool-result";
@@ -286,7 +314,7 @@ export class AtifParser implements Parser {
     output: unknown;
     isError?: boolean;
   }> {
-    const output = this.outputFromContent(message.content);
+    const output = this.withStepOutput(this.outputFromContent(message.content), stepInfo);
     const toolCallIds = this.resolveToolCallIds(message, toolCallIdsByStep);
     const isError = message.error ? true : undefined;
 
@@ -339,24 +367,25 @@ export class AtifParser implements Parser {
   }
 
   private textPartsFromContent(
-    content: AtifMessage["content"]
+    content: AtifMessage["content"],
+    stepInfo: AtifStepInfo | undefined
   ): Array<{ id: string; type: "text"; text: string }> {
     if (typeof content === "string") {
-      return [{ id: generateId(), type: "text", text: content }];
+      return [{ id: generateId(), type: "text", text: this.withStepLabel(content, stepInfo) }];
     }
 
     if (Array.isArray(content)) {
       const parts = content.map((block) => ({
         id: generateId(),
         type: "text" as const,
-        text: this.textFromContentBlock(block),
+        text: this.withStepLabel(this.textFromContentBlock(block), stepInfo),
       }));
       return parts.length > 0
         ? parts
-        : [{ id: generateId(), type: "text", text: "" }];
+        : [{ id: generateId(), type: "text", text: this.withStepLabel("", stepInfo) }];
     }
 
-    return [{ id: generateId(), type: "text", text: "" }];
+    return [{ id: generateId(), type: "text", text: this.withStepLabel("", stepInfo) }];
   }
 
   private textFromContentBlock(block: AtifContentPart): string {
@@ -424,6 +453,71 @@ export class AtifParser implements Parser {
       })
       .filter(Boolean)
       .join("\n");
+  }
+
+  private totalSteps(input: AtifInput): number | undefined {
+    const originalStepCount = input.metadata?.atif?.original_step_count;
+    if (typeof originalStepCount === "number" && originalStepCount > 0) {
+      return originalStepCount;
+    }
+
+    let maxStep = 0;
+    for (const transcript of input.transcripts) {
+      for (const message of transcript.messages) {
+        const step = message.metadata?.atif_step_id;
+        if (typeof step === "number" && step > maxStep) {
+          maxStep = step;
+        }
+      }
+    }
+
+    return maxStep > 0 ? maxStep : undefined;
+  }
+
+  private stepInfo(
+    message: AtifMessage,
+    totalSteps: number | undefined
+  ): AtifStepInfo | undefined {
+    const step = message.metadata?.atif_step_id;
+    if (typeof step !== "number") return undefined;
+
+    const label = totalSteps
+      ? `ATIF step ${step} of ${totalSteps}`
+      : `ATIF step ${step}`;
+
+    return {
+      step,
+      totalSteps,
+      label,
+      displayLabel: `[${label}]`,
+    };
+  }
+
+  private withStepLabel(text: string, stepInfo: AtifStepInfo | undefined): string {
+    if (!stepInfo) return text;
+    return text ? `${stepInfo.displayLabel}\n${text}` : stepInfo.displayLabel;
+  }
+
+  private withStepObject(
+    value: unknown,
+    stepInfo: AtifStepInfo | undefined,
+    valueKey: "input" | "output"
+  ): unknown {
+    if (!stepInfo) return value;
+
+    return {
+      atif_step: stepInfo.totalSteps
+        ? `${stepInfo.step}/${stepInfo.totalSteps}`
+        : String(stepInfo.step),
+      atif_step_label: stepInfo.label,
+      [valueKey]: value,
+    };
+  }
+
+  private withStepOutput(output: unknown, stepInfo: AtifStepInfo | undefined): unknown {
+    if (!stepInfo) return output;
+    if (typeof output === "string") return this.withStepLabel(output, stepInfo);
+    return this.withStepObject(output, stepInfo, "output");
   }
 
   private parseMaybeJson(value: unknown): unknown {
