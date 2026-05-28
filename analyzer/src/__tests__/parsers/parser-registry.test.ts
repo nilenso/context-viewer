@@ -58,6 +58,50 @@ describe("parserRegistry", () => {
     expect(conversation.messages.length).toBeGreaterThan(0);
   });
 
+  it("detects ATIF agent-run exports and links tool observations", () => {
+    const { text } = loadArtifact("atif-agent-run.json");
+    const data = parseFileContent(text, "atif-agent-run.json");
+    const { conversation, metadata } = parserRegistry.parseWithMetadata(data);
+
+    expect(metadata.parserName).toBe("ATIF");
+    expect(metadata.provider).toBe("ATIF");
+    expect(metadata.agent).toBe("terminus-2");
+    expect(metadata.model).toBe("openrouter/qwen/qwen3.6-max-preview");
+    expect(metadata.title).toBe("terminus-2");
+
+    expect(conversation.messages.length).toBe(3);
+    expect(conversation.messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+    ]);
+
+    const assistant = conversation.messages[1]!;
+    expect(assistant.parts.map((p) => p.type)).toEqual([
+      "reasoning",
+      "text",
+      "tool-call",
+    ]);
+
+    const toolCall = assistant.parts[2]!;
+    expect(toolCall.type).toBe("tool-call");
+    if (toolCall.type === "tool-call") {
+      expect(toolCall.toolCallId).toBe("call_0_1");
+      expect(toolCall.toolName).toBe("bash_command");
+      expect(toolCall.input).toEqual({ keystrokes: "ls", duration: 1.0 });
+    }
+
+    const tool = conversation.messages[2]!;
+    expect(tool.role).toBe("tool");
+    expect(tool.parts[0]!.type).toBe("tool-result");
+    if (tool.parts[0]!.type === "tool-result") {
+      // The source ATIF export has tool_call_id: null; the parser links by atif_step_id.
+      expect(tool.parts[0]!.toolCallId).toBe("call_0_1");
+      expect(tool.parts[0]!.toolName).toBe("bash_command");
+      expect(tool.parts[0]!.output).toBe("file.txt\n");
+    }
+  });
+
   it("parses plain text via .txt extension", () => {
     const data = parseFileContent("Hello world", "test.txt");
     const { conversation, metadata } = parserRegistry.parseWithMetadata(data);

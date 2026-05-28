@@ -588,6 +588,130 @@ export type OpenCodeStepFinishPart = z.infer<typeof OpenCodeStepFinishPartSchema
 export type OpenCodePatchPart = z.infer<typeof OpenCodePatchPartSchema>;
 
 // ============================================================================
+// ATIF / Docent Agent Run Format Schema (JSON)
+// ============================================================================
+
+// ATIF content parts as stored in Docent agent-run exports. Assistant content
+// is usually an array of reasoning/text blocks; user and tool content is often
+// a plain string.
+const AtifReasoningContentSchema = z.object({
+  type: z.literal("reasoning"),
+  reasoning: z.string().optional().nullable(),
+  summary: z.unknown().optional().nullable(),
+  signature: z.unknown().optional().nullable(),
+  redacted: z.boolean().optional(),
+}).passthrough();
+
+const AtifTextContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string().optional().nullable(),
+  refusal: z.unknown().optional().nullable(),
+}).passthrough();
+
+const AtifUnknownContentSchema = z.object({
+  type: z.string(),
+}).passthrough();
+
+const AtifContentPartSchema = z.union([
+  AtifReasoningContentSchema,
+  AtifTextContentSchema,
+  AtifUnknownContentSchema,
+]);
+
+// Tool calls in these exports are not the OpenAI shape. `function` is commonly
+// a string such as "bash_command", and `arguments` is already parsed.
+const AtifToolCallSchema = z.object({
+  id: z.string().optional().nullable(),
+  function: z.union([
+    z.string(),
+    z.object({
+      name: z.string().optional(),
+      arguments: z.unknown().optional(),
+    }).passthrough(),
+  ]).optional().nullable(),
+  arguments: z.unknown().optional(),
+  type: z.string().optional().nullable(),
+  parse_error: z.unknown().optional().nullable(),
+  view: z.unknown().optional().nullable(),
+}).passthrough();
+
+const AtifMetricsSchema = z.object({
+  prompt_tokens: z.number().optional(),
+  completion_tokens: z.number().optional(),
+  cost_usd: z.number().optional(),
+}).passthrough();
+
+const AtifMessageMetadataSchema = z.object({
+  atif_step_id: z.number().optional(),
+  atif_source: z.string().optional(),
+  atif_timestamp: z.string().optional(),
+  atif_metrics: AtifMetricsSchema.optional(),
+  atif_observation_index: z.number().optional(),
+}).passthrough();
+
+const AtifMessageSchema = z.object({
+  id: z.string().optional().nullable(),
+  role: z.enum(["system", "user", "assistant", "tool"]),
+  content: z.union([z.string(), z.array(AtifContentPartSchema), z.null()]).optional(),
+  metadata: AtifMessageMetadataSchema.optional(),
+  model: z.string().optional(),
+  tool_calls: z.array(AtifToolCallSchema).optional().nullable(),
+  tool_call_id: z.string().optional().nullable(),
+  function: z.string().optional().nullable(),
+  error: z.unknown().optional().nullable(),
+}).passthrough();
+
+const AtifTranscriptMetadataSchema = z.object({
+  agent_name: z.string().optional(),
+  agent_version: z.string().optional(),
+  atif_first_timestamp: z.string().optional(),
+  default_model_name: z.string().optional(),
+}).passthrough();
+
+const AtifTranscriptSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  transcript_group_id: z.string().optional().nullable(),
+  created_at: z.string().optional(),
+  messages: z.array(AtifMessageSchema),
+  metadata: AtifTranscriptMetadataSchema.optional(),
+}).passthrough();
+
+const AtifRunMetadataSchema = z.object({
+  source_format: z.string().optional(),
+  converted_from: z.string().optional(),
+  agent: z.string().optional(),
+  model: z.string().optional(),
+  benchmark: z.string().optional(),
+  atif: z.object({
+    schema_version: z.string().optional(),
+    session_id: z.string().optional(),
+    agent: z.object({
+      name: z.string().optional(),
+      version: z.string().optional(),
+      model_name: z.string().optional(),
+    }).passthrough().optional(),
+    final_metrics: z.unknown().optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+export const AtifInputSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  transcripts: z.array(AtifTranscriptSchema),
+  transcript_groups: z.array(z.unknown()).optional(),
+  metadata: AtifRunMetadataSchema.optional(),
+}).passthrough();
+
+export type AtifInput = z.infer<typeof AtifInputSchema>;
+export type AtifTranscript = z.infer<typeof AtifTranscriptSchema>;
+export type AtifMessage = z.infer<typeof AtifMessageSchema>;
+export type AtifContentPart = z.infer<typeof AtifContentPartSchema>;
+export type AtifToolCall = z.infer<typeof AtifToolCallSchema>;
+
+// ============================================================================
 // SWE-bench Trajectory Format Schema (JSON)
 // ============================================================================
 
