@@ -1,19 +1,102 @@
 # Context Viewer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/%40nilenso%2Fcontext-lens?logo=npm&label=%40nilenso%2Fcontext-lens)](https://www.npmjs.com/package/@nilenso/context-lens)
+[![npm downloads](https://img.shields.io/npm/dm/%40nilenso%2Fcontext-lens?logo=npm)](https://www.npmjs.com/package/@nilenso/context-lens)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Hosted demo](https://img.shields.io/badge/demo-GitHub%20Pages-24292f?logo=github)](https://nilenso.github.io/context-viewer/)
 
-Observability for contexts. Given a coversation log (messages), this
-tool will provide a breakdown of its components and their sizes. It
-also classifies messages into various categories so we can observe the
-context in ways that matter to the business.
+Observability for AI contexts. Context Viewer turns conversation logs, agent
+transcripts, API traces, and long prompts into token-level, component-level
+breakdowns: what is in the context window, how much space each part consumes,
+and how those parts change across runs.
 
-This tool itself is very simple, and the data mostly comes from a
-single prompt that you can use yourself. The visualisations are useful
-though.
+Try it in the hosted browser app at
+[https://nilenso.github.io/context-viewer/](https://nilenso.github.io/context-viewer/),
+or use the analyzer pipeline in your own tooling.
 
-It's [hosted on GitHub Pages](https://nilenso.github.io/context-viewer/) so you can try it directly, or run it locally (see Quick Start below).
+## Install the agent CLI
 
-### Samples
+The agent-facing CLI is published as
+[`@nilenso/context-lens`](https://www.npmjs.com/package/@nilenso/context-lens):
+
+```bash
+npm install -g @nilenso/context-lens
+```
+
+It is meant to be driven by an AI coding agent, not hand-operated. Once it is
+installed, ask your agent to analyze a transcript with a prompt like:
+
+```text
+Use `context-lens` cli and analyze the sessions in agent-session.jsonl.
+```
+
+The agent should choose the analysis dimensions and components based on the
+question, run `context-lens`, and return a concise interpretation plus a Context
+Viewer link when sharing is useful.
+
+## Research and recognition
+
+- Paper/technical report: [Context Viewer on alphaXiv](https://www.alphaxiv.org/abs/context-viewer)
+- Received an [Industry Spotlight Award at ACM CAIS 2026](https://www.caisconf.org/program/2026/demos/context-viewer/)
+- Featured at [AI Engineer World's Fair (AIE WF) 2026](https://www.ai.engineer/worldsfair/2026)
+
+## Screenshots
+
+| Component waffle comparison | Prompt swapping on SWE-bench |
+| --- | --- |
+| ![Context Viewer waffle comparison](docs/screenshots/waffle-comparison.jpg) | ![SWE-bench prompt comparison in Context Viewer](docs/screenshots/swe-bench-prompts.jpg) |
+
+[![Context Viewer research poster](docs/screenshots/context-viewer-poster.jpg)](docs/screenshots/context-viewer-poster.pdf)
+
+[Open the poster PDF](docs/screenshots/context-viewer-poster.pdf).
+
+## Project architecture
+
+Both the browser viewer and the CLI are built on top of the same analyzer
+pipeline:
+
+```text
+        +--------------------+        +--------------------+
+        |   Context Viewer   |        |  context-lens CLI  |
+        |   browser UI       |        |  agent / terminal  |
+        +----------+---------+        +----------+---------+
+                   |                             |
+                   +-------------+---------------+
+                                 |
+                                 v
+                    +------------+-------------+
+                    |        analyzer          |
+                    | parse -> tokenise ->     |
+                    | segment -> classify ->   |
+                    | analytics + exports      |
+                    +--------------------------+
+```
+
+Given a conversation transcript, the analyzer pipeline:
+
+1. **Parses** the input and normalizes it to a standard message schema
+2. **Counts tokens** using tiktoken with GPT-4o encoding
+3. **Segments** large text parts into semantic chunks with AI
+4. **Identifies components** or applies the dimensions/components you provide
+5. **Classifies** every message part into components, batched and in parallel
+6. **Colors** components and returns waffle-chart-ready analytics plus the full annotated conversation
+
+### Supported input formats
+
+| Format | File types |
+| --- | --- |
+| Claude Code transcripts | `.jsonl` |
+| Codex CLI transcripts | `.jsonl` |
+| OpenCode transcripts | `.json` |
+| OpenAI Responses API | `.json` |
+| OpenAI Completions API | `.json` |
+| OpenAI Conversations API | `.json` |
+| SWE-bench trajectories | `.json`, `.traj` |
+| SWE-agent trajectories | `.json` |
+| Context Viewer exports | `.json` |
+| Plain text / markdown | `.txt`, `.md` |
+
+## Sample analyses
 
 Explore these pre-loaded comparisons to see what Context Viewer can do:
 
@@ -25,14 +108,10 @@ Explore these pre-loaded comparisons to see what Context Viewer can do:
 
 The first four samples are from Drew Breunig's [System Prompts Define the Agent as Much as the Model](https://www.dbreunig.com/2026/02/10/system-prompts-define-the-agent-as-much-as-the-model.html).
 
-### Demo
-
-[![Context Viewer Demo](https://img.youtube.com/vi/tILkUHD3yz4/maxresdefault.jpg)](https://youtu.be/tILkUHD3yz4?si=ztlnsDeZu3RnkRYi&t=130)
-
-### Quick Start
+## Run locally
 
 ```bash
-# Install bun (if not already installed)
+# Install bun, if needed
 curl -fsSL https://bun.sh/install | bash
 
 # Install dependencies
@@ -44,11 +123,16 @@ cp .env.example .env
 
 # Start the development server
 bun run dev
+
+# Run tests
+bun run test
 ```
 
-### Environment Configuration
+## Environment configuration
 
-The application supports automatic semantic segmentation of large message parts using AI. This feature is optional but recommended for better analysis of large conversations.
+The application supports automatic semantic segmentation of large message parts
+using AI. This feature is optional but recommended for better analysis of large
+conversations.
 
 Create a `.env` file based on `.env.example`:
 
@@ -68,24 +152,16 @@ VITE_AI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
 - [Tech stack](docs/tech-stack.md) — TypeScript/React stack, build tools, and libraries
 - [Long prompts analysis](docs/long-prompts.md) — patterns and evolution of system prompts across CLI tools
 
-## Design
+## Privacy and design
 
-Conversation data is private. Your data should stay with you. So this
-implementation doesn't have a backend component. However, the
-breakdown and classification is done by an LLM, so you'll need to
-provide an API key. It could be an API key to the same provider as the
-conversation, so the data stays in one place. This tool doesn't have a
-server component which would require sending conversations to another
-host apart from your model.
+Conversation data is private. Your data should stay with you. Context Viewer
+has no backend component: the browser app processes files locally, and the CLI
+writes local exports. AI-based segmentation and classification are sent only to
+the model provider you configure.
 
-Input conversations should support a few formats, since this space is
-evolving, still. To begin with, it will support the completions and
-responses API formats. They're implemented behind an interface so it's
-easy to add another format's parser.
-
-Currently this tool only supports open-ai as the LLM provider, but the
-idea is to be fully model and format agnostic. It uses vercel's AI
-SDK, so it should be easy enough to add support for other providers.
+Input conversations should support many formats because this space is still
+evolving. Parsers are implemented behind a shared interface so it is easy to add
+another agent or API format.
 
 ## License
 
