@@ -143,6 +143,23 @@ context-lens
 
 The help text is also the intended system prompt / agent instructions for using the tool. It should show the single supported interface and canonical examples.
 
+### System-prompt composition recipe
+
+The help text should also describe the system-prompt composition use case. When
+an agent compares system prompts, it should use a shared `prompt_composition`
+dimension across all prompt files, with these initial components:
+
+- `workflow_guidance`: process, planning, task management, implementation, verification, and Git instructions.
+- `personality_steering`: tone, interaction style, initiative, progress updates, and final-answer instructions.
+- `tool_instructions`: tool descriptions, schemas, tool choice, and tool-use policy.
+- `code_style`: coding conventions, patterns, comments, formatting, and implementation preferences.
+- `environment_details`: runtime, filesystem, permissions, sandbox, platform, date, and project-context instructions.
+
+The agent should keep definitions and colors consistent across files, inspect the
+classified source segments before stating a finding, and distinguish prompt
+composition from behavioral evidence. Context Lens can reveal the former; a
+prompt swap or controlled evaluation is needed to establish the latter.
+
 ## CLI flags
 
 ### `--spec <path|->`

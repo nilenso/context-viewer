@@ -4,6 +4,22 @@ Agent-facing CLI for analyzing AI conversation transcripts.
 
 Choose dimensions that answer the user's question. Do not default to generic code-area axes unless the user specifically asks for that breakdown.
 
+## System-prompt composition
+
+When a user asks to compare system prompts, use a shared `prompt_composition`
+dimension across every prompt. A useful starting taxonomy is:
+
+- `workflow_guidance` — planning, task management, implementation, verification, and Git instructions.
+- `personality_steering` — tone, interaction style, initiative, progress updates, and final-answer instructions.
+- `tool_instructions` — tool descriptions, schemas, tool choice, and tool-use policy.
+- `code_style` — coding conventions, patterns, comments, formatting, and implementation preferences.
+- `environment_details` — runtime, filesystem, permissions, sandbox, platform, date, and project-context instructions.
+
+Use identical component definitions and colors across the comparison. Inspect the
+underlying segments before writing a finding. The output measures classified
+prompt composition; it does not by itself prove that an instruction changes
+model behavior.
+
 ```bash
 context-lens --spec - session.jsonl <<'JSON'
 {

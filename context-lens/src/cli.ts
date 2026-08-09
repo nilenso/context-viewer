@@ -34,6 +34,25 @@ information_type; for process analysis, activity_type; for source mix,
 context_source. context-lens appends the low-level JSON output requirements for
 segmentation.
 
+System-prompt composition:
+When comparing system prompts, use one shared prompt_composition dimension
+across all files. Start with these components unless the user's question calls
+for a different taxonomy:
+  - workflow_guidance: process, planning, task management, implementation,
+    verification, and Git instructions.
+  - personality_steering: tone, interaction style, initiative, progress
+    updates, and final-answer instructions.
+  - tool_instructions: tool descriptions, schemas, tool choice, and tool-use
+    policy.
+  - code_style: coding conventions, patterns, comments, formatting, and
+    implementation preferences.
+  - environment_details: runtime, filesystem, permissions, sandbox, platform,
+    date, and project-context instructions.
+Use the same component definitions and colors for every prompt in a comparison.
+Inspect the source segments before making claims: classifications are useful
+annotations, not ground truth. Context Lens can show composition differences;
+test prompt-behavior claims separately.
+
 Canonical invocation; replace the dimension/components with ones chosen for the
 user's investigation:
   context-lens --spec - session.jsonl <<'JSON'
