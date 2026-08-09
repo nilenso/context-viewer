@@ -4,6 +4,23 @@ Agent-facing CLI for analyzing AI conversation transcripts.
 
 Choose dimensions that answer the user's question. Do not default to generic code-area axes unless the user specifically asks for that breakdown.
 
+## How to use it
+
+1. Start with a concrete question, such as what changed after compaction, how
+   two trajectories differ, or where a transcript spends its tokens.
+2. Inspect the input files before writing the analysis spec.
+3. Choose a small, explicit taxonomy that answers that question. Write clear
+   component descriptions and use the same taxonomy across compared files.
+4. Set segmentation instructions that keep related evidence together and split
+   independent topics.
+5. Run the CLI, check its errors and warnings, and use the analytics to find
+   patterns. Read the classified source segments before treating a pattern as a
+   finding.
+6. Refine the segmentation or taxonomy when the first pass is too broad, then
+   rerun. The classifications are useful annotations, not ground truth.
+7. To share the result, improve export titles, publish the export as a secret
+   gist, and provide the generated Context Viewer link.
+
 ```bash
 context-lens --spec - session.jsonl <<'JSON'
 {

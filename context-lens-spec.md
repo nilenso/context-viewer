@@ -143,6 +143,20 @@ context-lens
 
 The help text is also the intended system prompt / agent instructions for using the tool. It should show the single supported interface and canonical examples.
 
+The help text should also give agents this general workflow:
+
+1. Start with the user's question and inspect the input files.
+2. Choose a small, explicit taxonomy that directly answers the question. Use
+   consistent component definitions and colors across files being compared.
+3. Write segmentation instructions that preserve the evidence needed for the
+   investigation while separating independent topics.
+4. Run the CLI, check errors and warnings, and inspect the classified source
+   segments before treating an aggregate as a finding.
+5. Refine segmentation or taxonomy when the first pass hides an important
+   distinction. Treat classifications as annotations, not ground truth.
+6. Improve export titles before publishing the export as a secret gist and
+   sharing its Context Viewer link.
+
 ## CLI flags
 
 ### `--spec <path|->`

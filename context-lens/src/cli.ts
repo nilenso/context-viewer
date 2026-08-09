@@ -34,6 +34,23 @@ information_type; for process analysis, activity_type; for source mix,
 context_source. context-lens appends the low-level JSON output requirements for
 segmentation.
 
+General workflow:
+  1. Start with the user's question. Decide what a useful comparison or
+     breakdown would establish.
+  2. Inspect the input files before writing the spec. Learn their format,
+     scope, and the evidence they contain.
+  3. Define a small, explicit taxonomy. Each component description must say
+     what belongs in it; use the same taxonomy across files being compared.
+  4. Give segmentation instructions that preserve the evidence needed for the
+     question. Keep related text together and split independent topics.
+  5. Run context-lens, check errors and warnings, then use the analytics to
+     locate patterns. Inspect the classified source segments before making a
+     claim; classifications are annotations, not ground truth.
+  6. Refine the segmentation or taxonomy when it hides an important distinction
+     or combines unrelated material. Rerun and compare the result.
+  7. When sharing, improve the exported files' and groups' titles, publish the
+     export as a secret gist, and provide the resulting Context Viewer link.
+
 Canonical invocation; replace the dimension/components with ones chosen for the
 user's investigation:
   context-lens --spec - session.jsonl <<'JSON'
