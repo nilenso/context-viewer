@@ -9,6 +9,7 @@ import { OpenCodeTranscriptsParser } from "./opencode-transcripts-parser";
 import { AtifParser } from "./atif-parser";
 import { TrajectoryParser } from "./trajectory-parser";
 import { SweAgentTrajectoryParser } from "./swe-agent-trajectory-parser";
+import { NebiusSWEAgentTrajectoryParser } from "./nebius-swe-agent-trajectory-parser";
 import { PlainTextParser } from "./plain-text-parser";
 
 // Register all parsers
@@ -23,7 +24,8 @@ parserRegistry.register(new CodexTranscriptsParser());
 parserRegistry.register(new OpenCodeTranscriptsParser());
 parserRegistry.register(new AtifParser());
 parserRegistry.register(new SweAgentTrajectoryParser());
+parserRegistry.register(new NebiusSWEAgentTrajectoryParser());
 parserRegistry.register(new TrajectoryParser());
 parserRegistry.register(new PlainTextParser());
 
-export { ContextViewerParser, ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, CodexTranscriptsParser, OpenCodeTranscriptsParser, AtifParser, SweAgentTrajectoryParser, TrajectoryParser, PlainTextParser };
+export { ContextViewerParser, ResponsesParser, CompletionsParser, ConversationsParser, ClaudeTranscriptsParser, CodexTranscriptsParser, OpenCodeTranscriptsParser, AtifParser, SweAgentTrajectoryParser, NebiusSWEAgentTrajectoryParser, TrajectoryParser, PlainTextParser };

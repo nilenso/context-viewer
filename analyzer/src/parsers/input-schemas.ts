@@ -815,3 +815,19 @@ export const SweAgentTrajectoryInputSchema = z.object({
 export type SweAgentTrajectoryInput = z.infer<typeof SweAgentTrajectoryInputSchema>;
 export type SweAgentHistoryMessage = z.infer<typeof SweAgentHistoryMessageSchema>;
 export type SweAgentToolCall = z.infer<typeof SweAgentToolCallSchema>;
+
+const NebiusSWEAgentTrajectoryMessageSchema = z.object({
+  cutoff_date: z.string().nullable().optional(),
+  mask: z.boolean().optional(),
+  role: z.enum(["system", "user", "ai"]),
+  system_prompt: z.string().nullable().optional(),
+  text: z.string().nullable().optional(),
+});
+
+export const NebiusSWEAgentTrajectoryInputSchema = z.object({
+  instance_id: z.string(),
+  model_name: z.string(),
+  trajectory: z.array(NebiusSWEAgentTrajectoryMessageSchema),
+});
+
+export type NebiusSWEAgentTrajectoryInput = z.infer<typeof NebiusSWEAgentTrajectoryInputSchema>;
