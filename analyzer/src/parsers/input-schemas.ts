@@ -713,6 +713,69 @@ export type AtifContentPart = z.infer<typeof AtifContentPartSchema>;
 export type AtifToolCall = z.infer<typeof AtifToolCallSchema>;
 
 // ============================================================================
+// Agent Data Protocol Format Schema (JSON / JSONL)
+// ============================================================================
+
+const AdpTextObservationSchema = z.object({
+  class_: z.literal("text_observation"),
+  content: z.string(),
+  name: z.string().nullable().optional(),
+  source: z.enum(["user", "environment"]),
+}).passthrough();
+
+const AdpWebObservationSchema = z.object({
+  class_: z.literal("web_observation"),
+  url: z.string().optional(),
+  html: z.string().optional(),
+  axtree: z.unknown().optional(),
+  viewport_size: z.unknown().optional(),
+  image_observation: z.unknown().optional(),
+}).passthrough();
+
+const AdpApiActionSchema = z.object({
+  class_: z.literal("api_action"),
+  function: z.string(),
+  kwargs: z.record(z.string(), z.unknown()),
+  description: z.string().nullable().optional(),
+}).passthrough();
+
+const AdpCodeActionSchema = z.object({
+  class_: z.literal("code_action"),
+  language: z.string(),
+  content: z.string(),
+  description: z.string().nullable().optional(),
+}).passthrough();
+
+const AdpMessageActionSchema = z.object({
+  class_: z.literal("message_action"),
+  content: z.string(),
+  description: z.string().nullable().optional(),
+}).passthrough();
+
+const AdpContentSchema = z.discriminatedUnion("class_", [
+  AdpTextObservationSchema,
+  AdpWebObservationSchema,
+  AdpApiActionSchema,
+  AdpCodeActionSchema,
+  AdpMessageActionSchema,
+]);
+
+export const AdpTrajectoryInputSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  content: z.array(AdpContentSchema),
+  details: z.record(z.string(), z.unknown()).default({}),
+}).passthrough();
+
+export const AdpInputSchema = z.union([
+  AdpTrajectoryInputSchema,
+  z.array(AdpTrajectoryInputSchema).nonempty(),
+]);
+
+export type AdpInput = z.infer<typeof AdpInputSchema>;
+export type AdpTrajectoryInput = z.infer<typeof AdpTrajectoryInputSchema>;
+export type AdpContent = z.infer<typeof AdpContentSchema>;
+
+// ============================================================================
 // SWE-bench Trajectory Format Schema (JSON)
 // ============================================================================
 
