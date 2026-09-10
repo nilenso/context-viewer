@@ -19,20 +19,20 @@ export function getRuntimeApiKey(): string | null {
 }
 
 export function hasApiKey(): boolean {
-  return !!(runtimeApiKey || import.meta.env.VITE_AI_API_KEY);
+  return !!(runtimeApiKey || import.meta.env.VITE_OPENROUTER_API_KEY);
 }
 
 export function isApiKeyFromEnv(): boolean {
-  return !!import.meta.env.VITE_AI_API_KEY;
+  return !!import.meta.env.VITE_OPENROUTER_API_KEY;
 }
 
 /**
- * Build an AnalyzerConfig from the current environment + runtime key.
+ * Build an AnalyzerConfig for OpenRouter from the current environment + runtime key.
  */
 export function getAnalyzerConfig() {
-  const apiKey = runtimeApiKey || import.meta.env.VITE_AI_API_KEY || "";
-  const model = import.meta.env.VITE_AI_MODEL || "gpt-5.4-mini";
-  const baseURL = import.meta.env.VITE_AI_BASE_URL || undefined;
+  const apiKey = runtimeApiKey || import.meta.env.VITE_OPENROUTER_API_KEY || "";
+  const model = import.meta.env.VITE_AI_MODEL || "openai/gpt-4o-mini";
+  const baseURL = "https://openrouter.ai/api/v1";
   const apiModeEnv = (import.meta.env.VITE_AI_API_MODE || "").toLowerCase();
   const apiMode = apiModeEnv === "chat" ? "chat" as const : "responses" as const;
   const thinkingEnv = (import.meta.env.VITE_AI_THINKING || "").toLowerCase();

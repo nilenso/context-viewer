@@ -111,7 +111,7 @@ export function ApiKeyInput({
     <Card className="p-3 mt-3 bg-amber-50 border-amber-200">
       <div className="flex items-center gap-2 text-sm text-amber-700 mb-2">
         <Key className="h-4 w-4" />
-        <span>Enter OpenAI API key for AI features</span>
+        <span>Enter OpenRouter API key for AI features</span>
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1">
