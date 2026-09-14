@@ -46,12 +46,13 @@ export function exportPromptsAsPreset(source: PipelineState): void {
   if (source.customAnalysisPrompt) preset.analysisPrompt = source.customAnalysisPrompt;
 
   if (source.dimensions && Object.keys(source.dimensions).length > 1) {
-    const dimPrompts: Record<string, { prompt?: string; coloringPrompt?: string; components: string[] }> = {};
+    const dimPrompts: Record<string, { prompt?: string; coloringPrompt?: string; components: string[]; colors: Record<string, string> }> = {};
     for (const [dimName, dim] of Object.entries(source.dimensions)) {
       dimPrompts[dimName] = {
         prompt: dim.prompt,
         coloringPrompt: dim.customColoringPrompt,
         components: dim.discoveredComponents,
+        colors: dim.componentColors,
       };
     }
     preset.dimensions = dimPrompts;

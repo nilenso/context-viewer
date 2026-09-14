@@ -253,8 +253,26 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       // Build options
       const options: any = { interceptors };
       if (loadedPreset) {
-        options.components = loadedPreset.components?.map((c: string) => ({ name: c, description: c }));
-        options.presetColors = loadedPreset.colors;
+        if (loadedPreset.dimensions) {
+          options.dimensions = Object.fromEntries(
+            Object.entries(loadedPreset.dimensions).map(([name, dimension]) => [
+              name,
+              {
+                ...dimension,
+                components: dimension.components.map((component) => ({
+                  name: component,
+                  description: component,
+                })),
+              },
+            ]),
+          );
+        } else {
+          options.components = loadedPreset.components?.map((component) => ({
+            name: component,
+            description: component,
+          }));
+          options.presetColors = loadedPreset.colors;
+        }
         if (loadedPreset.componentIdentificationPrompt) {
           options.prompts = { "component-identification": loadedPreset.componentIdentificationPrompt };
         }

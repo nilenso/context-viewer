@@ -14,6 +14,12 @@ export interface PresetConfig {
   segmentationPrompt?: string;
   components: string[];
   colors: Record<string, string>;
+  dimensions?: Record<string, {
+    prompt?: string;
+    components: string[];
+    colors?: Record<string, string>;
+    coloringPrompt?: string;
+  }>;
 }
 
 /**
