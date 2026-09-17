@@ -228,6 +228,38 @@ describe("session — iteration", () => {
     expect(result2.states[0]!.dimensions?.topic?.componentColors.greeting).toBe("#00ff00");
     expect(result2.analytics[0]!.dimensions.topic!.components[0]!.color).toBe("#00ff00");
   });
+
+  it("renames and removes dimensions without losing their outputs", async () => {
+    const result1 = await analyze({
+      files: { content: minimalContent, filename: "test.jsonl" },
+      dimensions: {
+        topic: {
+          components: [{ name: "greeting", description: "Greeting text." }],
+          colors: { greeting: "#ff0000" },
+        },
+      },
+    }, noAiConfig);
+    const original = result1.states[0]!.dimensions!.topic!;
+
+    const renamed = await analyze({
+      sessionId: result1.sessionId,
+      renameDimensions: { topic: "activity" },
+    }, noAiConfig);
+
+    expect(renamed.states[0]!.dimensions?.topic).toBeUndefined();
+    expect(renamed.states[0]!.dimensions?.activity).toMatchObject({
+      name: "activity",
+      customComponents: ["greeting"],
+      componentColors: original.componentColors,
+    });
+
+    const removed = await analyze({
+      sessionId: result1.sessionId,
+      removeDimensions: ["activity"],
+    }, noAiConfig);
+
+    expect(removed.states[0]!.dimensions?.activity).toBeUndefined();
+  });
 });
 
 describe("session — interceptors", () => {

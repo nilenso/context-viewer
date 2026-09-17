@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   summarize: vi.fn(),
   analyzeContext: vi.fn(),
   setReprocessingId: vi.fn(),
+  setActiveDimensions: vi.fn(),
 }));
 
 vi.mock("context-analyzer", () => ({
@@ -36,7 +37,9 @@ vi.mock("@/stores/ui-store", () => ({
   useUIStore: {
     getState: () => ({
       editingDimensionName: "default",
+      activeDimensions: new Set(["default", "topic"]),
       setReprocessingId: mocks.setReprocessingId,
+      setActiveDimensions: mocks.setActiveDimensions,
     }),
   },
 }));
@@ -66,6 +69,8 @@ import {
   applyPromptsToAllAction,
   generateAnalysis,
   generateSummary,
+  removeDimension,
+  renameDimension,
   reprocessComponents,
   resumePipelinesWithApiKeyAction,
 } from "@/stores/actions";
@@ -193,5 +198,57 @@ describe("viewer session actions", () => {
       customSummaryPrompt: "Summarize together",
       customAnalysisPrompt: "Compare files",
     });
+  });
+
+  it("synchronizes group dimension renames and removals with member sessions", async () => {
+    const withTopic = (id: string) => conversation(id, {
+      dimensions: {
+        topic: {
+          name: "topic",
+          discoveredComponents: ["discussion"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+      },
+    });
+    useConversationStore.setState({
+      conversations: [withTopic("one"), withTopic("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+    mocks.analyze.mockImplementation(async (options: any) => {
+      const id = String(options.sessionId).replace("session:", "");
+      const current = useConversationStore.getState().getConversation(id)!;
+      const dimensions = { ...(current.dimensions || {}) };
+      for (const [oldName, newName] of Object.entries(options.renameDimensions || {})) {
+        const dimension = dimensions[oldName];
+        if (dimension) {
+          dimensions[String(newName)] = { ...dimension, name: String(newName) };
+          delete dimensions[oldName];
+        }
+      }
+      for (const name of options.removeDimensions || []) delete dimensions[name];
+      return {
+        ...resultFor(id),
+        states: [{ ...current, dimensions }],
+      };
+    });
+
+    await renameDimension("group", "topic", "activity");
+    expect(useConversationStore.getState().conversations.every((conv) =>
+      !!conv.dimensions?.activity && !conv.dimensions?.topic,
+    )).toBe(true);
+    expect(mocks.analyze.mock.calls.every(([options]) =>
+      options.renameDimensions?.topic === "activity",
+    )).toBe(true);
+
+    mocks.analyze.mockClear();
+    await removeDimension("group", "activity");
+    expect(useConversationStore.getState().conversations.every((conv) =>
+      !conv.dimensions?.activity,
+    )).toBe(true);
+    expect(mocks.analyze.mock.calls.every(([options]) =>
+      options.removeDimensions?.[0] === "activity",
+    )).toBe(true);
   });
 });
