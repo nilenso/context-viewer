@@ -2,7 +2,7 @@ name: Tests
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, cli]
   push:
     branches: [main]
 
@@ -12,5 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
-      - run: bun install
+      - run: bun run setup:all
+      - run: bun run check
       - run: bun run test

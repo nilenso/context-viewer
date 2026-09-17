@@ -35,8 +35,8 @@ The first four samples are from Drew Breunig's [System Prompts Define the Agent 
 # Install bun (if not already installed)
 curl -fsSL https://bun.sh/install | bash
 
-# Install dependencies
-bun install
+# Install viewer and analyzer dependencies
+bun run setup:viewer
 
 # Copy .env.example to .env and add your API key
 cp .env.example .env

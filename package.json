@@ -3,13 +3,21 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "cd viewer && bunx vite",
-    "build": "cd viewer && bunx vite build",
-    "preview": "cd viewer && bunx vite preview",
-    "test": "cd viewer && bunx vitest run",
-    "test:watch": "cd viewer && bunx vitest",
-    "test:analyzer": "cd analyzer && vitest run",
-    "test:all": "cd analyzer && vitest run && cd ../viewer && vitest run"
+    "setup:viewer": "cd analyzer && bun install --frozen-lockfile && cd ../viewer && bun install --frozen-lockfile",
+    "setup:cli": "cd context-lens && bun install --frozen-lockfile",
+    "setup:all": "bun run setup:viewer && bun run setup:cli",
+    "dev": "cd viewer && bun run dev",
+    "build": "cd viewer && bun run build",
+    "preview": "cd viewer && bun run preview",
+    "test": "bun run test:all",
+    "test:watch": "cd viewer && bun run test:watch",
+    "test:analyzer": "cd analyzer && bun run test",
+    "test:viewer": "cd viewer && bun run test",
+    "test:all": "bun run test:analyzer && bun run test:viewer",
+    "check": "bun run check:analyzer && bun run check:viewer && bun run check:cli",
+    "check:analyzer": "cd analyzer && bunx tsc --noEmit",
+    "check:viewer": "cd viewer && bunx tsc --noEmit",
+    "check:cli": "cd context-lens && bun run check"
   },
   "devDependencies": {
     "vite": "^5.4.8",

@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
-      - run: bun install
+      - run: bun run setup:viewer
       - run: bun run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: viewer/dist
 
   deploy:
     needs: build
