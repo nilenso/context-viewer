@@ -79,6 +79,15 @@ describe("session — first run", () => {
     expect(result.analytics.length).toBe(1);
   });
 
+  it("preserves a caller-provided file ID", async () => {
+    const result = await analyze({
+      files: { id: "viewer-file-1", content: minimalContent, filename: "test.jsonl" },
+    }, noAiConfig);
+
+    expect(result.states[0]!.id).toBe("viewer-file-1");
+    expect(result.analytics[0]!.fileId).toBe("viewer-file-1");
+  });
+
   it("works without API key — parse + token count only", async () => {
     const result = await analyze({
       files: { content: minimalContent, filename: "test.jsonl" },
