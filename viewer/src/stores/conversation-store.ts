@@ -5,6 +5,7 @@ import type { Group } from "context-analyzer";
 import { generateId } from "@/lib/id-generator";
 import { parseFileDropInput } from "@/lib/file-import";
 import { getAnalyzerConfig } from "@/lib/ai-config";
+import { formatAnalyzerErrors } from "@/lib/analyzer-errors";
 import { markStepStart, markStepEnd } from "@/lib/pipeline-logging";
 
 // ---------------------------------------------------------------------------
@@ -210,14 +211,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       if (filesToProcess.length === 0) return;
 
       // Create placeholders
-      const fileInputs: Array<{ content: string; filename: string; placeholderId: string }> = [];
+      const fileInputs: Array<{ id: string; content: string; filename: string }> = [];
       const placeholders: ViewerConversationState[] = [];
 
       for (const file of filesToProcess) {
         const id = generateId();
         placeholders.push({ id, filename: file.name, status: "pending", warnings: [], stepTimings: {} });
         const content = await file.text();
-        fileInputs.push({ content, filename: file.name, placeholderId: id });
+        fileInputs.push({ id, content, filename: file.name });
       }
 
       const importedGroups: Record<string, Group> = {};
@@ -264,39 +265,31 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         }
       }
 
-      try {
-        const result = await analyze(
-          {
-            ...options,
-            files: fileInputs.map((f) => ({ content: f.content, filename: f.filename })),
-          },
-          config,
-        );
+      // A viewer file owns its analyzer session. This keeps iteration, resume,
+      // and deletion independent when several files are dropped together.
+      await Promise.all(fileInputs.map(async (file) => {
+        try {
+          const result = await analyze({ ...options, files: file }, config);
+          const state = result.states[0];
+          if (!state) throw new Error("Analyzer returned no state");
 
-        // Map analyzer states back to our placeholders and mark complete
-        const hasKey = !!config.apiKey;
-        for (let i = 0; i < result.states.length; i++) {
-          const state = result.states[i]!;
-          const placeholder = placeholders[i]!;
-          const completed = hasKey || !state.conversation;
-          updateFn(placeholder.id, {
+          const needsApiKey = !config.apiKey && state.metadata?.parserName !== "Context Viewer";
+          updateFn(file.id, {
             ...state,
-            id: placeholder.id, // keep our ID
             sessionId: result.sessionId,
-            status: completed ? "success" : "paused-for-api-key",
-            pausedAtStep: completed ? undefined : "segmenting",
+            warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
+            status: needsApiKey ? "paused-for-api-key" : "success",
+            pausedAtStep: needsApiKey ? "segmenting" : undefined,
             step: undefined,
+            error: undefined,
           });
-        }
-
-      } catch (error) {
-        for (const p of placeholders) {
-          updateFn(p.id, {
+        } catch (error) {
+          updateFn(file.id, {
             status: "failed",
             error: error instanceof Error ? error.message : "Unknown error",
           });
         }
-      }
+      }));
     },
 
     groupConversations: (ids, name, existingId, title) => {

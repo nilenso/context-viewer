@@ -22,6 +22,7 @@ import {
 import type { PipelineState, Stage, Interceptor } from "context-analyzer";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "context-analyzer";
 import { getAnalyzerConfig } from "@/lib/ai-config";
+import { formatAnalyzerErrors } from "@/lib/analyzer-errors";
 import { downloadExport, exportPromptsAsPreset } from "@/ui/lib/export-download";
 import { markStepStart, markStepEnd } from "@/lib/pipeline-logging";
 
@@ -92,11 +93,15 @@ async function reprocessWithSession(
       getAnalyzerConfig(),
     );
 
-    // Update with final state
-    const state = result.states.find((s) => s.id === conv.id) || result.states[0];
-    if (state) {
-      store.updateConversation(id, { ...state, id, status: "success", step: undefined });
-    }
+    const state = result.states.find((candidate) => candidate.id === id);
+    if (!state) throw new Error(`Analyzer session did not contain file ${id}`);
+    store.updateConversation(id, {
+      ...state,
+      warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
+      status: "success",
+      step: undefined,
+      error: undefined,
+    });
   } catch (error) {
     console.error("Reprocessing failed:", error);
     store.updateConversation(id, {
@@ -491,7 +496,13 @@ export async function applyPromptsToAllAction(sourceId: string) {
       );
       for (const state of result.states) {
         if (targetIds.has(state.id)) {
-          store.updateConversation(state.id, { ...state, status: "success", step: undefined });
+          store.updateConversation(state.id, {
+            ...state,
+            warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
+            status: "success",
+            step: undefined,
+            error: undefined,
+          });
         }
       }
     } catch (error) {

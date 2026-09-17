@@ -39,6 +39,8 @@ import "./parsers/index";
 // ============================================================================
 
 export interface FileInput {
+  /** Stable caller-provided identity. Generated when omitted. */
+  id?: string;
   content: string;
   filename: string;
 }
@@ -504,7 +506,7 @@ function buildIterationInputs(options: AnalyzeOptions) {
 }
 
 export function buildPipelineState(file: FileInput, options: AnalyzeOptions = {}): PipelineState {
-  const id = generateId();
+  const id = file.id || generateId();
 
   let dimensions: Record<string, DimensionData> | undefined;
 
