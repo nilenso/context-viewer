@@ -26,6 +26,7 @@
  *   - staticComponents/Mapping/Timeline — deterministic role.type breakdown
  *   - dimensions[name].discoveredComponents — AI-identified component list
  *   - dimensions[name].componentMapping — part→component assignments
+ *   - dimensions[name].classificationJudgments — optional confidence/probabilities
  *   - dimensions[name].componentTimeline — cumulative token distribution
  *   - dimensions[name].componentColors — hex colors per component
  */
@@ -113,6 +114,7 @@ function jsonEq(a: unknown, b: unknown): boolean {
 function clearDimensionIdentification(dim: DimensionData): void {
   dim.discoveredComponents = [];
   dim.componentMapping = {};
+  dim.classificationJudgments = undefined;
   dim.componentTimeline = [];
   dim.componentColors = {};
 }
@@ -217,6 +219,7 @@ export function applyIterationInputs(
           dim.componentDescriptions = newDim.componentDescriptions;
           // Clear mapping and timeline but keep discovered components
           dim.componentMapping = {};
+          dim.classificationJudgments = undefined;
           dim.componentTimeline = [];
           affectedDims.add(dimName);
         }

@@ -82,6 +82,11 @@ API key setup:
 API key lookup order:
   --api-key, OPENAI_API_KEY, VITE_AI_API_KEY, AI_API_KEY, ~/.context-lens/.env
 
+Jev classification (optional):
+  Set TYPESAFE_API_KEY in the environment or ~/.context-lens/.env to use Jev
+  for classification only. TYPESAFE_MODEL defaults to jev-latest. The key is
+  sent only to the TypeSafe API and is never included in analytics or exports.
+
 Output:
   stdout: analytics JSON with exportPath and contextViewerUrlTemplate.
   stderr: progress.
@@ -361,12 +366,20 @@ function buildAnalyzerConfig(args: CliArgs, contextLensEnv: EnvValues | null): A
     fail(missingApiKeyMessage(contextLensEnv !== null));
   }
 
+  const typeSafeApiKey = getEnvValue(contextLensEnv, "TYPESAFE_API_KEY");
+
   return {
     apiKey,
     model: args.model || getEnvValue(contextLensEnv, "OPENAI_MODEL") || getEnvValue(contextLensEnv, "AI_MODEL"),
     baseURL: args.baseURL || getEnvValue(contextLensEnv, "OPENAI_BASE_URL") || getEnvValue(contextLensEnv, "AI_BASE_URL"),
     apiMode: args.apiMode || optionalApiMode(getEnvValue(contextLensEnv, "OPENAI_API_MODE") || getEnvValue(contextLensEnv, "AI_API_MODE")),
     reasoningEffort: optionalReasoning(args.reasoningEffort || getEnvValue(contextLensEnv, "OPENAI_REASONING_EFFORT") || getEnvValue(contextLensEnv, "AI_REASONING_EFFORT")),
+    classification: typeSafeApiKey ? {
+      provider: "typesafe",
+      apiKey: typeSafeApiKey,
+      model: getEnvValue(contextLensEnv, "TYPESAFE_MODEL"),
+      baseURL: getEnvValue(contextLensEnv, "TYPESAFE_BASE_URL"),
+    } : undefined,
     logLevel: args.logLevel || "silent",
   };
 }

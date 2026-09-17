@@ -6,7 +6,7 @@
  *   [32] classifyForDimension(default, 51 components) → mapping + timeline + added "other"
  *   [38] mapComponentsToIds(segment-1, 338 msgs) → 460 entries (first 10 in SEG1_MAP_FIRST_ENTRIES)
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   PC1_MAP_COMPONENTS_RESULT,
   SEG1_COMPONENTS,
@@ -30,6 +30,7 @@ vi.mock("../../config", async (importOriginal) => {
 import { generateText } from "ai";
 import {
   mapComponentsToIds,
+  mapComponentsToIdsWithTypeSafe,
   classifyForDimension,
   buildComponentTimeline,
 } from "../../stages/classify";
@@ -99,6 +100,79 @@ describe("mapComponentsToIds", () => {
     (generateText as any).mockResolvedValue({ text: "No valid JSON here" });
     const { mapping: result } = await mapComponentsToIds(pc1Conversation, ["a"], testConfig);
     expect(result).toEqual({});
+  });
+});
+
+describe("mapComponentsToIdsWithTypeSafe", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks one Jev Choice per part and preserves confidence", async () => {
+    const conversation = {
+      messages: [{
+        id: "1",
+        role: "user" as const,
+        parts: [
+          { id: "p1", type: "text" as const, text: "Read the failing test", token_count: 5 },
+          { id: "p2", type: "text" as const, text: "Apply the code fix", token_count: 5 },
+        ],
+      }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: "jev-1.13.0",
+      answers: {
+        part_0: {
+          type: "choice",
+          choice: "exploration",
+          confidence: 0.92,
+          probabilities: { exploration: 0.96, implementation: 0.03, other: 0.01 },
+        },
+        part_1: {
+          type: "choice",
+          choice: "implementation",
+          confidence: 0.84,
+          probabilities: { exploration: 0.08, implementation: 0.9, other: 0.02 },
+        },
+      },
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await mapComponentsToIdsWithTypeSafe(
+      conversation,
+      ["exploration", "implementation"],
+      {
+        exploration: "Reading and investigating existing code or tests.",
+        implementation: "Writing or modifying code.",
+      },
+      "activity",
+      { provider: "typesafe", apiKey: "typesafe-test-key" },
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.mapping).toEqual({ p1: "exploration", p2: "implementation" });
+    expect(result.judgments?.p1).toEqual({
+      choice: "exploration",
+      confidence: 0.92,
+      probabilities: { exploration: 0.96, implementation: 0.03, other: 0.01 },
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://api.typesafe.ai/v1/systemone");
+    expect(init.headers.Authorization).toBe("Bearer typesafe-test-key");
+
+    const body = JSON.parse(init.body);
+    expect(body.model).toBe("jev-latest");
+    expect(body.state.parts).toHaveLength(2);
+    expect(body.questions.part_0).toMatchObject({
+      type: "choice",
+      criteria: {
+        exploration: "Reading and investigating existing code or tests.",
+        implementation: "Writing or modifying code.",
+        other: "The part does not meaningfully fit any of the listed components.",
+      },
+    });
+    expect(body.questions.part_0.instructions).toContain("`parts[0]`");
+    expect(body.questions.part_1.instructions).toContain("`parts[1]`");
   });
 });
 

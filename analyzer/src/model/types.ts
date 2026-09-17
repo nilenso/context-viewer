@@ -30,6 +30,13 @@ export interface ComponentTimelineSnapshot {
   totalTokens: number;
 }
 
+/** Optional confidence data returned by a probabilistic classifier such as Jev. */
+export interface ClassificationJudgment {
+  choice: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+}
+
 // ---------------------------------------------------------------------------
 // Component dimension
 // ---------------------------------------------------------------------------
@@ -39,6 +46,7 @@ export interface DimensionData {
   prompt?: string;
   discoveredComponents: string[];
   componentMapping: Record<string, string>;
+  classificationJudgments?: Record<string, ClassificationJudgment>;
   componentTimeline: ComponentTimelineSnapshot[];
   componentColors: Record<string, string>;
   customComponents?: string[];

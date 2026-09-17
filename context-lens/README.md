@@ -44,6 +44,18 @@ mkdir -p ~/.context-lens && printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=gpt-5.4-mini
 
 `--api-key`, `OPENAI_API_KEY`, `VITE_AI_API_KEY`, and `AI_API_KEY` are also accepted for one-off use.
 
+To use TypeSafe's Jev model for classification only, add its key to the same
+file (or set it in the environment):
+
+```bash
+printf 'TYPESAFE_API_KEY=%s\n' 'ts-REPLACE_WITH_YOUR_TYPESAFE_KEY' >> ~/.context-lens/.env
+```
+
+When `TYPESAFE_API_KEY` is present, the CLI automatically uses Jev for the
+closed-set component classification stage. The OpenAI-compatible model still
+handles segmentation and any other generative stages. `TYPESAFE_MODEL` and
+`TYPESAFE_BASE_URL` are optional overrides.
+
 The CLI prints analytics JSON to stdout, including `exportPath` and `contextViewerUrlTemplate`; progress goes to stderr.
 
 To share results, optionally edit `exportPath` first to set `files[].title` and `groups[].title` for better viewer labels. Keep `ids`/`fileIds` unchanged. Then publish `exportPath` as a secret gist, replace `RAW_URL` in `contextViewerUrlTemplate` with the gist raw URL, and give users one Markdown link:

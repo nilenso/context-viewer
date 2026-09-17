@@ -101,6 +101,45 @@ for (const file of result.analytics) {
 }
 ```
 
+## Jev for classification
+
+Component classification is a closed-set decision: for each conversation part,
+choose exactly one component from a known taxonomy. That maps directly to a
+[TypeSafe Choice](https://docs.typesafe.ai/primitives/choice).
+
+Set an optional TypeSafe classification provider to use Jev for this stage only.
+Segmentation, component discovery, coloring, and summaries continue to use the
+configured language model.
+
+```typescript
+const result = await analyze2(options, {
+  apiKey: process.env.OPENAI_API_KEY!,
+  classification: {
+    provider: "typesafe",
+    apiKey: process.env.TYPESAFE_API_KEY!,
+    model: "jev-latest", // optional; this is the default
+  },
+});
+```
+
+The analyzer batches one Choice question per part. The winning choices populate
+the existing `componentMapping`, while Jev's confidence and full probability
+distribution remain available for inspection:
+
+```typescript
+const state = result.states[0];
+const partId = state.conversation!.messages[0].parts[0].id;
+const judgment = state.dimensions!.engineering_area.classificationJudgments![partId];
+
+console.log(judgment.choice);
+console.log(judgment.confidence);
+console.log(judgment.probabilities);
+```
+
+An `other` criterion is included automatically so Jev is never forced to select
+an unrelated component. Keep the TypeSafe API key server-side; browser apps should
+call the analyzer through a trusted backend.
+
 ## Sessions and iteration
 
 `analyze2()` returns a `sessionId`. Pass it back to iterate — refine dimensions, segmentation, or colors — without re-running unchanged stages.
@@ -195,6 +234,12 @@ Lower-level compatibility API. Prefer `analyze2()` for new agent-facing integrat
   baseURL?: string;
   apiMode?: "responses" | "chat";
   reasoningEffort?: "none" | "low" | "medium" | "high";
+  classification?: {
+    provider: "typesafe";
+    apiKey: string;
+    model?: string;              // default: "jev-latest"
+    baseURL?: string;            // default: "https://api.typesafe.ai/v1"
+  };
   logLevel?: "silent" | "info" | "debug";
   logger?: (entry: LogEntry) => void;
 }
