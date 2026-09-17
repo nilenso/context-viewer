@@ -73,10 +73,8 @@ async function reprocessWithSession(
   conv: ViewerConversationState,
   options: Record<string, any>,
 ) {
-  const ui = useUIStore.getState();
   const store = useConversationStore.getState();
   const id = conv.id;
-  ui.setReprocessingId(id);
 
   try {
     if (!conv.sessionId) {
@@ -108,6 +106,33 @@ async function reprocessWithSession(
       status: "failed", step: undefined,
       error: error instanceof Error ? error.message : "Reprocessing failed",
     });
+  }
+}
+
+function resolveTargets(
+  selectedConversation: ViewerConversationState,
+  selectedGroupFileIds?: string[],
+): ViewerConversationState[] {
+  const store = useConversationStore.getState();
+  const fileIds = selectedGroupFileIds || store.getGroup(selectedConversation.id)?.fileIds;
+  if (!fileIds) return [selectedConversation];
+  return fileIds
+    .map((id) => store.getConversation(id))
+    .filter((conv): conv is ViewerConversationState => !!conv?.conversation);
+}
+
+async function reprocessTargets(
+  selectedConversation: ViewerConversationState,
+  selectedGroupFileIds: string[] | undefined,
+  options: Record<string, any>,
+) {
+  const ui = useUIStore.getState();
+  ui.setReprocessingId(selectedConversation.id);
+  try {
+    await Promise.all(
+      resolveTargets(selectedConversation, selectedGroupFileIds)
+        .map((conv) => reprocessWithSession(conv, options)),
+    );
   } finally {
     ui.setReprocessingId(null);
   }
@@ -115,11 +140,11 @@ async function reprocessWithSession(
 
 export async function reprocessComponents(
   selectedConversation: ViewerConversationState,
-  _selectedGroupFileIds: string[] | undefined,
+  selectedGroupFileIds: string[] | undefined,
   options: { customPrompt?: string; customComponents?: string[] } = {},
 ) {
   const dimName = useUIStore.getState().editingDimensionName || "default";
-  await reprocessWithSession(selectedConversation, {
+  await reprocessTargets(selectedConversation, selectedGroupFileIds, {
     dimensions: {
       [dimName]: {
         prompt: options.customPrompt,
@@ -131,10 +156,10 @@ export async function reprocessComponents(
 
 export async function reprocessSegmentation(
   selectedConversation: ViewerConversationState,
-  _selectedGroupFileIds: string[] | undefined,
+  selectedGroupFileIds: string[] | undefined,
   options: { customSegmentationPrompt?: string; segmentationThreshold?: number } = {},
 ) {
-  await reprocessWithSession(selectedConversation, {
+  await reprocessTargets(selectedConversation, selectedGroupFileIds, {
     prompts: options.customSegmentationPrompt !== undefined
       ? { segmentation: options.customSegmentationPrompt }
       : undefined,
@@ -146,27 +171,7 @@ export async function reprocessSummary(
   selectedConversation: ViewerConversationState,
   options: { customSummaryPrompt?: string } = {},
 ) {
-  const ui = useUIStore.getState();
-  const store = useConversationStore.getState();
-  const id = selectedConversation.id;
-  ui.setReprocessingId(id);
-
-  try {
-    const result = await summarize(
-      { sessionId: "", format: "", analytics: [], states: [selectedConversation], errors: [], warnings: [] },
-      getAnalyzerConfig(),
-      { prompt: options.customSummaryPrompt },
-    );
-    store.updateConversation(id, {
-      aiSummary: result.summary,
-      customSummaryPrompt: options.customSummaryPrompt,
-      status: "success",
-    });
-  } catch (error) {
-    console.error("Summary failed:", error);
-  } finally {
-    ui.setReprocessingId(null);
-  }
+  await generateSummary(selectedConversation.id, selectedConversation, options);
 }
 
 export async function generateAnalysis(
@@ -185,12 +190,14 @@ export async function generateAnalysis(
       getAnalyzerConfig(),
       { prompt: options.customAnalysisPrompt },
     );
-    store.updateConversation(id, {
+    const update = {
       analysis: result.analysis,
       aiSummary: result.summary,
       customAnalysisPrompt: options.customAnalysisPrompt,
-      status: "success",
-    });
+    };
+    const group = store.getGroup(id);
+    if (group) store.updateGroup(id, update);
+    else store.updateConversation(id, { ...update, status: "success" });
   } catch (error) {
     console.error("Analysis failed:", error);
   } finally {
@@ -214,11 +221,13 @@ export async function generateSummary(
       getAnalyzerConfig(),
       { prompt: options.customSummaryPrompt },
     );
-    store.updateConversation(id, {
+    const update = {
       aiSummary: result.summary,
       customSummaryPrompt: options.customSummaryPrompt,
-      status: "success",
-    });
+    };
+    const group = store.getGroup(id);
+    if (group) store.updateGroup(id, update);
+    else store.updateConversation(id, { ...update, status: "success" });
   } catch (error) {
     console.error("Summary failed:", error);
   } finally {
@@ -268,7 +277,9 @@ export function openComponentsEditor(id: string, dimensionName?: string) {
 
 export function openSegmentationPromptEditor(id: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const group = store.getGroup(id);
+  const conv = store.getConversation(id) || (group ? store.getConversation(group.fileIds[0] || "") : undefined);
   const ui = useUIStore.getState();
   ui.setEditingSegmentationPrompt(conv?.customSegmentationPrompt || getDefaultSegmentationPrompt());
   ui.setEditingSegmentationThreshold(conv?.segmentationThreshold ?? DEFAULT_SEGMENTATION_THRESHOLD);
@@ -277,17 +288,21 @@ export function openSegmentationPromptEditor(id: string) {
 
 export function openSummaryPromptEditor(id: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const conv = store.getConversation(id);
+  const group = store.getGroup(id);
   const ui = useUIStore.getState();
-  ui.setEditingSummaryPrompt(conv?.customSummaryPrompt || getDefaultSummaryPrompt());
+  ui.setEditingSummaryPrompt(conv?.customSummaryPrompt || group?.customSummaryPrompt || getDefaultSummaryPrompt());
   ui.setIsSummaryPromptDialogOpen(true);
 }
 
 export function openAnalysisPromptEditor(id: string) {
   navigateToId(id);
-  const conv = useConversationStore.getState().conversations.find((c) => c.id === id);
+  const store = useConversationStore.getState();
+  const conv = store.getConversation(id);
+  const group = store.getGroup(id);
   const ui = useUIStore.getState();
-  ui.setEditingAnalysisPrompt(conv?.customAnalysisPrompt || getDefaultAnalysisPrompt());
+  ui.setEditingAnalysisPrompt(conv?.customAnalysisPrompt || group?.customAnalysisPrompt || getDefaultAnalysisPrompt());
   ui.setIsAnalysisPromptDialogOpen(true);
 }
 
@@ -313,7 +328,6 @@ export async function applyPrompt(selectedConversation: ViewerConversationState 
   const ui = useUIStore.getState();
   ui.setIsPromptDialogOpen(false);
   if (!selectedConversation?.conversation) return;
-  const dimName = ui.editingDimensionName || "default";
   await reprocessComponents(selectedConversation, undefined, { customPrompt: ui.editingPrompt });
 }
 
@@ -365,12 +379,11 @@ export async function applyAnalysisPrompt(selectedConversation: ViewerConversati
 
 export async function applyColoringPrompt(selectedConversation: ViewerConversationState | undefined) {
   const ui = useUIStore.getState();
-  const store = useConversationStore.getState();
   ui.setIsColoringPromptDialogOpen(false);
   if (!selectedConversation?.conversation) return;
 
   const dimName = ui.editingDimensionName || "default";
-  await reprocessWithSession(selectedConversation, {
+  await reprocessTargets(selectedConversation, undefined, {
     dimensions: { [dimName]: { coloringPrompt: ui.editingColoringPrompt } },
   });
 }

@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   analyze: vi.fn(),
+  summarize: vi.fn(),
+  analyzeContext: vi.fn(),
   setReprocessingId: vi.fn(),
 }));
 
 vi.mock("context-analyzer", () => ({
   analyze: mocks.analyze,
-  summarize: vi.fn(),
-  analyzeContext: vi.fn(),
+  summarize: mocks.summarize,
+  analyzeContext: mocks.analyzeContext,
   buildSessionExport: vi.fn(),
   createEmptyDimension: (name: string) => ({
     name,
@@ -60,7 +62,13 @@ vi.mock("@/ui/lib/export-download", () => ({
 }));
 
 import { useConversationStore, type ViewerConversationState } from "@/stores/conversation-store";
-import { applyPromptsToAllAction, resumePipelinesWithApiKeyAction } from "@/stores/actions";
+import {
+  applyPromptsToAllAction,
+  generateAnalysis,
+  generateSummary,
+  reprocessComponents,
+  resumePipelinesWithApiKeyAction,
+} from "@/stores/actions";
 
 function conversation(id: string, overrides: Partial<ViewerConversationState> = {}): ViewerConversationState {
   return {
@@ -148,5 +156,42 @@ describe("viewer session actions", () => {
       { id: "one", status: "success" },
       { id: "two", status: "success" },
     ]);
+  });
+
+  it("fans group reprocessing out to each member session", async () => {
+    const group = conversation("group", { sessionId: undefined });
+    useConversationStore.setState({
+      conversations: [conversation("one"), conversation("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+
+    await reprocessComponents(group, ["one", "two"], { customPrompt: "Find activities" });
+
+    expect(mocks.analyze.mock.calls.map(([options]) => options.sessionId)).toEqual([
+      "session:one",
+      "session:two",
+    ]);
+    expect(mocks.setReprocessingId).toHaveBeenNthCalledWith(1, "group");
+    expect(mocks.setReprocessingId).toHaveBeenLastCalledWith(null);
+  });
+
+  it("stores generated summaries and analyses on groups", async () => {
+    const group = conversation("group", { sessionId: undefined });
+    useConversationStore.setState({
+      conversations: [conversation("one"), conversation("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+    mocks.summarize.mockResolvedValue({ summary: "Group summary", errors: [] });
+    mocks.analyzeContext.mockResolvedValue({ summary: "Analysis summary", analysis: "Group analysis", errors: [] });
+
+    await generateSummary("group", group, { customSummaryPrompt: "Summarize together" });
+    await generateAnalysis("group", group, { customAnalysisPrompt: "Compare files" });
+
+    expect(useConversationStore.getState().groups.group).toMatchObject({
+      aiSummary: "Analysis summary",
+      analysis: "Group analysis",
+      customSummaryPrompt: "Summarize together",
+      customAnalysisPrompt: "Compare files",
+    });
   });
 });
