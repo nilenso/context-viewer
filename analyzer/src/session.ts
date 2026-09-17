@@ -148,11 +148,25 @@ export function applyIterationInputs(
       componentColors?: Record<string, string>;
       coloringPrompt?: string;
     }>;
+    renameDimensions?: Record<string, string>;
+    removeDimensions?: string[];
   },
 ): { affectedDimNames: string[] } {
   const affectedDims = new Set<string>();
 
   for (const ctx of states) {
+    if (ctx.dimensions) {
+      for (const [oldName, newName] of Object.entries(newOptions.renameDimensions || {})) {
+        const dimension = ctx.dimensions[oldName];
+        if (!dimension || oldName === newName || ctx.dimensions[newName]) continue;
+        ctx.dimensions[newName] = { ...dimension, name: newName };
+        delete ctx.dimensions[oldName];
+      }
+      for (const name of newOptions.removeDimensions || []) {
+        delete ctx.dimensions[name];
+      }
+    }
+
     const before = extractInputs(ctx);
 
     // --- Segmentation changes ---

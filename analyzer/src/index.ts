@@ -75,6 +75,12 @@ export interface AnalyzeOptions {
     coloringPrompt?: string;
   }>;
 
+  /** Rename dimensions in an existing session without recomputing their outputs. */
+  renameDimensions?: Record<string, string>;
+
+  /** Remove dimensions from an existing session. */
+  removeDimensions?: string[];
+
   /** Preset colors for components (applies to default dimension). */
   presetColors?: Record<string, string>;
 
@@ -464,6 +470,8 @@ function buildIterationInputs(options: AnalyzeOptions) {
   if (options.presetColors !== undefined) {
     inputs.presetColors = options.presetColors;
   }
+  inputs.renameDimensions = options.renameDimensions;
+  inputs.removeDimensions = options.removeDimensions;
 
   // Build dimension inputs from options.dimensions or options.components
   if (options.dimensions) {
