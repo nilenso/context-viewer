@@ -179,9 +179,6 @@ async function mapPartsBatchWithTypeSafe(
   const criteria: Record<string, string | null> = Object.fromEntries(
     components.map((component) => [component, descriptions[component] || null]),
   );
-  if (!("other" in criteria)) {
-    criteria.other = "The part does not meaningfully fit any of the listed components.";
-  }
 
   const questions = Object.fromEntries(parts.map((_, index) => [
     `part_${index}`,

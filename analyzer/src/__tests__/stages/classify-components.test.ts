@@ -152,7 +152,7 @@ describe("mapComponentsToIdsWithTypeSafe", () => {
     expect(result.judgments?.p1).toEqual({
       choice: "exploration",
       confidence: 0.92,
-      probabilities: { exploration: 0.96, implementation: 0.03, other: 0.01 },
+      probabilities: { exploration: 0.96, implementation: 0.03 },
     });
 
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -168,7 +168,6 @@ describe("mapComponentsToIdsWithTypeSafe", () => {
       criteria: {
         exploration: "Reading and investigating existing code or tests.",
         implementation: "Writing or modifying code.",
-        other: "The part does not meaningfully fit any of the listed components.",
       },
     });
     expect(body.questions.part_0.instructions).toContain("`parts[0]`");
