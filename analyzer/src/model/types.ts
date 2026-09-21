@@ -46,6 +46,8 @@ export interface DimensionData {
   prompt?: string;
   discoveredComponents: string[];
   componentMapping: Record<string, string>;
+  /** Which backend produced componentMapping — two runs of one file differ only by this. */
+  classifier?: { provider: "typesafe" | "llm"; model: string };
   classificationJudgments?: Record<string, ClassificationJudgment>;
   componentTimeline: ComponentTimelineSnapshot[];
   componentColors: Record<string, string>;
@@ -85,7 +87,7 @@ export interface ConversationMetadata {
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
-  dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string }>;
+  dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string; classifier?: DimensionData["classifier"]; classificationJudgments?: Record<string, ClassificationJudgment> }>;
 }
 
 export interface ParseResult {

@@ -57,6 +57,19 @@ export const ExportDimensionSchema = z.object({
   colors: z.record(z.string(), z.string()),
   prompt: z.string().optional(),
   coloringPrompt: z.string().optional(),
+  classifier: z
+    .object({ provider: z.enum(["typesafe", "llm"]), model: z.string() })
+    .optional(),
+  classificationJudgments: z
+    .record(
+      z.string(),
+      z.object({
+        choice: z.string(),
+        confidence: z.number(),
+        probabilities: z.record(z.string(), z.number()),
+      }),
+    )
+    .optional(),
 });
 
 export const FileExportSchema = z.object({

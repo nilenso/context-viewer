@@ -367,13 +367,14 @@ export async function classifyForDimension(
     descriptionPrompt = dimData.prompt || getDefaultComponentIdentificationPrompt();
   }
 
-  const { mapping, judgments, errors } = config.classification?.provider === "typesafe"
+  const typeSafe = config.classification?.provider === "typesafe" ? config.classification : undefined;
+  const { mapping, judgments, errors } = typeSafe
     ? await mapComponentsToIdsWithTypeSafe(
         conversation,
         dimData.discoveredComponents,
         descriptions,
         dimData.name,
-        config.classification,
+        typeSafe,
       )
     : await mapComponentsToIds(
         conversation,
@@ -396,6 +397,9 @@ export async function classifyForDimension(
     result: {
       discoveredComponents: finalComponents,
       componentMapping: mapping,
+      classifier: typeSafe
+        ? { provider: "typesafe", model: typeSafe.model || TYPESAFE_DEFAULT_MODEL }
+        : { provider: "llm", model: config.model },
       classificationJudgments: judgments,
       componentTimeline: timeline,
     },

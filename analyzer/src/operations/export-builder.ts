@@ -83,6 +83,8 @@ export function buildFileExport(conv: PipelineState): FileExport {
         colors: dim.componentColors,
         prompt: dim.prompt,
         coloringPrompt: dim.customColoringPrompt,
+        classifier: dim.classifier,
+        classificationJudgments: dim.classificationJudgments,
       };
     }
   }
