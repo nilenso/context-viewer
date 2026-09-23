@@ -10,7 +10,7 @@ function getEncoder(): Tiktoken {
   return encoderInstance;
 }
 
-function countTokens(text: string): number {
+export function countTokens(text: string): number {
   const enc = getEncoder();
   return enc.encode(text).length;
 }

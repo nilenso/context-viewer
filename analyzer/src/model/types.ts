@@ -54,6 +54,7 @@ export interface DimensionData {
   customComponents?: string[];
   /** Descriptions for custom components — used by classifier for better accuracy */
   componentDescriptions?: Record<string, string>;
+  classificationContext?: string;
   customColoringPrompt?: string;
 }
 

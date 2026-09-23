@@ -15,6 +15,7 @@ import { stripLargeContent } from "./strip-large-content";
 import { stageLogger } from "../logger";
 import { buildComponentTimeline as buildComponentTimelineCore } from "../operations/aggregation";
 import { upstreamError, parseError, type StageError } from "../errors";
+import { countTokens } from "../operations/token-counting";
 
 const log = stageLogger("classify");
 
@@ -162,9 +163,32 @@ export async function mapComponentsToIds(
 
 const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai/v1";
 const TYPESAFE_DEFAULT_MODEL = "jev-latest";
+const TYPESAFE_REQUEST_TOKEN_BUDGET = 30_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function buildTypeSafeRequest(
+  parts: PartWithContext[],
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  model: string,
+  context?: string,
+) {
+  const criteria: Record<string, string | null> = Object.fromEntries(
+    components.map((component) => [component, descriptions[component] || null]),
+  );
+  const questions = Object.fromEntries(parts.map((_, index) => [
+    `part_${index}`,
+    {
+      type: "choice",
+      instructions: `In the ${dimensionName} dimension, which component best describes \`parts[${index}]\`? Classify that part's semantic content${context ? " against `context`" : ""}; use its role and partType only as context.`,
+      criteria,
+    },
+  ]));
+  return { state: { context, parts }, model, questions };
 }
 
 async function mapPartsBatchWithTypeSafe(
@@ -173,22 +197,10 @@ async function mapPartsBatchWithTypeSafe(
   descriptions: Record<string, string>,
   dimensionName: string,
   config: TypeSafeClassificationConfig,
+  context?: string,
 ): Promise<{ mapping: Record<string, string>; judgments: Record<string, ClassificationJudgment>; error?: StageError }> {
-  // A Choice is the classification operation directly: fixed criteria in,
-  // one typed choice plus its probability distribution out.
-  const criteria: Record<string, string | null> = Object.fromEntries(
-    components.map((component) => [component, descriptions[component] || null]),
-  );
-
-  const questions = Object.fromEntries(parts.map((_, index) => [
-    `part_${index}`,
-    {
-      type: "choice",
-      instructions: `In the ${dimensionName} dimension, which component best describes \`parts[${index}]\`? Classify that part's semantic content; use its role and partType only as context.`,
-      criteria,
-    },
-  ]));
-
+  const model = config.model || TYPESAFE_DEFAULT_MODEL;
+  const request = buildTypeSafeRequest(parts, components, descriptions, dimensionName, model, context);
   const baseURL = (config.baseURL || TYPESAFE_DEFAULT_BASE_URL).replace(/\/+$/, "");
   let response: Response;
   try {
@@ -198,11 +210,7 @@ async function mapPartsBatchWithTypeSafe(
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        state: { parts },
-        model: config.model || TYPESAFE_DEFAULT_MODEL,
-        questions,
-      }),
+      body: JSON.stringify(request),
     });
   } catch (error) {
     return {
@@ -213,10 +221,13 @@ async function mapPartsBatchWithTypeSafe(
   }
 
   if (!response.ok) {
+    const body = await response.text();
+    const message = `TypeSafe API returned ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`.trim();
+    log.error(message);
     return {
       mapping: {},
       judgments: {},
-      error: upstreamError("classify", `TypeSafe API returned ${response.status} ${response.statusText}`.trim()),
+      error: upstreamError("classify", message),
     };
   }
 
@@ -240,7 +251,7 @@ async function mapPartsBatchWithTypeSafe(
     };
   }
 
-  const allowedChoices = new Set(Object.keys(criteria));
+  const allowedChoices = new Set(components);
   const mapping: Record<string, string> = {};
   const judgments: Record<string, ClassificationJudgment> = {};
   let malformed = false;
@@ -283,17 +294,32 @@ export async function mapComponentsToIdsWithTypeSafe(
   descriptions: Record<string, string>,
   dimensionName: string,
   config: TypeSafeClassificationConfig,
+  context?: string,
 ): Promise<MappingResult> {
-  const BATCH_SIZE = 20;
   const allParts = extractPartsWithContext(stripLargeContent(conversation));
+  const model = config.model || TYPESAFE_DEFAULT_MODEL;
   const batches: PartWithContext[][] = [];
-  for (let i = 0; i < allParts.length; i += BATCH_SIZE) {
-    batches.push(allParts.slice(i, i + BATCH_SIZE));
-  }
+  let batch: PartWithContext[] = [];
 
-  log.info(`Mapping ${allParts.length} parts with Jev in ${batches.length} parallel batches`);
+  for (const part of allParts) {
+    const candidate = [...batch, part];
+    const requestTokens = countTokens(JSON.stringify(
+      buildTypeSafeRequest(candidate, components, descriptions, dimensionName, model, context),
+    ));
+    if (batch.length > 0 && requestTokens > TYPESAFE_REQUEST_TOKEN_BUDGET) {
+      batches.push(batch);
+      batch = [part];
+    } else {
+      batch = candidate;
+    }
+  }
+  if (batch.length > 0) batches.push(batch);
+
+  log.info(`Mapping ${allParts.length} parts with Jev in ${batches.length} parallel batches (max ${TYPESAFE_REQUEST_TOKEN_BUDGET} estimated tokens each)`);
   const batchResults = await Promise.all(
-    batches.map((batch) => mapPartsBatchWithTypeSafe(batch, components, descriptions, dimensionName, config)),
+    batches.map((batch) => mapPartsBatchWithTypeSafe(
+      batch, components, descriptions, dimensionName, config, context,
+    )),
   );
 
   const mapping: Record<string, string> = {};
@@ -372,6 +398,7 @@ export async function classifyForDimension(
         descriptions,
         dimData.name,
         typeSafe,
+        dimData.classificationContext,
       )
     : await mapComponentsToIds(
         conversation,
