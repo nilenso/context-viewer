@@ -81,6 +81,8 @@ export function restorePreProcessedImport(
         componentMapping: dimMapping,
         componentTimeline: buildComponentTimeline(conversation, dimMapping),
         componentColors: dimExport.colors,
+        classifier: dimExport.classifier,
+        classificationJudgments: dimExport.classificationJudgments,
         customColoringPrompt: dimExport.coloringPrompt,
       };
     }

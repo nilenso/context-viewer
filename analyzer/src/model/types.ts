@@ -30,6 +30,13 @@ export interface ComponentTimelineSnapshot {
   totalTokens: number;
 }
 
+/** Optional confidence data returned by a probabilistic classifier such as Jev. */
+export interface ClassificationJudgment {
+  choice: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+}
+
 // ---------------------------------------------------------------------------
 // Component dimension
 // ---------------------------------------------------------------------------
@@ -39,11 +46,15 @@ export interface DimensionData {
   prompt?: string;
   discoveredComponents: string[];
   componentMapping: Record<string, string>;
+  /** Which backend produced componentMapping — two runs of one file differ only by this. */
+  classifier?: { provider: "typesafe" | "llm"; model: string };
+  classificationJudgments?: Record<string, ClassificationJudgment>;
   componentTimeline: ComponentTimelineSnapshot[];
   componentColors: Record<string, string>;
   customComponents?: string[];
   /** Descriptions for custom components — used by classifier for better accuracy */
   componentDescriptions?: Record<string, string>;
+  classificationContext?: string;
   customColoringPrompt?: string;
 }
 
@@ -77,7 +88,7 @@ export interface ConversationMetadata {
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
-  dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string }>;
+  dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string; classifier?: DimensionData["classifier"]; classificationJudgments?: Record<string, ClassificationJudgment> }>;
 }
 
 export interface ParseResult {

@@ -72,6 +72,8 @@ Options:
   --base-url <url>                OpenAI-compatible base URL
   --api-mode <responses|chat>     Default: responses
   --reasoning-effort <level>      none, low, medium, high
+  --classifier <typesafe|llm>     Classification stage backend. Default: llm.
+                                  typesafe additionally needs TYPESAFE_API_KEY.
   --log-level <level>             silent, info, debug
   -h, --help                      Show this help
 
@@ -81,6 +83,13 @@ API key setup:
 
 API key lookup order:
   --api-key, OPENAI_API_KEY, VITE_AI_API_KEY, AI_API_KEY, ~/.context-lens/.env
+
+TypeSafe classification (optional, Jev models):
+  Pass --classifier typesafe to use TypeSafe for classification only, with
+  TYPESAFE_API_KEY set in the environment or ~/.context-lens/.env. Without the
+  flag the prompted classifier is used, whether or not the key is present.
+  TYPESAFE_MODEL defaults to jev-latest. The key is sent only to the TypeSafe
+  API and is never included in analytics or exports.
 
 Output:
   stdout: analytics JSON with exportPath and contextViewerUrlTemplate.
@@ -123,6 +132,7 @@ interface CliArgs {
   baseURL?: string;
   apiMode?: AIApiMode;
   reasoningEffort?: ReasoningEffort;
+  classifier?: "typesafe" | "llm";
   logLevel?: AnalyzerConfig["logLevel"];
 }
 
@@ -188,6 +198,13 @@ function parseArgs(argv: string[]): CliArgs {
           fail("--reasoning-effort must be one of: none, low, medium, high");
         }
         args.reasoningEffort = value as ReasoningEffort;
+        i++;
+        break;
+      }
+      case "--classifier": {
+        const value = takeValue(argv, i, arg);
+        if (value !== "typesafe" && value !== "llm") fail("--classifier must be 'typesafe' or 'llm'");
+        args.classifier = value;
         i++;
         break;
       }
@@ -361,12 +378,24 @@ function buildAnalyzerConfig(args: CliArgs, contextLensEnv: EnvValues | null): A
     fail(missingApiKeyMessage(contextLensEnv !== null));
   }
 
+  const typeSafeApiKey = getEnvValue(contextLensEnv, "TYPESAFE_API_KEY");
+  if (args.classifier === "typesafe" && !typeSafeApiKey) {
+    fail("--classifier typesafe requires TYPESAFE_API_KEY in the environment or ~/.context-lens/.env");
+  }
+  const useTypeSafe = args.classifier === "typesafe";
+
   return {
     apiKey,
     model: args.model || getEnvValue(contextLensEnv, "OPENAI_MODEL") || getEnvValue(contextLensEnv, "AI_MODEL"),
     baseURL: args.baseURL || getEnvValue(contextLensEnv, "OPENAI_BASE_URL") || getEnvValue(contextLensEnv, "AI_BASE_URL"),
     apiMode: args.apiMode || optionalApiMode(getEnvValue(contextLensEnv, "OPENAI_API_MODE") || getEnvValue(contextLensEnv, "AI_API_MODE")),
     reasoningEffort: optionalReasoning(args.reasoningEffort || getEnvValue(contextLensEnv, "OPENAI_REASONING_EFFORT") || getEnvValue(contextLensEnv, "AI_REASONING_EFFORT")),
+    classification: useTypeSafe ? {
+      provider: "typesafe",
+      apiKey: typeSafeApiKey!,
+      model: getEnvValue(contextLensEnv, "TYPESAFE_MODEL"),
+      baseURL: getEnvValue(contextLensEnv, "TYPESAFE_BASE_URL"),
+    } : undefined,
     logLevel: args.logLevel || "silent",
   };
 }

@@ -611,6 +611,12 @@ function buildMergedState(groupId: string, name: string, members: PipelineState[
       for (const [partId, component] of Object.entries(dim.componentMapping)) {
         merged.componentMapping[`${conv.id}-${partId}`] = component;
       }
+      if (dim.classificationJudgments) {
+        if (!merged.classificationJudgments) merged.classificationJudgments = {};
+        for (const [partId, judgment] of Object.entries(dim.classificationJudgments)) {
+          merged.classificationJudgments[`${conv.id}-${partId}`] = judgment;
+        }
+      }
       Object.assign(merged.componentColors, dim.componentColors);
     }
   }
@@ -652,8 +658,8 @@ export type {
   Conversation, Message, OriginInfo,
   TextPart, ReasoningPart, ToolCallPart, ToolResultPart, ImagePart, FilePart,
 } from "./model/schema";
-export type { PipelineState, DimensionData, ConversationSummary, ConversationMetadata, ComponentTimelineSnapshot, Stage, Group } from "./model/types";
-export type { AnalyzerConfig, AIConfig, AIApiMode, ReasoningEffort } from "./config";
+export type { PipelineState, DimensionData, ConversationSummary, ConversationMetadata, ComponentTimelineSnapshot, ClassificationJudgment, Stage, Group } from "./model/types";
+export type { AnalyzerConfig, AIConfig, AIApiMode, ReasoningEffort, TypeSafeClassificationConfig } from "./config";
 export type { StageError, ErrorCategory } from "./errors";
 export type { LogLevel, LogEntry, LogSink } from "./logger";
 export type { Interceptor, PipelineOptions } from "./pipeline";

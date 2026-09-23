@@ -16,12 +16,21 @@ import type { LogLevel, LogSink } from "./logger";
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
 export type AIApiMode = "responses" | "chat";
 
+/** Use TypeSafe's Jev model for the closed-set component classification stage. */
+export interface TypeSafeClassificationConfig {
+  provider: "typesafe";
+  apiKey: string;
+  model?: string;       // default: "jev-latest"
+  baseURL?: string;     // default: "https://api.typesafe.ai/v1"
+}
+
 export interface AnalyzerConfig {
   apiKey: string;
   model?: string;              // default: "gpt-5.4-mini"
   baseURL?: string;
   apiMode?: AIApiMode;         // default: "responses"
   reasoningEffort?: ReasoningEffort;
+  classification?: TypeSafeClassificationConfig;
   logLevel?: LogLevel;         // default: "silent"
   logger?: LogSink;            // custom log sink
 }
@@ -36,6 +45,7 @@ export interface AIConfig {
   baseURL: string | undefined;
   apiMode: AIApiMode;
   reasoningEffort: ReasoningEffort | undefined;
+  classification?: TypeSafeClassificationConfig;
 }
 
 export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
@@ -45,6 +55,7 @@ export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
     baseURL: config.baseURL,
     apiMode: config.apiMode || "responses",
     reasoningEffort: config.reasoningEffort,
+    classification: config.classification,
   };
 }
 

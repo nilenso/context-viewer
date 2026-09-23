@@ -7,14 +7,15 @@
 
 import { generateText } from "ai";
 import type { Conversation } from "../model/schema";
-import type { DimensionData, ComponentTimelineSnapshot } from "../model/types";
-import type { AIConfig } from "../config";
+import type { DimensionData, ComponentTimelineSnapshot, ClassificationJudgment } from "../model/types";
+import type { AIConfig, TypeSafeClassificationConfig } from "../config";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { getProviderOptions, createModel } from "../config";
 import { stripLargeContent } from "./strip-large-content";
 import { stageLogger } from "../logger";
 import { buildComponentTimeline as buildComponentTimelineCore } from "../operations/aggregation";
 import { upstreamError, parseError, type StageError } from "../errors";
+import { countTokens } from "../operations/token-counting";
 
 const log = stageLogger("classify");
 
@@ -28,6 +29,12 @@ interface PartWithContext {
   role: string;
   partType: string;
   content: unknown;
+}
+
+interface MappingResult {
+  mapping: Record<string, string>;
+  judgments?: Record<string, ClassificationJudgment>;
+  errors: StageError[];
 }
 
 function extractPartsWithContext(conversation: Conversation): PartWithContext[] {
@@ -115,7 +122,7 @@ export async function mapComponentsToIds(
   components: string[],
   config: AIConfig,
   componentDescriptions?: string,
-): Promise<{ mapping: Record<string, string>; errors: StageError[] }> {
+): Promise<MappingResult> {
   const BATCH_SIZE = 20;
   const errors: StageError[] = [];
 
@@ -148,6 +155,183 @@ export async function mapComponentsToIds(
 
   log.info(`Created merged mapping with ${Object.keys(mergedMapping).length} entries (from ${allParts.length} parts)`);
   return { mapping: mergedMapping, errors };
+}
+
+// ---------------------------------------------------------------------------
+// TypeSafe / Jev classifier
+// ---------------------------------------------------------------------------
+
+const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai/v1";
+const TYPESAFE_DEFAULT_MODEL = "jev-latest";
+const TYPESAFE_REQUEST_TOKEN_BUDGET = 30_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function buildTypeSafeRequest(
+  parts: PartWithContext[],
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  model: string,
+  context?: string,
+) {
+  const criteria: Record<string, string | null> = Object.fromEntries(
+    components.map((component) => [component, descriptions[component] || null]),
+  );
+  const questions = Object.fromEntries(parts.map((_, index) => [
+    `part_${index}`,
+    {
+      type: "choice",
+      instructions: `In the ${dimensionName} dimension, which component best describes \`parts[${index}]\`? Classify that part's semantic content${context ? " against `context`" : ""}; use its role and partType only as context.`,
+      criteria,
+    },
+  ]));
+  return { state: { context, parts }, model, questions };
+}
+
+async function mapPartsBatchWithTypeSafe(
+  parts: PartWithContext[],
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  config: TypeSafeClassificationConfig,
+  context?: string,
+): Promise<{ mapping: Record<string, string>; judgments: Record<string, ClassificationJudgment>; error?: StageError }> {
+  const model = config.model || TYPESAFE_DEFAULT_MODEL;
+  const request = buildTypeSafeRequest(parts, components, descriptions, dimensionName, model, context);
+  const baseURL = (config.baseURL || TYPESAFE_DEFAULT_BASE_URL).replace(/\/+$/, "");
+  let response: Response;
+  try {
+    response = await fetch(`${baseURL}/systemone`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+  } catch (error) {
+    return {
+      mapping: {},
+      judgments: {},
+      error: upstreamError("classify", `TypeSafe API call failed: ${error instanceof Error ? error.message : String(error)}`),
+    };
+  }
+
+  if (!response.ok) {
+    const body = await response.text();
+    const message = `TypeSafe API returned ${response.status} ${response.statusText}${body ? `: ${body}` : ""}`.trim();
+    log.error(message);
+    return {
+      mapping: {},
+      judgments: {},
+      error: upstreamError("classify", message),
+    };
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return {
+      mapping: {},
+      judgments: {},
+      error: parseError("classify", "TypeSafe response was not valid JSON"),
+    };
+  }
+
+  const answers = isRecord(payload) && isRecord(payload.answers) ? payload.answers : undefined;
+  if (!answers) {
+    return {
+      mapping: {},
+      judgments: {},
+      error: parseError("classify", "TypeSafe response contained no answers object"),
+    };
+  }
+
+  const allowedChoices = new Set(components);
+  const mapping: Record<string, string> = {};
+  const judgments: Record<string, ClassificationJudgment> = {};
+  let malformed = false;
+
+  parts.forEach((part, index) => {
+    const answer = answers[`part_${index}`];
+    if (!isRecord(answer) || typeof answer.choice !== "string" ||
+        !allowedChoices.has(answer.choice) || typeof answer.confidence !== "number" ||
+        !isRecord(answer.probabilities)) {
+      malformed = true;
+      return;
+    }
+
+    const probabilities: Record<string, number> = {};
+    for (const [component, probability] of Object.entries(answer.probabilities)) {
+      if (allowedChoices.has(component) && typeof probability === "number") {
+        probabilities[component] = probability;
+      }
+    }
+
+    mapping[part.partId] = answer.choice;
+    judgments[part.partId] = {
+      choice: answer.choice,
+      confidence: answer.confidence,
+      probabilities,
+    };
+  });
+
+  return {
+    mapping,
+    judgments,
+    error: malformed ? parseError("classify", "TypeSafe response contained an invalid or missing Choice answer") : undefined,
+  };
+}
+
+/** Classify each conversation part with one Jev Choice question. */
+export async function mapComponentsToIdsWithTypeSafe(
+  conversation: Conversation,
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  config: TypeSafeClassificationConfig,
+  context?: string,
+): Promise<MappingResult> {
+  const allParts = extractPartsWithContext(stripLargeContent(conversation));
+  const model = config.model || TYPESAFE_DEFAULT_MODEL;
+  const batches: PartWithContext[][] = [];
+  let batch: PartWithContext[] = [];
+
+  for (const part of allParts) {
+    const candidate = [...batch, part];
+    const requestTokens = countTokens(JSON.stringify(
+      buildTypeSafeRequest(candidate, components, descriptions, dimensionName, model, context),
+    ));
+    if (batch.length > 0 && requestTokens > TYPESAFE_REQUEST_TOKEN_BUDGET) {
+      batches.push(batch);
+      batch = [part];
+    } else {
+      batch = candidate;
+    }
+  }
+  if (batch.length > 0) batches.push(batch);
+
+  log.info(`Mapping ${allParts.length} parts with Jev in ${batches.length} parallel batches (max ${TYPESAFE_REQUEST_TOKEN_BUDGET} estimated tokens each)`);
+  const batchResults = await Promise.all(
+    batches.map((batch) => mapPartsBatchWithTypeSafe(
+      batch, components, descriptions, dimensionName, config, context,
+    )),
+  );
+
+  const mapping: Record<string, string> = {};
+  const judgments: Record<string, ClassificationJudgment> = {};
+  const errors: StageError[] = [];
+  for (const result of batchResults) {
+    Object.assign(mapping, result.mapping);
+    Object.assign(judgments, result.judgments);
+    if (result.error) errors.push(result.error);
+  }
+
+  return { mapping, judgments, errors };
 }
 
 /**
@@ -196,27 +380,38 @@ export async function classifyForDimension(
     }
   }
 
-  // Use component descriptions if available, otherwise fall back to prompt
-  let componentDescriptions: string;
+  const descriptions = dimData.componentDescriptions || {};
+  let descriptionPrompt: string;
   if (dimData.componentDescriptions && Object.keys(dimData.componentDescriptions).length > 0) {
-    componentDescriptions = Object.entries(dimData.componentDescriptions)
+    descriptionPrompt = Object.entries(dimData.componentDescriptions)
       .map(([name, desc]) => `- ${name}: ${desc}`)
       .join("\n");
   } else {
-    componentDescriptions = dimData.prompt || getDefaultComponentIdentificationPrompt();
+    descriptionPrompt = dimData.prompt || getDefaultComponentIdentificationPrompt();
   }
 
-  const { mapping, errors } = await mapComponentsToIds(
-    conversation,
-    dimData.discoveredComponents,
-    config,
-    componentDescriptions,
-  );
+  const typeSafe = config.classification?.provider === "typesafe" ? config.classification : undefined;
+  const { mapping, judgments, errors } = typeSafe
+    ? await mapComponentsToIdsWithTypeSafe(
+        conversation,
+        dimData.discoveredComponents,
+        descriptions,
+        dimData.name,
+        typeSafe,
+        dimData.classificationContext,
+      )
+    : await mapComponentsToIds(
+        conversation,
+        dimData.discoveredComponents,
+        config,
+        descriptionPrompt,
+      );
 
   const totalParts = conversation.messages.reduce((sum, msg) => sum + msg.parts.length, 0);
   const mappedParts = Object.keys(mapping).length;
+  const usesOther = Object.values(mapping).includes("other");
   const finalComponents =
-    mappedParts < totalParts && !dimData.discoveredComponents.includes("other")
+    (mappedParts < totalParts || usesOther) && !dimData.discoveredComponents.includes("other")
       ? [...dimData.discoveredComponents, "other"]
       : dimData.discoveredComponents;
 
@@ -226,6 +421,10 @@ export async function classifyForDimension(
     result: {
       discoveredComponents: finalComponents,
       componentMapping: mapping,
+      classifier: typeSafe
+        ? { provider: "typesafe", model: typeSafe.model || TYPESAFE_DEFAULT_MODEL }
+        : { provider: "llm", model: config.model },
+      classificationJudgments: judgments,
       componentTimeline: timeline,
     },
     error: errors.length > 0 ? errors[0] : undefined,
