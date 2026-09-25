@@ -46,6 +46,7 @@ export interface Interceptor {
 export interface PipelineOptions {
   interceptors?: Interceptor[];
   dimNames?: string[];
+  preserveToolCalls?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ export async function runPipeline(
   await run("identifying-components", ctx, interceptors, () =>
     Promise.all(activeDimNames.map(async (dimName) => {
       const { result, error } = await identifyForDimension(
-        ctx.conversation!, dims[dimName]!, aiConfig,
+        ctx.conversation!, dims[dimName]!, aiConfig, options?.preserveToolCalls,
       );
       Object.assign(dims[dimName]!, result);
       if (error) allErrors.push(error);
@@ -160,7 +161,7 @@ export async function runPipeline(
     Promise.all(activeDimNames.map(async (dimName) => {
       const dim = dims[dimName]!;
       const [classified, colored] = await Promise.all([
-        classifyForDimension(ctx.conversation!, dim, aiConfig),
+        classifyForDimension(ctx.conversation!, dim, aiConfig, options?.preserveToolCalls),
         colorForDimension(dim, aiConfig, ctx.presetColors),
       ]);
       Object.assign(dim, classified.result, colored.result);

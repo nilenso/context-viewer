@@ -88,6 +88,9 @@ export interface AnalyzeOptions {
 
   /** Interceptors for hooking into pipeline stage boundaries. */
   interceptors?: Interceptor[];
+
+  /** Preserve full tool-call inputs when sending conversations to AI stages. */
+  preserveToolCalls?: boolean;
 }
 
 /** Stage-oriented analyze2() options for agents and visual interfaces. */
@@ -115,6 +118,9 @@ export interface Analyze2Options {
 
   /** Optional UI hooks for observing pipeline stage boundaries. */
   interceptors?: Interceptor[];
+
+  /** Preserve full tool-call inputs when sending conversations to AI stages. */
+  preserveToolCalls?: boolean;
 }
 
 // ============================================================================
@@ -209,6 +215,7 @@ export async function analyze(
   const pipelineOpts: PipelineOptions = {
     interceptors: options.interceptors,
     dimNames: affectedDimNames,
+    preserveToolCalls: options.preserveToolCalls,
   };
 
   await Promise.all(
@@ -446,6 +453,7 @@ function toAnalyzeOptions(options: Analyze2Options): AnalyzeOptions {
     prompts: Object.keys(prompts).length > 0 ? prompts : undefined,
     dimensions,
     interceptors: options.interceptors,
+    preserveToolCalls: options.preserveToolCalls,
   };
 }
 

@@ -73,6 +73,7 @@ Options:
   --api-mode <responses|chat>     Default: responses
   --reasoning-effort <level>      none, low, medium, high
   --log-level <level>             silent, info, debug
+  --preserve-tool-calls           Send full tool-call inputs to AI stages
   -h, --help                      Show this help
 
 API key setup:
@@ -124,6 +125,7 @@ interface CliArgs {
   apiMode?: AIApiMode;
   reasoningEffort?: ReasoningEffort;
   logLevel?: AnalyzerConfig["logLevel"];
+  preserveToolCalls?: boolean;
 }
 
 type Spec = Omit<Analyze2Options, "files" | "sessionId" | "interceptors">;
@@ -191,6 +193,9 @@ function parseArgs(argv: string[]): CliArgs {
         i++;
         break;
       }
+      case "--preserve-tool-calls":
+        args.preserveToolCalls = true;
+        break;
       case "--log-level": {
         const value = takeValue(argv, i, arg);
         if (!["silent", "info", "debug"].includes(value)) fail("--log-level must be one of: silent, info, debug");
@@ -433,7 +438,7 @@ function createStatusInterceptors(): Interceptor[] {
   });
 }
 
-function optionsFromSpec(spec: Spec, files: Analyze2Options["files"]): Analyze2Options {
+function optionsFromSpec(spec: Spec, files: Analyze2Options["files"], preserveToolCalls?: boolean): Analyze2Options {
   return {
     files,
     segmentation: spec.segmentation
@@ -445,6 +450,7 @@ function optionsFromSpec(spec: Spec, files: Analyze2Options["files"]): Analyze2O
     dimensions: spec.dimensions,
     colors: spec.colors,
     interceptors: createStatusInterceptors(),
+    preserveToolCalls,
   };
 }
 
@@ -509,7 +515,7 @@ async function main(): Promise<void> {
   ]);
   const config = buildAnalyzerConfig(args, contextLensEnv);
 
-  const result = await analyze2(optionsFromSpec(spec, files), config);
+  const result = await analyze2(optionsFromSpec(spec, files, args.preserveToolCalls), config);
 
   const exportGroups = buildMultiFileGroup(result.states);
   const exportGroup = firstGroup(exportGroups);

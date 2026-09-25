@@ -15,7 +15,7 @@ function truncateContent(content: unknown, maxLength: number = 200): string {
  * Strip large data (images, files, tool outputs) from conversation before sending to AI
  * This reduces token count significantly while preserving structure for categorization
  */
-export function stripLargeContent(conversation: Conversation): Conversation {
+export function stripLargeContent(conversation: Conversation, preserveToolCalls = false): Conversation {
   return {
     ...conversation,
     messages: conversation.messages.map((message): Message => ({
@@ -39,7 +39,7 @@ export function stripLargeContent(conversation: Conversation): Conversation {
             output: truncateContent(part.output),
           };
         }
-        if (part.type === "tool-call") {
+        if (part.type === "tool-call" && !preserveToolCalls) {
           return {
             ...part,
             input: truncateContent(part.input),

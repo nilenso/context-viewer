@@ -115,11 +115,12 @@ export async function mapComponentsToIds(
   components: string[],
   config: AIConfig,
   componentDescriptions?: string,
+  preserveToolCalls = false,
 ): Promise<{ mapping: Record<string, string>; errors: StageError[] }> {
   const BATCH_SIZE = 20;
   const errors: StageError[] = [];
 
-  const strippedConversation = stripLargeContent(conversation);
+  const strippedConversation = stripLargeContent(conversation, preserveToolCalls);
   const allParts = extractPartsWithContext(strippedConversation);
 
   log.info(`Mapping ${allParts.length} parts in batches of ${BATCH_SIZE} (model: ${config.model})`);
@@ -178,6 +179,7 @@ export async function classifyForDimension(
   conversation: Conversation,
   dimData: DimensionData,
   config: AIConfig,
+  preserveToolCalls = false,
 ): Promise<{ result: Partial<DimensionData>; error?: StageError }> {
   if (!dimData.discoveredComponents?.length) return { result: {} };
 
@@ -211,6 +213,7 @@ export async function classifyForDimension(
     dimData.discoveredComponents,
     config,
     componentDescriptions,
+    preserveToolCalls,
   );
 
   const totalParts = conversation.messages.reduce((sum, msg) => sum + msg.parts.length, 0);

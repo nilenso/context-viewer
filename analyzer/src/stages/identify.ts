@@ -18,10 +18,11 @@ export async function identifyComponents(
   conversation: Conversation,
   config: AIConfig,
   customPrompt?: string,
+  preserveToolCalls = false,
 ): Promise<{ components: string[]; error?: StageError }> {
   const model = createModel(config);
 
-  const strippedConversation = stripLargeContent(conversation);
+  const strippedConversation = stripLargeContent(conversation, preserveToolCalls);
   const conversationJson = JSON.stringify(strippedConversation, null, 2);
 
   log.info(`Calling AI to identify components (model: ${config.model})${customPrompt ? " with custom prompt" : ""}`);
@@ -73,6 +74,7 @@ export async function identifyForDimension(
   conversation: Conversation,
   dimData: DimensionData,
   config: AIConfig | null,
+  preserveToolCalls = false,
 ): Promise<{ result: Partial<DimensionData>; error?: StageError }> {
   const customComponents = dimData.customComponents;
 
@@ -86,7 +88,7 @@ export async function identifyForDimension(
     }
     components = cleaned;
   } else if (config) {
-    const { components: discovered, error } = await identifyComponents(conversation, config, dimData.prompt);
+    const { components: discovered, error } = await identifyComponents(conversation, config, dimData.prompt, preserveToolCalls);
     if (error) {
       return { result: {}, error };
     }
