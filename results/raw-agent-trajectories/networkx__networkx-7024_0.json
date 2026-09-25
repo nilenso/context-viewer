@@ -1,0 +1,176 @@
+{
+  "id": "networkx__networkx-7024_0",
+  "content": [
+    {
+      "class_": "text_observation",
+      "content": "We're currently solving the following issue within our repository. Here's the issue text:\nISSUE:\n```is_k_edge_connected``` incorrectly returns True for k=2 with multi-component graphs without bridges\n### Current Behavior\r\n\r\nThe implementation of ```is_k_edge_connected``` currently defers to ```is_connected``` for k=1, to ```has_bridges``` for k=2, and runs the full check for k>2.\r\n\r\nAs a result, this returns True for a multi-component graph without bridges.\r\n\r\n### Expected Behavior\r\n\r\nSince the graph has multiple components, it is not connected in the first place and ```is_k_edge_connected``` should return False for all (positive) values of k.\r\n\r\n### Steps to Reproduce\r\n\r\n```\r\nimport networkx as nx\r\n\r\nG = nx.compose(nx.complete_graph([0, 1, 2]), nx.complete_graph([3, 4, 5]))\r\nnx.connectivity.is_k_edge_connected(G, 2)\r\n```\r\n\r\nThis returns True but should return False.\r\n\r\n### Environment\r\n\r\nPython version: 3.11.2\r\nNetworkX version: 3.1\r\n\r\n### Additional context\r\n\r\nAs defined in the NetworkX documentation, a bridge is an edge whose removal increases the number of connected components. It appears to me, then, that a graph not having bridges is a necessary-but-not-sufficient condition for a graph being 2-edge-connected.\r\n\n\nINSTRUCTIONS:\nNow, you're going to solve this issue on your own. Your terminal session has started and you're in the repository's root directory. You can use any bash commands or the special interface to help you. Edit all the files you need to and run any checks or tests that you want.\nRemember, YOU CAN ONLY ENTER ONE COMMAND AT A TIME. You should always wait for feedback after every command.\nWhen you're satisfied with all of the changes you've made, you can submit your changes to the code base by simply running the submit command.\nNote however that you cannot use any interactive session commands (e.g. python, vim) in this environment, but you can write scripts and run them. E.g. you can write a python script and then run it with `python <script_name>.py`.\n\nNOTE ABOUT THE EDIT COMMAND: Indentation really matters! When editing a file, make sure to insert appropriate indentation before each line!\n\nIMPORTANT TIPS:\n1. Always start by trying to replicate the bug that the issues discusses.\n   If the issue includes code for reproducing the bug, we recommend that you re-implement that in your environment, and run it to make sure you can reproduce the bug.\n   Then start trying to fix it.\n   When you think you've fixed the bug, re-run the bug reproduction script to make sure that the bug has indeed been fixed.\n\n   If the bug reproduction script does not print anything when it successfully runs, we recommend adding a print(\"Script completed successfully, no errors.\") command at the end of the file,\n   so that you can be sure that the script indeed ran fine all the way through.\n\n2. If you run a command and it doesn't work, try running a different command. A command that did not work once will not work the second time unless you modify it!\n\n3. If you open a file and need to get to an area around a specific line that is not in the first 100 lines, say line 583, don't just use the scroll_down command multiple times. Instead, use the goto 583 command. It's much quicker.\n\n4. If the bug reproduction script requires inputting/reading a specific file, such as buggy-input.png, and you'd like to understand how to input that file, conduct a search in the existing repo code, to see whether someone else has already done that. Do this by running the command: find_file \"buggy-input.png\" If that doesn't work, use the linux 'find' command.\n\n5. Always make sure to look at the currently open file and the current working directory (which appears right after the currently open file). The currently open file might be in a different directory than the working directory! Note that some commands, such as 'create', open files, so they might change the current  open file.\n\n6. When editing files, it is easy to accidentally specify a wrong line number or to write code with incorrect indentation. Always check the code after you issue an edit to make sure that it reflects what you wanted to accomplish. If it didn't, issue another command to fix it.\n\n\n(Open file: n/a)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "create",
+      "kwargs": {
+        "filename": "\"reproduce.py\""
+      },
+      "description": "First, let's start by reproducing the issue. We'll create a new file called `reproduce.py` and paste the example code from the issue into it."
+    },
+    {
+      "class_": "text_observation",
+      "content": "[File: /networkx/reproduce.py (1 lines total)]\n1:\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "edit",
+      "kwargs": {
+        "start_line": 1,
+        "end_line": 1,
+        "replacement_text": "\"import networkx as nx\n\nG = nx.compose(nx.complete_graph([0, 1, 2]), nx.complete_graph([3, 4, 5]))\nnx.connectivity.is_k_edge_connected(G, 2)\n\""
+      },
+      "description": "Now let's paste in the example code from the issue."
+    },
+    {
+      "class_": "text_observation",
+      "content": "[File: /networkx/reproduce.py (4 lines total)]\n1:import networkx as nx\n2:\n3:G = nx.compose(nx.complete_graph([0, 1, 2]), nx.complete_graph([3, 4, 5]))\n4:nx.connectivity.is_k_edge_connected(G, 2)\nFile updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "code_action",
+      "language": "bash",
+      "content": "python reproduce.py",
+      "description": "Now let's run the code to see if we see the same output as the issue."
+    },
+    {
+      "class_": "text_observation",
+      "content": "/networkx/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback\n  backends.update(_get_backends(\"networkx.backends\"))\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "edit",
+      "kwargs": {
+        "start_line": 4,
+        "end_line": 4,
+        "replacement_text": "\"print(nx.connectivity.is_k_edge_connected(G, 2))\n\""
+      },
+      "description": "It looks like there's a warning about the networkx backend being defined more than once, but this doesn't affect the correctness of the algorithm. The issue is about the correctness of the `is_k_edge_connected` function, not about the backend. So, let's ignore the warning and proceed with the issue.\n\nSince the `reproduce.py` script doesn't have a print statement, it won't produce any output if the `is_k_edge_connected` function returns `True`. To verify the current behavior, let's add a print statement to the script."
+    },
+    {
+      "class_": "text_observation",
+      "content": "[File: /networkx/reproduce.py (4 lines total)]\n1:import networkx as nx\n2:\n3:G = nx.compose(nx.complete_graph([0, 1, 2]), nx.complete_graph([3, 4, 5]))\n4:print(nx.connectivity.is_k_edge_connected(G, 2))\nFile updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "code_action",
+      "language": "bash",
+      "content": "python reproduce.py",
+      "description": "Now let's run the code to see the output."
+    },
+    {
+      "class_": "text_observation",
+      "content": "/networkx/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback\n  backends.update(_get_backends(\"networkx.backends\"))\nTrue\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "search_dir",
+      "kwargs": {
+        "search_term": "\"def is_k_edge_connected\""
+      },
+      "description": "The output is `True`, which confirms the issue. The `is_k_edge_connected` function should return `False` for a multi-component graph without bridges. Now, let's find the file where the `is_k_edge_connected` function is defined to understand and fix the issue. We'll search for the function definition within the networkx directory."
+    },
+    {
+      "class_": "text_observation",
+      "content": "Found 1 matches for \"def is_k_edge_connected\" in /networkx:\n/networkx/networkx/algorithms/connectivity/edge_augmentation.py (1 matches)\nEnd of matches for \"def is_k_edge_connected\" in /networkx\n\n(Open file: /networkx/reproduce.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "open",
+      "kwargs": {
+        "path": "\"networkx/algorithms/connectivity/edge_augmentation.py\""
+      },
+      "description": "The `is_k_edge_connected` function is defined in the `networkx/algorithms/connectivity/edge_augmentation.py` file. Let's open this file to examine the function and understand how it currently handles the k=2 case."
+    },
+    {
+      "class_": "text_observation",
+      "content": "[File: /networkx/networkx/algorithms/connectivity/edge_augmentation.py (1269 lines total)]\n1:\"\"\"\n2:Algorithms for finding k-edge-augmentations\n3:\n4:A k-edge-augmentation is a set of edges, that once added to a graph, ensures\n5:that the graph is k-edge-connected; i.e. the graph cannot be disconnected\n6:unless k or more edges are removed.  Typically, the goal is to find the\n7:augmentation with minimum weight.  In general, it is not guaranteed that a\n8:k-edge-augmentation exists.\n9:\n10:See Also\n11:--------\n12::mod:`edge_kcomponents` : algorithms for finding k-edge-connected components\n13::mod:`connectivity` : algorithms for determining edge connectivity.\n14:\"\"\"\n15:import itertools as it\n16:import math\n17:from collections import defaultdict, namedtuple\n18:\n19:import networkx as nx\n20:from networkx.utils import not_implemented_for, py_random_state\n21:\n22:__all__ = [\"k_edge_augmentation\", \"is_k_edge_connected\", \"is_locally_k_edge_connected\"]\n23:\n24:\n25:@not_implemented_for(\"directed\")\n26:@not_implemented_for(\"multigraph\")\n27:@nx._dispatch\n28:def is_k_edge_connected(G, k):\n29:    \"\"\"Tests to see if a graph is k-edge-connected.\n30:\n31:    Is it impossible to disconnect the graph by removing fewer than k edges?\n32:    If so, then G is k-edge-connected.\n33:\n34:    Parameters\n35:    ----------\n36:    G : NetworkX graph\n37:       An undirected graph.\n38:\n39:    k : integer\n40:        edge connectivity to test for\n41:\n42:    Returns\n43:    -------\n44:    boolean\n45:        True if G is k-edge-connected.\n46:\n47:    See Also\n48:    --------\n49:    :func:`is_locally_k_edge_connected`\n50:\n51:    Examples\n52:    --------\n53:    >>> G = nx.barbell_graph(10, 0)\n54:    >>> nx.is_k_edge_connected(G, k=1)\n55:    True\n56:    >>> nx.is_k_edge_connected(G, k=2)\n57:    False\n58:    \"\"\"\n59:    if k < 1:\n60:        raise ValueError(f\"k must be positive, not {k}\")\n61:    # First try to quickly determine if G is not k-edge-connected\n62:    if G.number_of_nodes() < k + 1:\n63:        return False\n64:    elif any(d < k for n, d in G.degree()):\n65:        return False\n66:    else:\n67:        # Otherwise perform the full check\n68:        if k == 1:\n69:            return nx.is_connected(G)\n70:        elif k == 2:\n71:            return not nx.has_bridges(G)\n72:        else:\n73:            return nx.edge_connectivity(G, cutoff=k) >= k\n74:\n75:\n76:@not_implemented_for(\"directed\")\n77:@not_implemented_for(\"multigraph\")\n78:@nx._dispatch\n79:def is_locally_k_edge_connected(G, s, t, k):\n80:    \"\"\"Tests to see if an edge in a graph is locally k-edge-connected.\n81:\n82:    Is it impossible to disconnect s and t by removing fewer than k edges?\n83:    If so, then s and t are locally k-edge-connected in G.\n84:\n85:    Parameters\n86:    ----------\n87:    G : NetworkX graph\n88:       An undirected graph.\n89:\n90:    s : node\n91:        Source node\n92:\n93:    t : node\n94:        Target node\n95:\n96:    k : integer\n97:        local edge connectivity for nodes s and t\n98:\n99:    Returns\n100:    -------\n(1169 more lines below)\n\n(Open file: /networkx/networkx/algorithms/connectivity/edge_augmentation.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "edit",
+      "kwargs": {
+        "start_line": 61,
+        "end_line": 61,
+        "replacement_text": "\"# First try to quickly determine if G is not k-edge-connected\n    if G.number_of_nodes() < k + 1:\n        return False\n    elif any(d < k for n, d in G.degree()):\n        return False\n    elif nx.number_connected_components(G) > 1 and k > 0:\n        return False\n    else:\n        # Otherwise perform the full check\n        if k == 1:\n            return nx.is_connected(G)\n        elif k == 2:\n            return not nx.has_bridges(G)\n        else:\n            return nx.edge_connectivity(G, cutoff=k) >= k\n\""
+      },
+      "description": "We are now looking at the `is_k_edge_connected` function. The issue suggests that the function incorrectly returns `True` for `k=2` with multi-component graphs without bridges. The current implementation defers to `is_connected` for `k=1` and to `has_bridges` for `k=2`. To fix this issue, we need to ensure that the function returns `False` for all positive values of `k` when the graph has multiple components.\n\nLet's edit the function to add this condition. We'll add a check to return `False` if the graph has multiple components and `k` is positive."
+    },
+    {
+      "class_": "text_observation",
+      "content": "[File: /networkx/networkx/algorithms/connectivity/edge_augmentation.py (1283 lines total)]\n(10 more lines above)\n11:--------\n12::mod:`edge_kcomponents` : algorithms for finding k-edge-connected components\n13::mod:`connectivity` : algorithms for determining edge connectivity.\n14:\"\"\"\n15:import itertools as it\n16:import math\n17:from collections import defaultdict, namedtuple\n18:\n19:import networkx as nx\n20:from networkx.utils import not_implemented_for, py_random_state\n21:\n22:__all__ = [\"k_edge_augmentation\", \"is_k_edge_connected\", \"is_locally_k_edge_connected\"]\n23:\n24:\n25:@not_implemented_for(\"directed\")\n26:@not_implemented_for(\"multigraph\")\n27:@nx._dispatch\n28:def is_k_edge_connected(G, k):\n29:    \"\"\"Tests to see if a graph is k-edge-connected.\n30:\n31:    Is it impossible to disconnect the graph by removing fewer than k edges?\n32:    If so, then G is k-edge-connected.\n33:\n34:    Parameters\n35:    ----------\n36:    G : NetworkX graph\n37:       An undirected graph.\n38:\n39:    k : integer\n40:        edge connectivity to test for\n41:\n42:    Returns\n43:    -------\n44:    boolean\n45:        True if G is k-edge-connected.\n46:\n47:    See Also\n48:    --------\n49:    :func:`is_locally_k_edge_connected`\n50:\n51:    Examples\n52:    --------\n53:    >>> G = nx.barbell_graph(10, 0)\n54:    >>> nx.is_k_edge_connected(G, k=1)\n55:    True\n56:    >>> nx.is_k_edge_connected(G, k=2)\n57:    False\n58:    \"\"\"\n59:    if k < 1:\n60:        raise ValueError(f\"k must be positive, not {k}\")\n61:    # First try to quickly determine if G is not k-edge-connected\n62:    if G.number_of_nodes() < k + 1:\n63:        return False\n64:    elif any(d < k for n, d in G.degree()):\n65:        return False\n66:    elif nx.number_connected_components(G) > 1 and k > 0:\n67:        return False\n68:    else:\n69:        # Otherwise perform the full check\n70:        if k == 1:\n71:            return nx.is_connected(G)\n72:        elif k == 2:\n73:            return not nx.has_bridges(G)\n74:        else:\n75:            return nx.edge_connectivity(G, cutoff=k) >= k\n76:    if G.number_of_nodes() < k + 1:\n77:        return False\n78:    elif any(d < k for n, d in G.degree()):\n79:        return False\n80:    else:\n81:        # Otherwise perform the full check\n82:        if k == 1:\n83:            return nx.is_connected(G)\n84:        elif k == 2:\n85:            return not nx.has_bridges(G)\n86:        else:\n87:            return nx.edge_connectivity(G, cutoff=k) >= k\n88:\n89:\n90:@not_implemented_for(\"directed\")\n91:@not_implemented_for(\"multigraph\")\n92:@nx._dispatch\n93:def is_locally_k_edge_connected(G, s, t, k):\n94:    \"\"\"Tests to see if an edge in a graph is locally k-edge-connected.\n95:\n96:    Is it impossible to disconnect s and t by removing fewer than k edges?\n97:    If so, then s and t are locally k-edge-connected in G.\n98:\n99:    Parameters\n100:    ----------\n101:    G : NetworkX graph\n102:       An undirected graph.\n103:\n104:    s : node\n105:        Source node\n106:\n107:    t : node\n108:        Target node\n109:\n110:    k : integer\n(1173 more lines below)\nFile updated. Please review the changes and make sure they are correct (correct indentation, no duplicate lines, etc). Edit the file again if necessary.\n\n(Open file: /networkx/networkx/algorithms/connectivity/edge_augmentation.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "code_action",
+      "language": "bash",
+      "content": "python reproduce.py",
+      "description": "The code has been updated to include a check for multiple components. Now, let's run the reproduce.py script again to ensure that the changes have the desired effect."
+    },
+    {
+      "class_": "text_observation",
+      "content": "/networkx/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback\n  backends.update(_get_backends(\"networkx.backends\"))\nFalse\n\n(Open file: /networkx/networkx/algorithms/connectivity/edge_augmentation.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "code_action",
+      "language": "bash",
+      "content": "rm reproduce.py",
+      "description": "The output is now `False`, which is the expected behavior. The `is_k_edge_connected` function should return `False` for a multi-component graph without bridges. Let's remove the reproduce.py file since it is no longer needed."
+    },
+    {
+      "class_": "text_observation",
+      "content": "Your command ran successfully and did not produce any output.\n(Open file: /networkx/networkx/algorithms/connectivity/edge_augmentation.py)\n(Current directory: /networkx)\nbash-$",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "api_action",
+      "function": "submit",
+      "kwargs": {},
+      "description": "The `reproduce.py` file has been successfully removed. Now that we have fixed the issue and verified the fix, we should submit our changes to the code base. Let's submit the changes using the `submit` command."
+    },
+    {
+      "class_": "text_observation",
+      "content": "Congratulations! You have successfully solved the task.",
+      "name": null,
+      "source": "user"
+    },
+    {
+      "class_": "message_action",
+      "content": "<finish> I've wrapped up the task successfully. </finish>",
+      "description": ""
+    }
+  ],
+  "details": {
+    "model_name": "swe-agent-llama-405b",
+    "exit_status": "submitted",
+    "generated_patch": "\ndiff --git a/networkx/algorithms/connectivity/edge_augmentation.py b/networkx/algorithms/connectivity/edge_augmentation.py\nindex ed9bd7c33..113a9593e 100644\n--- a/networkx/algorithms/connectivity/edge_augmentation.py\n+++ b/networkx/algorithms/connectivity/edge_augmentation.py\n@@ -59,6 +59,20 @@ def is_k_edge_connected(G, k):\n     if k < 1:\n         raise ValueError(f\"k must be positive, not {k}\")\n     # First try to quickly determine if G is not k-edge-connected\n+    if G.number_of_nodes() < k + 1:\n+        return False\n+    elif any(d < k for n, d in G.degree()):\n+        return False\n+    elif nx.number_connected_components(G) > 1 and k > 0:\n+        return False\n+    else:\n+        # Otherwise perform the full check\n+        if k == 1:\n+            return nx.is_connected(G)\n+        elif k == 2:\n+            return not nx.has_bridges(G)\n+        else:\n+            return nx.edge_connectivity(G, cutoff=k) >= k\n     if G.number_of_nodes() < k + 1:\n         return False\n     elif any(d < k for n, d in G.degree()):\n",
+    "eval_logs": "Will execute following command for apply_patch:\n```\n\ncd //networkx &&\nsource activate base &&\nconda activate networkx &&\ngit apply -v /swebench_matterhorn/prediction_patch.patch --allow-empty\n```\n\nChecking patch networkx/algorithms/connectivity/edge_augmentation.py...\nApplied patch networkx/algorithms/connectivity/edge_augmentation.py cleanly.\nWill execute following command for apply_patch:\n```\n\ncd //networkx &&\nsource activate base &&\nconda activate networkx &&\ngit restore networkx/algorithms/connectivity/tests/test_edge_augmentation.py &&\ngit restore networkx/algorithms/tests/test_clique.py &&\ngit apply -v /swebench_matterhorn/test_patch.patch --allow-empty\n```\n\nChecking patch networkx/algorithms/connectivity/tests/test_edge_augmentation.py...\nChecking patch networkx/algorithms/tests/test_clique.py...\nApplied patch networkx/algorithms/connectivity/tests/test_edge_augmentation.py cleanly.\nApplied patch networkx/algorithms/tests/test_clique.py cleanly.\n___ENVIRONMENT_SET_UP_PATCH_APPLIED___\n2024-10-20 20:09:24,016 - root - INFO - Will run the following test command\n2024-10-20 20:09:24,016 - root - INFO - \n```\ncd //networkx &&\nsource activate base &&\nconda activate networkx &&\npytest --no-header -rA --tb=no  -p no:cacheprovider -W ignore::DeprecationWarning networkx/algorithms/connectivity/tests/test_edge_augmentation.py networkx/algorithms/tests/test_clique.py\n```\nWill execute following command for run_tests:\n```\n\ncd //networkx &&\nsource activate base &&\nconda activate networkx &&\npytest --no-header -rA --tb=no  -p no:cacheprovider -W ignore::DeprecationWarning networkx/algorithms/connectivity/tests/test_edge_augmentation.py networkx/algorithms/tests/test_clique.py\n```\n\n___TESTS_SECTION___\n============================= test session starts ==============================\ncollected 32 items\n\nnetworkx/algorithms/connectivity/tests/test_edge_augmentation.py ....... [ 21%]\n.............                                                            [ 62%]\nnetworkx/algorithms/tests/test_clique.py ............                    [100%]\n\n=============================== warnings summary ===============================\nnetworkx/utils/backends.py:135\n  /networkx/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback\n    backends.update(_get_backends(\"networkx.backends\"))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_is_k_edge_connected\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_clique_and_node\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_edgeless_graph\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_gnp_augmentation\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_star\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_unfeasible\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_is_locally_k_edge_connected_exceptions\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_shell\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_barbell\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_invalid_k\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_tarjan\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_null_graph\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_bridge\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_cliques\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_karate\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_is_locally_k_edge_connected\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_configuration\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_weight_key\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_is_k_edge_connected_exceptions\nPASSED networkx/algorithms/connectivity/tests/test_edge_augmentation.py::test_point_graph\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_make_max_clique_graph_create_using\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_number_of_cliques\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_node_clique_number\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_find_cliques3\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_directed\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_selfloops\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_find_cliques_trivial\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_make_max_clique_graph\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_find_cliques1\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_make_clique_bipartite\nPASSED networkx/algorithms/tests/test_clique.py::TestCliques::test_find_cliques2\nPASSED networkx/algorithms/tests/test_clique.py::TestEnumerateAllCliques::test_paper_figure_4\n======================== 32 passed, 1 warning in 1.63s =========================\n___TESTS_SECTION_END___\nAll tests passed.\n",
+    "task_about": "This is a python software engineering task in `networkx`. ```is_k_edge_connected``` incorrectly returns True for k=2 with multi-component graphs without bridges. The implementation of currently defers to for k=1, to for k=2, and runs the full check for k>2.",
+    "task_action": "Inspect the reported behavior and the affected code in `networkx/algorithms/connectivity/edge_augmentation.py`. Reproduce or confirm the problem, implement the targeted change, run the relevant checks.",
+    "task_domain": "Python software engineering",
+    "task_type": "Bug fix and regression coverage"
+  }
+}

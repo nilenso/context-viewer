@@ -1,0 +1,152 @@
+{
+  "segmentation": {
+    "threshold": 800,
+    "prompt": "Given the following text, tell me where you would apply broad semantic breaks.\nThe purpose is coarse chunking for later categorization. Prefer a few large sections over many detailed sections.\n\nUse natural boundaries such as headings, labeled sections, or clear changes in subject.\nKeep related content together. Keep code, examples, instructions, and technical details with the section they belong to.\nDo not split repetitive or line-oriented content into small pieces.\n\nReturn ONLY a valid JSON array of regexes with positive lookahead which I can use to run string split on in javascript.\n\nExample response format: [\"(?=regex-of-section-1)\", \"(?=regex-of-section2)\"]"
+  },
+  "dimensions": [
+    {
+      "name": "task_intent",
+      "prompt": "Given this conversation, list the task intents that explain why work is being performed. Use concise programming terminology with lowercase snake_case names. Possible examples include bug_fixing, validation, performance_optimization, documentation, configuration, feature_implementation, investigation, or refactoring. These examples are not exhaustive; use other established programming terms when they describe the conversation more accurately. Include only intents supported by the conversation. Do not include technologies, tools, files, or technical areas."
+    },
+    {
+      "name": "technical_area",
+      "prompt": "Given this conversation, list the technical areas where work is being performed. Use concise programming terminology with lowercase snake_case names. Possible examples include language_and_type_systems, cli, file_system, security, testing, build_tooling, networking, user_interface, api, concurrency, or dependency_management. These examples are not exhaustive; use other established programming terms when they describe the conversation more accurately. Include only areas supported by the conversation. Do not include task intents such as bug_fixing, validation, implementation, or investigation."
+    },
+    {
+      "name": "trajectory_stage",
+      "components": [
+        {
+          "name": "instruction",
+          "description": "User requests, requirements, constraints, clarifications, corrections, or other directions defining what the agent should do."
+        },
+        {
+          "name": "agent_reasoning",
+          "description": "Agent analysis, planning, interpretation, decision-making, or explanation used to determine next actions."
+        },
+        {
+          "name": "tool_call",
+          "description": "Agent requests to execute tools, including file reads, searches, shell commands, code edits, or external operations."
+        },
+        {
+          "name": "tool_result",
+          "description": "Outputs returned by tools, including file contents, search matches, command output, errors, and edit confirmations."
+        },
+        {
+          "name": "conclusion",
+          "description": "Agent final answers, completed-work summaries, findings, recommendations, or explicit handoffs to the user."
+        }
+      ]
+    },
+    {
+      "name": "tool_call",
+      "prompt": "Given this conversation, list the specific tools or commands invoked by tool calls. Identify the concrete operation instead of abstracting it into a broad category. Use concise lowercase snake_case names matching the invoked tool or command, such as grep, rg, find, ls, file, cat, sed, git, npm, bun, tsc, read_file, write_file, edit_file, or generate_image. These examples are not exhaustive; use the actual tool or command found in the conversation. For shell tool calls, inspect the command and classify by its primary executable rather than using generic names such as shell, command_execution, search_tool, file_operation, or version_control. Include not_tool_call for content that is not a tool call."
+    },
+    {
+      "name": "tool_result_type",
+      "components": [
+        {
+          "name": "file_content",
+          "description": "Content returned from reading or inspecting one or more files."
+        },
+        {
+          "name": "search_result",
+          "description": "Matches, paths, symbols, records, or other results returned by a search or lookup operation."
+        },
+        {
+          "name": "change_result",
+          "description": "Confirmation, diff, status, or error returned after creating, editing, deleting, or otherwise modifying content."
+        },
+        {
+          "name": "test_output",
+          "description": "Results from tests, type checks, linters, builds, validation commands, or other correctness checks."
+        },
+        {
+          "name": "command_output",
+          "description": "Standard output, standard error, exit status, or execution details from a command not better classified as test_output."
+        },
+        {
+          "name": "submission_result",
+          "description": "Result of submitting, publishing, uploading, committing, pushing, or sending completed work to an external destination."
+        },
+        {
+          "name": "not_tool_result",
+          "description": "Content that is not a tool result, including instructions, agent reasoning, tool calls, and conclusions."
+        }
+      ]
+    },
+    {
+      "name": "reasoning_intent",
+      "components": [
+        {
+          "name": "reason",
+          "description": "Agent interprets evidence, explains behavior, evaluates possibilities, identifies causes, or derives a technical conclusion."
+        },
+        {
+          "name": "plan_next_step",
+          "description": "Agent decides or states what action to take next, including files to inspect, commands to run, changes to make, or checks to perform."
+        },
+        {
+          "name": "recover",
+          "description": "Agent responds to a failed command, invalid assumption, blocked approach, or unexpected result by choosing an alternative action."
+        },
+        {
+          "name": "re_evaluate",
+          "description": "Agent revisits an earlier interpretation, plan, or conclusion after receiving new or contradictory evidence."
+        },
+        {
+          "name": "conclude",
+          "description": "Agent determines that work is complete or summarizes a resolved finding within its reasoning. Use for internal conclusions, not final user-facing answers."
+        },
+        {
+          "name": "not_agent_reasoning",
+          "description": "Content that is not agent reasoning, including user instructions, tool calls, tool results, and final user-facing responses."
+        }
+      ]
+    },
+    {
+      "name": "error_life_cycle",
+      "components": [
+        {
+          "name": "error_reported",
+          "description": "An error, failure, incorrect behavior, failing check, or unexpected result is first presented or observed without substantive diagnosis."
+        },
+        {
+          "name": "error_diagnosis",
+          "description": "Content investigates, explains, or identifies the cause of a reported error using evidence, code inspection, logs, or reasoning."
+        },
+        {
+          "name": "error_correction",
+          "description": "A change or action is proposed or performed to correct a diagnosed error, before successful resolution is confirmed."
+        },
+        {
+          "name": "error_fixed",
+          "description": "Evidence confirms that the error is resolved, such as a passing test, successful command, correct output, or explicit verified conclusion."
+        },
+        {
+          "name": "error_re_correct",
+          "description": "A previous correction failed, was incomplete, or introduced another problem, and a subsequent corrective action is attempted."
+        },
+        {
+          "name": "not_error",
+          "description": "Content unrelated to an error lifecycle, including ordinary implementation, exploration, successful operations without prior failure, and general discussion."
+        }
+      ]
+    },
+    {
+      "name": "error_tool",
+      "prompt": "Given this conversation, list tools or tool categories associated with errors. Use concise lowercase snake_case programming terminology, such as compiler, type_checker, test_runner, shell, package_manager, version_control, file_editor, api_client, or build_system. These examples are not exhaustive; use other established terms when supported by the conversation. Include not_error for content that does not describe or expose an error. Avoid classifying by error cause, technical area, environment, or evaluation outcome."
+    },
+    {
+      "name": "error_code",
+      "prompt": "Given this conversation, list code-related error categories. Use concise lowercase snake_case programming terminology, such as syntax_error, type_error, import_error, invalid_argument, null_reference, state_management_error, control_flow_error, interface_mismatch, or test_failure. These examples are not exhaustive; use other established terms when supported by the conversation. Include not_error for content unrelated to an error. Classify the defect expressed by code rather than the tool reporting it, execution environment, or evaluation outcome."
+    },
+    {
+      "name": "error_environment",
+      "prompt": "Given this conversation, list environment-related error categories. Use concise lowercase snake_case programming terminology, such as missing_dependency, version_mismatch, permission_error, path_error, missing_file, invalid_configuration, unavailable_service, resource_exhaustion, or platform_incompatibility. These examples are not exhaustive; use other established terms when supported by the conversation. Include not_error for content unrelated to an error. Classify failures caused by runtime, system, dependency, configuration, or infrastructure conditions rather than source-code defects or evaluation outcomes."
+    },
+    {
+      "name": "error_evaluation",
+      "prompt": "Given this conversation, list evaluation-related error categories. Use concise lowercase snake_case programming terminology, such as assertion_failure, regression, build_failure, lint_failure, type_check_failure, benchmark_regression, incomplete_validation, incorrect_output, or acceptance_failure. These examples are not exhaustive; use other established terms when supported by the conversation. Include not_error for content unrelated to an error. Classify failures revealed while checking correctness, quality, performance, or acceptance rather than the reporting tool, source-code defect, or execution environment."
+    }
+  ]
+}
