@@ -228,7 +228,8 @@ interface ContextLensSpec {
   };
   dimensions?: Array<{
     name: string;
-    components: Array<{
+    prompt?: string;
+    components?: Array<{
       name: string;
       description: string;
     }>;
@@ -265,9 +266,12 @@ Guidance for prompts:
 
 ### `dimensions`
 
-Dimensions are explicit taxonomies supplied by the agent after inspecting the files.
+Dimensions use one of two modes:
 
-The agent should not provide a classification prompt. The analyzer owns the classifier prompt. The agent provides names and descriptions.
+- `prompt`: analyzer discovers components, then classifies transcript parts
+- `components`: agent supplies fixed component names and descriptions
+
+Provide exactly one mode per dimension.
 
 Guidelines:
 
@@ -275,7 +279,8 @@ Guidelines:
 - do not default to generic code-area axes unless that is what the user asked for
 - examples: `retention_value` or `information_type` for compaction quality, `activity_type` for work process, `context_source` for source mix, `feature_area` for product/code area
 - use the same dimensions/components across files when comparing files
-- prefer 8–12 components per dimension when possible
+- use `prompt` when useful components are not known yet
+- prefer 8–12 fixed components per dimension when possible
 - write component descriptions for someone who has not seen the code or conversation
 
 ### `colors`

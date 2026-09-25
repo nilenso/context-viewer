@@ -107,10 +107,11 @@ export interface Analyze2Options {
     prompt?: string;
   };
 
-  /** Classification dimensions supplied as explicit taxonomies. */
+  /** Classification dimensions using either discovered or explicit components. */
   dimensions?: Array<{
     name: string;
-    components: ComponentDef[];
+    prompt?: string;
+    components?: ComponentDef[];
   }>;
 
   /** Per-dimension component colors, keyed by dimension name then component name. */
@@ -429,9 +430,10 @@ function toAnalyzeOptions(options: Analyze2Options): AnalyzeOptions {
     prompts.segmentation = options.segmentation.prompt;
   }
 
-  const dimensionInputs = new Map<string, { components?: ComponentDef[]; colors?: Record<string, string> }>();
+  const dimensionInputs = new Map<string, { prompt?: string; components?: ComponentDef[]; colors?: Record<string, string> }>();
   for (const dim of options.dimensions || []) {
     dimensionInputs.set(dim.name, {
+      prompt: dim.prompt,
       components: dim.components,
       colors: options.colors?.[dim.name],
     });

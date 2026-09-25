@@ -62,7 +62,7 @@ user's investigation:
 
 Spec interface:
   segmentation?: { threshold?: number, prompt?: string }
-  dimensions?: [{ name: string, components: [{ name: string, description: string }] }]
+  dimensions?: [{ name: string, prompt: string } | { name: string, components: [{ name: string, description: string }] }]
   colors?: { [dimensionName]: { [componentName]: "#rrggbb" } }
 
 Options:
@@ -285,8 +285,13 @@ function validateSpec(value: unknown): asserts value is Spec {
     for (const [dimIndex, dim] of value.dimensions.entries()) {
       if (!isRecord(dim)) fail(`dimensions[${dimIndex}] must be an object`);
       if (typeof dim.name !== "string" || dim.name.length === 0) fail(`dimensions[${dimIndex}].name must be a non-empty string`);
-      if (!Array.isArray(dim.components)) fail(`dimensions[${dimIndex}].components must be an array`);
-      for (const [compIndex, comp] of dim.components.entries()) {
+      const hasPrompt = typeof dim.prompt === "string" && dim.prompt.length > 0;
+      const components = Array.isArray(dim.components) ? dim.components : undefined;
+      if (hasPrompt === !!components) {
+        fail(`dimensions[${dimIndex}] must provide either a non-empty prompt or components`);
+      }
+      if (hasPrompt) continue;
+      for (const [compIndex, comp] of components!.entries()) {
         if (!isRecord(comp)) fail(`dimensions[${dimIndex}].components[${compIndex}] must be an object`);
         if (typeof comp.name !== "string" || comp.name.length === 0) {
           fail(`dimensions[${dimIndex}].components[${compIndex}].name must be a non-empty string`);

@@ -2,7 +2,7 @@
 
 Agent-facing CLI for analyzing AI conversation transcripts.
 
-Choose dimensions that answer the user's question. Do not default to generic code-area axes unless the user specifically asks for that breakdown.
+Choose dimensions that answer the user's question. Do not default to generic code-area axes unless the user specifically asks for that breakdown. Use a dimension `prompt` to let the analyzer discover components, or provide fixed `components`.
 
 ```bash
 context-lens --spec - session.jsonl <<'JSON'
@@ -14,24 +14,9 @@ context-lens --spec - session.jsonl <<'JSON'
   "dimensions": [
     {
       "name": "dimension_chosen_for_this_question",
-      "components": [
-        {
-          "name": "component_a",
-          "description": "Specific criterion for assigning transcript parts to component_a."
-        },
-        {
-          "name": "component_b",
-          "description": "Specific criterion for assigning transcript parts to component_b."
-        }
-      ]
+      "prompt": "Discover categories that directly help answer the user's question."
     }
-  ],
-  "colors": {
-    "dimension_chosen_for_this_question": {
-      "component_a": "#2563eb",
-      "component_b": "#16a34a"
-    }
-  }
+  ]
 }
 JSON
 ```
