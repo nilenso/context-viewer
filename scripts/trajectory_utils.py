@@ -2,7 +2,11 @@
 
 import argparse
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import Optional
 
 # Standardized ADP trajectories are available from the `std` JSONL split:
 # https://datasets-server.huggingface.co/first-rows?dataset=neulab%2Fagent-data-collection&config=nebius_SWE-agent-trajectories&split=std
@@ -59,32 +63,67 @@ def convert_parquet_to_jsonl(source: Path, target: Path) -> int:
     return count
 
 
+def analyze_trajectory(
+    source: Path,
+    output: Optional[Path] = None,
+    spec_path: Optional[Path] = None,
+) -> Path:
+    root = Path(__file__).resolve().parent.parent
+    output = output or root / "results/cv-analyzed-trajectories" / f"{source.stem}.annotated.json"
+    spec_path = spec_path or root / "context-lens/sample-specs/agent-trajectory.json"
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    env = os.environ.copy()
+    api_key = env.get("VITE_OPENROUTER_API_KEY")
+    if not api_key:
+        raise SystemExit("VITE_OPENROUTER_API_KEY is missing from the process environment")
 
-    parquet_parser = subparsers.add_parser("parquet-to-jsonl")
-    parquet_parser.add_argument("source", type=Path)
-    parquet_parser.add_argument("target", type=Path)
+    # Context Lens reads OPENAI_* variables while this process uses Vite-facing names.
+    # Override them here to route analysis through OpenRouter instead of OpenAI defaults.
+    env.update({
+        "OPENAI_API_KEY": api_key,
+        "OPENAI_BASE_URL": "https://openrouter.ai/api/v1",
+        "OPENAI_MODEL": env.get("VITE_AI_MODEL", "openai/gpt-6-luna"),
+        "OPENAI_API_MODE": "chat",
+    })
+    result = subprocess.run(
+        [
+            "bun", "run", str(root / "context-lens/src/cli.ts"),
+            "--preserve-tool-calls",
+            "--spec", str(spec_path.resolve()),
+            str(source.resolve()),
+        ],
+        cwd=root,
+        env=env,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout, file=sys.stderr)
+        raise SystemExit(result.returncode)
 
-    jsonl_parser = subparsers.add_parser("jsonl-to-json")
-    jsonl_parser.add_argument("source", type=Path)
-    jsonl_parser.add_argument("target", type=Path)
+    lines = result.stdout.splitlines()
+    marker = lines.index("Full Context Viewer export written to:")
+    export_path = Path(lines[marker + 1])
+    export = json.loads(export_path.read_text())
 
-    raw_jsonl_parser = subparsers.add_parser("raw-jsonl-to-json")
-    raw_jsonl_parser.add_argument("source", type=Path)
-    raw_jsonl_parser.add_argument("target", type=Path)
+    # Context Lens stores the input path as filename; exports only need its display stem.
+    export["files"][0]["filename"] = source.stem
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(export, indent=2) + "\n")
+    return output
 
-    args = parser.parse_args()
-    if args.command == "parquet-to-jsonl":
-        count = convert_parquet_to_jsonl(args.source, args.target)
-    elif args.command == "raw-jsonl-to-json":
-        count = extract_raw_individual_trajectories(args.source, args.target)
-    else:
-        count = extract_adp_individual_trajectories(args.source, args.target)
-    print(f"wrote {count} trajectories to {args.target}")
+
+def analyze_trajectories(names: list[str]) -> list[Path]:
+    root = Path(__file__).resolve().parent.parent
+    return [
+        analyze_trajectory(root / "results/raw-agent-trajectories" / f"{Path(name).stem}.json")
+        for name in names
+    ]
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Analyze trajectories with Context Lens")
+    parser.add_argument("names", nargs="+")
+    args = parser.parse_args()
+    for output in analyze_trajectories(args.names):
+        print(output)
