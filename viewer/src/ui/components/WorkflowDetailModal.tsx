@@ -624,9 +624,9 @@ export function WorkflowDetailModal({
                                 <div className="font-medium">{label as string}</div>
                                 {stageMetric ? (
                                   <div className="mt-1 text-muted-foreground">
-                                    {(stageMetric as WorkflowStageMetric).model || conv?.stageModels?.[
+                                    {conv?.stageModels?.[
                                       label === "Topic identification" ? "identifying-components" : "classifying-components"
-                                    ] || DEFAULT_MODEL}
+                                    ] || (stageMetric as WorkflowStageMetric).model || DEFAULT_MODEL}
                                     <br />
                                     Execution {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · LLM {formatDuration((stageMetric as WorkflowStageMetric).llmTimeMs || 0)} · Processing {formatDuration(Math.max(0, (stageMetric as WorkflowStageMetric).wallClockMs - ((stageMetric as WorkflowStageMetric).llmTimeMs || 0)))} · {formatCost(stageMetric as WorkflowStageMetric)}
                                   </div>
