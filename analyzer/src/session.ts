@@ -162,6 +162,7 @@ export function applyIterationInputs(
     }>;
     renameDimensions?: Record<string, string>;
     removeDimensions?: string[];
+    reprocessDimensions?: string[];
   },
 ): { affectedDimNames: string[] } {
   const affectedDims = new Set<string>();
@@ -176,6 +177,12 @@ export function applyIterationInputs(
       }
       for (const name of newOptions.removeDimensions || []) {
         delete ctx.dimensions[name];
+      }
+      for (const name of newOptions.reprocessDimensions || []) {
+        const dimension = ctx.dimensions[name];
+        if (!dimension) continue;
+        clearDimensionIdentification(dimension);
+        affectedDims.add(name);
       }
     }
 

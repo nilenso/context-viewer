@@ -248,6 +248,34 @@ describe("session — iteration", () => {
     expect(result.states[0]!.dimensions).not.toBe(dimensions);
   });
 
+  it("reprocesses saved dimension inputs even when they have not changed", async () => {
+    const result = await analyze({ files: { content: minimalContent, filename: "test.jsonl" } }, noAiConfig);
+    saveSessionDimensions(result.sessionId, result.states[0]!.id, {
+      activity: {
+        name: "activity",
+        prompt: "Find activities",
+        customComponents: ["planning"],
+        discoveredComponents: ["planning"],
+        componentMapping: { p1: "planning" },
+        componentTimeline: [],
+        componentColors: { planning: "#ff0000" },
+      },
+    });
+
+    const reprocessed = await analyze({
+      sessionId: result.sessionId,
+      reprocessDimensions: ["activity"],
+    }, noAiConfig);
+
+    expect(reprocessed.states[0]!.dimensions?.activity).toMatchObject({
+      prompt: "Find activities",
+      customComponents: ["planning"],
+      discoveredComponents: [],
+      componentMapping: {},
+      componentColors: {},
+    });
+  });
+
   it("renames and removes dimensions without losing their outputs", async () => {
     const result1 = await analyze({
       files: { content: minimalContent, filename: "test.jsonl" },

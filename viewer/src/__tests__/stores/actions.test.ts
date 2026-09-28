@@ -78,6 +78,8 @@ vi.mock("@/ui/lib/export-download", () => ({
 
 import { useConversationStore, type ViewerConversationState } from "@/stores/conversation-store";
 import {
+  applyComponents,
+  applyPrompt,
   applyPromptsToAllAction,
   generateAnalysis,
   generateSummary,
@@ -265,6 +267,83 @@ describe("viewer session actions", () => {
     });
     expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
     expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
+  it("applies the saved prompt by reprocessing all active dimensions", async () => {
+    const selected = conversation("one", {
+      dimensions: {
+        default: {
+          name: "default",
+          discoveredComponents: ["existing"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+        topic: {
+          name: "topic",
+          discoveredComponents: ["discussion"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+      },
+    });
+    useConversationStore.setState({ conversations: [selected] });
+
+    await applyPrompt(selected);
+
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledWith(
+      "session:one",
+      "one",
+      expect.objectContaining({
+        default: expect.objectContaining({ prompt: "Find activities" }),
+        topic: expect.anything(),
+      }),
+    );
+    expect(mocks.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session:one",
+        reprocessDimensions: ["default", "topic"],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("applies saved components by reprocessing all active dimensions", async () => {
+    const selected = conversation("one", {
+      dimensions: {
+        default: {
+          name: "default",
+          discoveredComponents: ["existing"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+        topic: {
+          name: "topic",
+          discoveredComponents: ["discussion"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+      },
+    });
+    useConversationStore.setState({ conversations: [selected] });
+
+    await applyComponents(selected);
+
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledWith(
+      "session:one",
+      "one",
+      expect.objectContaining({
+        default: expect.objectContaining({ customComponents: ["planning", "execution"] }),
+        topic: expect.anything(),
+      }),
+    );
+    expect(mocks.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({ reprocessDimensions: ["default", "topic"] }),
+      expect.anything(),
+    );
   });
 
   it("saves added dimensions without reprocessing", () => {

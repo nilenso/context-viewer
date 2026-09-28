@@ -116,7 +116,7 @@ function resolveTargets(
 ): ViewerConversationState[] {
   const store = useConversationStore.getState();
   const fileIds = selectedGroupFileIds || store.getGroup(selectedConversation.id)?.fileIds;
-  if (!fileIds) return [selectedConversation];
+  if (!fileIds) return [store.getConversation(selectedConversation.id) || selectedConversation];
   return fileIds
     .map((id) => store.getConversation(id))
     .filter((conv): conv is ViewerConversationState => !!conv?.conversation);
@@ -378,25 +378,52 @@ export function saveComponents(selectedConversation: ViewerConversationState | u
   ui.setIsComponentsDialogOpen(false);
 }
 
-export async function applyPrompt(selectedConversation: ViewerConversationState | undefined) {
+async function reprocessActiveDimensions(selectedConversation: ViewerConversationState) {
   const ui = useUIStore.getState();
-  ui.setIsPromptDialogOpen(false);
+  const activeDimensions = ui.activeDimensions;
+  ui.setReprocessingId(selectedConversation.id);
+  try {
+    await Promise.all(resolveTargets(selectedConversation).map((conversation) => {
+      const reprocessDimensions = Object.keys(conversation.dimensions || {})
+        .filter((name) => activeDimensions.has(name));
+      return reprocessWithSession(conversation, { reprocessDimensions });
+    }));
+  } finally {
+    ui.setReprocessingId(null);
+  }
+}
+
+export async function applyPrompt(selectedConversation: ViewerConversationState | undefined) {
   if (!selectedConversation?.conversation) return;
-  await reprocessComponents(selectedConversation, undefined, { customPrompt: ui.editingPrompt });
+  const ui = useUIStore.getState();
+  updateDimension(
+    selectedConversation.id,
+    ui.editingDimensionName || "default",
+    { prompt: ui.editingPrompt },
+  );
+  ui.setIsPromptDialogOpen(false);
+  await reprocessActiveDimensions(selectedConversation);
 }
 
 export async function applyComponents(selectedConversation: ViewerConversationState | undefined) {
-  const ui = useUIStore.getState();
-  ui.setIsComponentsDialogOpen(false);
   if (!selectedConversation?.conversation) return;
-
+  const ui = useUIStore.getState();
   const components = ui.editingComponents
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   if (components.length === 0) return;
 
-  await reprocessComponents(selectedConversation, undefined, { customComponents: components });
+  updateDimension(
+    selectedConversation.id,
+    ui.editingDimensionName || "default",
+    {
+      customComponents: components,
+      componentDescriptions: Object.fromEntries(components.map((component) => [component, component])),
+    },
+  );
+  ui.setIsComponentsDialogOpen(false);
+  await reprocessActiveDimensions(selectedConversation);
 }
 
 export async function applySegmentationPrompt(

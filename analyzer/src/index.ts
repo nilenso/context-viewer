@@ -81,6 +81,9 @@ export interface AnalyzeOptions {
   /** Remove dimensions from an existing session. */
   removeDimensions?: string[];
 
+  /** Clear generated outputs and rerun these dimensions from their saved inputs. */
+  reprocessDimensions?: string[];
+
   /** Preset colors for components (applies to default dimension). */
   presetColors?: Record<string, string>;
 
@@ -472,6 +475,7 @@ function buildIterationInputs(options: AnalyzeOptions) {
   }
   inputs.renameDimensions = options.renameDimensions;
   inputs.removeDimensions = options.removeDimensions;
+  inputs.reprocessDimensions = options.reprocessDimensions;
 
   // Build dimension inputs from options.dimensions or options.components
   if (options.dimensions) {
