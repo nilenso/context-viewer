@@ -38,7 +38,7 @@ import {
 } from "context-analyzer";
 import type { Group,  } from "context-analyzer";
 import type { ViewerConversationState as PipelineState } from "@/stores/conversation-store";
-import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
+import { type StageGroup, hasStageRun, isStageRunning, stageToGroup } from "@/lib/stage-groups";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -200,11 +200,25 @@ export function ConversationList() {
       return "pending";
     }
 
+    if (
+      conversation.status === "processing"
+      && ["segmenting", "finding-components", "coloring"].includes(stepKey)
+    ) {
+      if (isStageRunning(conversation.step, stepKey)) return "in-progress";
+      if (hasStageRun(conversation.workflowMetrics, stepKey)) return "completed";
+    }
+
     const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
     const mappedStep = stageToGroup(conversation.step);
     const currentStepIndex = processingSteps.findIndex(
       (s) => s.key === mappedStep,
     );
+
+    if (conversation.status === "success" && conversation.workflowMetrics?.latestRun) {
+      if (["segmenting", "finding-components", "coloring"].includes(stepKey)) {
+        return hasStageRun(conversation.workflowMetrics, stepKey) ? "completed" : "pending";
+      }
+    }
 
     if (stepKey === "summarizing") {
       if (conversation.aiSummary && conversation.aiSummary.length > 0) {
@@ -212,7 +226,7 @@ export function ConversationList() {
       }
       if (
         conversation.status === "processing" &&
-        conversation.step === "summarizing"
+        isStageRunning(conversation.step, "summarizing")
       ) {
         return "in-progress";
       }

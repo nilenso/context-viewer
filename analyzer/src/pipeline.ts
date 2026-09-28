@@ -173,7 +173,14 @@ export async function runPipeline(
     await runPost("parsing", ctx, interceptors);
 
     if (ctx.metadata!.parserName === "Context Viewer" && !options?.reprocessImported) {
+      const currentMetrics = ctx.workflowMetrics!;
       Object.assign(ctx, restorePreProcessedImport(ctx.metadata!, ctx.conversation!));
+      ctx.workflowMetrics = {
+        ...ctx.workflowMetrics,
+        stages: { ...ctx.workflowMetrics?.stages, ...currentMetrics.stages },
+        latestRun: currentMetrics.latestRun,
+      };
+      finishWorkflowMetrics(ctx, workflowStart);
       return allErrors;
     }
   }

@@ -1,3 +1,5 @@
+import type { WorkflowMetrics } from "context-analyzer";
+
 /**
  * StageGroup — coarser pipeline checkpoints shown in the UI.
  * "finding-components" groups identify + classify + color.
@@ -25,4 +27,17 @@ export function stageToGroup(stage: string | undefined): StageGroup | undefined 
     default:
       return stage as StageGroup;
   }
+}
+
+export function isStageRunning(stage: string | undefined, group: StageGroup): boolean {
+  return stageToGroup(stage) === group;
+}
+
+export function hasStageRun(metrics: WorkflowMetrics | undefined, group: StageGroup): boolean {
+  const latestGroups = metrics?.latestRun?.stages.map((stage) => stageToGroup(stage)) || [];
+  if (latestGroups.includes(group)) return true;
+  if (!latestGroups.some((stage) => ["segmenting", "finding-components", "coloring"].includes(stage || ""))) {
+    return false;
+  }
+  return Object.keys(metrics?.stages || {}).some((stage) => stageToGroup(stage) === group);
 }

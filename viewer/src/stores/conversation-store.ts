@@ -295,17 +295,16 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       // and deletion independent when several files are dropped together.
       await Promise.all(fileInputs.map(async (file) => {
         try {
-          const result = await analyze({ ...options, files: file }, config);
+          const result = await analyze({ ...options, files: file }, { ...config, apiKey: "" });
           const state = result.states[0];
           if (!state) throw new Error("Analyzer returned no state");
 
-          const needsApiKey = !config.apiKey && state.metadata?.parserName !== "Context Viewer";
           updateFn(file.id, {
             ...state,
             sessionId: result.sessionId,
             warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
-            status: needsApiKey ? "paused-for-api-key" : "success",
-            pausedAtStep: needsApiKey ? "segmenting" : undefined,
+            status: "success",
+            pausedAtStep: undefined,
             step: undefined,
             error: undefined,
           });

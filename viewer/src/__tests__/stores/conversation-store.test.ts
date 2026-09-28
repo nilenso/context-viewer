@@ -92,8 +92,8 @@ describe("conversation store analyzer sessions", () => {
     expect(mocks.analyze.mock.calls.map(([options]) => options.files.id)).toEqual(["viewer-1", "viewer-2"]);
     expect(progressStates).toEqual(["processing", "processing"]);
     expect(useConversationStore.getState().conversations).toMatchObject([
-      { id: "viewer-1", sessionId: "session:viewer-1", status: "paused-for-api-key" },
-      { id: "viewer-2", sessionId: "session:viewer-2", status: "paused-for-api-key" },
+      { id: "viewer-1", sessionId: "session:viewer-1", status: "success" },
+      { id: "viewer-2", sessionId: "session:viewer-2", status: "success" },
     ]);
   });
 
@@ -117,7 +117,7 @@ describe("conversation store analyzer sessions", () => {
     );
 
     expect(useConversationStore.getState().conversations).toMatchObject([
-      { filename: "good.txt", status: "paused-for-api-key" },
+      { filename: "good.txt", status: "success" },
       { filename: "bad.txt", status: "failed", error: "Cannot parse file" },
     ]);
   });
