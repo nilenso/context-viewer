@@ -400,13 +400,13 @@ describe("viewer session actions", () => {
       groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
     });
 
-    saveStageModel("group", "classifying-components", "typesafe/jev-router");
+    saveStageModel("group", "classifying-components", "typesafe/jev-1.13");
 
     expect(useConversationStore.getState().groups.group?.stageModels).toEqual({
-      "classifying-components": "typesafe/jev-router",
+      "classifying-components": "typesafe/jev-1.13",
     });
     expect(useConversationStore.getState().conversations.every((item) =>
-      item.stageModels?.["classifying-components"] === "typesafe/jev-router",
+      item.stageModels?.["classifying-components"] === "typesafe/jev-1.13",
     )).toBe(true);
     expect(mocks.saveSessionStageModels).toHaveBeenCalledTimes(2);
     expect(mocks.analyze).not.toHaveBeenCalled();

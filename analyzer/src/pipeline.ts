@@ -46,6 +46,7 @@ export interface Interceptor {
 export interface PipelineOptions {
   interceptors?: Interceptor[];
   dimNames?: string[];
+  reprocessImported?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +147,7 @@ export async function runPipeline(
     missingCostCallCount: 0,
     stages: [],
   };
-  if (aiConfig && !ctx.stageModels) ctx.stageModels = { ...aiConfig.stageModels };
+  if (aiConfig) ctx.stageModels = { ...ctx.stageModels, ...aiConfig.stageModels };
   const metricConfig = aiConfig && {
     ...aiConfig,
     stageModels: ctx.stageModels || {},
@@ -170,7 +171,7 @@ export async function runPipeline(
     merge(ctx, await run("parsing", ctx, interceptors, () => parse(ctx)));
     await runPost("parsing", ctx, interceptors);
 
-    if (ctx.metadata!.parserName === "Context Viewer") {
+    if (ctx.metadata!.parserName === "Context Viewer" && !options?.reprocessImported) {
       Object.assign(ctx, restorePreProcessedImport(ctx.metadata!, ctx.conversation!));
       return allErrors;
     }

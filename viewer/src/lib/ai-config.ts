@@ -20,7 +20,7 @@ export const STAGE_MODEL_OPTIONS: Record<AIStage, Array<{ value: string; label: 
     { value: "openai/gpt-6-luna", label: "Luna 6" },
     { value: "openai/gpt-5.4-mini", label: "OpenAI Mini" },
     { value: "~google/gemini-flash-latest", label: "Google Flash" },
-    { value: "typesafe/jev-router", label: "Jev" },
+    { value: "typesafe/jev-1.13", label: "Jev 1.13" },
   ],
   coloring: [
     { value: "openai/gpt-6-luna", label: "Luna 6" },
@@ -31,17 +31,12 @@ export const STAGE_MODEL_OPTIONS: Record<AIStage, Array<{ value: string; label: 
   analyzing: [{ value: "openai/gpt-6-luna", label: "Luna 6" }],
 };
 
-const configurableStages: AIStage[] = [
-  "segmenting",
-  "identifying-components",
-  "classifying-components",
-  "coloring",
-];
-
 let runtimeApiKey: string | null = null;
-let runtimeStageModels: Partial<Record<AIStage, string>> = Object.fromEntries(
-  configurableStages.map((stage) => [stage, import.meta.env.VITE_AI_MODEL || DEFAULT_MODEL]),
-);
+let runtimeStageModels: Partial<Record<AIStage, string>> = {};
+
+export function getModelLabel(model: string): string {
+  return Object.values(STAGE_MODEL_OPTIONS).flat().find((option) => option.value === model)?.label || model;
+}
 
 export function setRuntimeApiKey(key: string | null): void {
   runtimeApiKey = key;

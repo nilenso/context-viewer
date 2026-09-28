@@ -234,12 +234,12 @@ describe("session — iteration", () => {
 
     saveSessionStageModels(result.sessionId, result.states[0]!.id, {
       segmenting: "google/gemini-flash-latest",
-      "classifying-components": "typesafe/jev-router",
+      "classifying-components": "typesafe/jev-1.13",
     });
 
     expect(result.states[0]!.stageModels).toEqual({
       segmenting: "google/gemini-flash-latest",
-      "classifying-components": "typesafe/jev-router",
+      "classifying-components": "typesafe/jev-1.13",
     });
   });
 

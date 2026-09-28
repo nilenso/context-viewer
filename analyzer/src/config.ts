@@ -25,7 +25,7 @@ export type AIStage =
 
 export interface AnalyzerConfig {
   apiKey: string;
-  model?: string;              // default: "openai/gpt-6-luna"
+  model?: string;
   stageModels?: Partial<Record<AIStage, string>>;
   baseURL?: string;
   apiMode?: AIApiMode;         // default: "responses"
@@ -46,6 +46,8 @@ export interface AICallMetric {
   costUsd?: number;
   inputTokens?: number;
   outputTokens?: number;
+  request?: string;
+  response?: string;
 }
 
 export interface AIConfig {
@@ -59,9 +61,10 @@ export interface AIConfig {
 }
 
 export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
+  if (!config.model) throw new Error("AI model is required");
   return {
     apiKey: config.apiKey,
-    model: config.model || "openai/gpt-6-luna",
+    model: config.model,
     stageModels: config.stageModels || {},
     baseURL: config.baseURL,
     apiMode: config.apiMode || "responses",

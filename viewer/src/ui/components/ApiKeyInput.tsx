@@ -4,8 +4,8 @@ import { Input } from "@/ui/components/ui/input";
 import { Card } from "@/ui/components/ui/card";
 import { Eye, EyeOff, Key, Check, Play, RefreshCw } from "lucide-react";
 import {
-  DEFAULT_MODEL,
   STAGE_MODEL_OPTIONS,
+  getAnalyzerConfig,
   getRuntimeApiKey,
   getRuntimeStageModels,
   setRuntimeApiKey,
@@ -89,7 +89,7 @@ export function ApiKeyInput({
         <label key={stage} className="grid grid-cols-[1fr_150px] items-center gap-2 text-xs">
           <span>{label}</span>
           <select
-            value={stageModels[stage] || DEFAULT_MODEL}
+            value={stageModels[stage] || getAnalyzerConfig().model}
             onChange={(event) => {
               if (selectedId) saveStageModel(selectedId, stage, event.target.value);
               else {

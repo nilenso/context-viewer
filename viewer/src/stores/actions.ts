@@ -84,13 +84,14 @@ async function reprocessWithSession(
       return;
     }
 
+    const config = getAnalyzerConfig();
     const result = await analyze(
       {
         sessionId: conv.sessionId,
         interceptors: buildInterceptors(),
         ...options,
       },
-      getAnalyzerConfig(),
+      { ...config, stageModels: { ...config.stageModels, ...conv.stageModels } },
     );
 
     const state = result.states.find((candidate) => candidate.id === id);

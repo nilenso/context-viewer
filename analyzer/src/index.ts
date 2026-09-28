@@ -228,6 +228,7 @@ export async function analyze(
   const pipelineOpts: PipelineOptions = {
     interceptors: options.interceptors,
     dimNames: affectedDimNames,
+    reprocessImported: options.fullReprocess,
   };
 
   await Promise.all(
