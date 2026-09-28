@@ -26,6 +26,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Info,
 } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
 import type { DimensionData, WorkflowStageMetric } from "context-analyzer";
@@ -33,6 +34,7 @@ import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import { DEFAULT_MODEL } from "@/lib/ai-config";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/components/ui/tooltip";
 import {
   type ConversationLogs,
   type LogEntry,
@@ -74,6 +76,22 @@ const metricStageLabels: Record<string, string> = {
   coloring: "Colors",
 };
 
+function MetricLabel({ label, description }: { label: string; description: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0} aria-label={`About ${label}`} className="text-muted-foreground">
+            <Info className="h-3 w-3" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-72">{description}</TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
+
 function formatCost(metric: WorkflowStageMetric): string {
   if (metric.missingCostCallCount > 0 && metric.costCallCount === 0) return "Cost unknown";
   const digits = metric.costUsd >= 1 ? 3 : metric.costUsd >= 0.001 ? 4 : 5;
@@ -85,10 +103,12 @@ function combineMetrics(metrics: Array<WorkflowStageMetric | undefined>): Workfl
   if (available.length === 0) return undefined;
   return available.reduce((total, metric) => ({
     wallClockMs: total.wallClockMs + metric.wallClockMs,
+    llmTimeMs: (total.llmTimeMs || 0) + (metric.llmTimeMs || 0),
     costUsd: total.costUsd + metric.costUsd,
     costCallCount: total.costCallCount + metric.costCallCount,
     missingCostCallCount: total.missingCostCallCount + metric.missingCostCallCount,
-  }), { wallClockMs: 0, costUsd: 0, costCallCount: 0, missingCostCallCount: 0 });
+    calls: [...(total.calls || []), ...(metric.calls || [])],
+  }), { wallClockMs: 0, llmTimeMs: 0, costUsd: 0, costCallCount: 0, missingCostCallCount: 0, calls: [] });
 }
 
 const processingSteps: StepInfo[] = [
@@ -307,6 +327,7 @@ export function WorkflowDetailModal({
   };
 
   return (
+    <TooltipProvider>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
@@ -354,7 +375,12 @@ export function WorkflowDetailModal({
           <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-xs text-muted-foreground">Wall clock time</div>
+                <div className="text-xs text-muted-foreground">
+                  <MetricLabel
+                    label="Total execution time"
+                    description="Elapsed time from the latest workflow invocation starting until it completed."
+                  />
+                </div>
                 <div className="font-medium">{formatDuration(workflowMetrics.latestRun.wallClockMs)}</div>
               </div>
               <div>
@@ -368,7 +394,7 @@ export function WorkflowDetailModal({
                 .join(", ") || "None"}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Total wall clock time differs from summed stage times because some stages and calls run in parallel.
+              Total execution time differs from summed stage times because some stages and LLM API calls run in parallel.
             </p>
           </div>
         )}
@@ -519,7 +545,7 @@ export function WorkflowDetailModal({
                         </div>
 
                         {/* Timing and cost display */}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
                           {configuredModel && (
                             <Badge variant="secondary" className="text-xs font-normal">
                               {configuredModel}
@@ -527,8 +553,26 @@ export function WorkflowDetailModal({
                           )}
                           {metric ? (
                             <>
-                              <Badge variant="outline" className="text-xs">
-                                Wall {formatDuration(metric.wallClockMs)}
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <MetricLabel
+                                  label="Execution time"
+                                  description="Total elapsed time from this stage starting until it completed."
+                                />
+                                {formatDuration(metric.wallClockMs)}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <MetricLabel
+                                  label="LLM time"
+                                  description="Elapsed time from the first LLM API call starting until the last call completed. Parallel calls are not summed."
+                                />
+                                {formatDuration(metric.llmTimeMs || 0)}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <MetricLabel
+                                  label="Processing time"
+                                  description="Execution time minus LLM time. Includes prompt preparation, parsing, text splitting, token counting, and other app work."
+                                />
+                                {formatDuration(Math.max(0, metric.wallClockMs - (metric.llmTimeMs || 0)))}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
                                 {formatCost(metric)}
@@ -580,7 +624,7 @@ export function WorkflowDetailModal({
                                       label === "Topic identification" ? "identifying-components" : "classifying-components"
                                     ] || DEFAULT_MODEL}
                                     <br />
-                                    Wall {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · {formatCost(stageMetric as WorkflowStageMetric)}
+                                    Execution {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · LLM {formatDuration((stageMetric as WorkflowStageMetric).llmTimeMs || 0)} · Processing {formatDuration(Math.max(0, (stageMetric as WorkflowStageMetric).wallClockMs - ((stageMetric as WorkflowStageMetric).llmTimeMs || 0)))} · {formatCost(stageMetric as WorkflowStageMetric)}
                                   </div>
                                 ) : (
                                   <div className="mt-1 text-muted-foreground">Not run</div>
@@ -813,6 +857,24 @@ export function WorkflowDetailModal({
                           );
                         })()}
 
+                        {metric?.calls && metric.calls.length > 0 && (
+                          <div className="mb-3 space-y-1.5">
+                            <div className="text-xs font-medium">LLM API calls ({metric.calls.length})</div>
+                            {metric.calls.map((call, index) => (
+                              <div key={`${call.startedAt}-${index}`} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded border bg-background px-2 py-1.5 text-xs">
+                                <span className="text-muted-foreground">#{index + 1}</span>
+                                <span className="truncate" title={call.model}>{call.model}</span>
+                                <span>{formatDuration(call.durationMs)}</span>
+                                <span>{call.costUsd === undefined ? "Cost unknown" : `$${call.costUsd.toFixed(call.costUsd >= 0.001 ? 4 : 5)}`}</span>
+                                <span />
+                                <span className="col-span-3 text-muted-foreground">
+                                  Input {call.inputTokens?.toLocaleString() ?? "unknown"} · Output {call.outputTokens?.toLocaleString() ?? "unknown"} tokens
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Step timing details */}
                         {(timing?.startTime || timing?.endTime) && (
                           <div className="mb-2 text-xs text-muted-foreground space-y-1">
@@ -898,5 +960,6 @@ export function WorkflowDetailModal({
         </div>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   );
 }
