@@ -228,6 +228,7 @@ export async function analyze(
   const pipelineOpts: PipelineOptions = {
     interceptors: options.interceptors,
     dimNames: affectedDimNames,
+    stages: options.reprocessStages,
     reprocessImported: options.fullReprocess,
   };
 

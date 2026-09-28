@@ -15,7 +15,7 @@
  */
 
 import type { PipelineState, Stage, WorkflowStageMetric } from "./model/types";
-import type { AICallMetric, AIConfig } from "./config";
+import type { AICallMetric, AIConfig, AIStage } from "./config";
 import { ensureDimensions, ensureDimension, getDimensionNames } from "./model/dimensions";
 import { stageLogger } from "./logger";
 import type { StageError } from "./errors";
@@ -46,6 +46,7 @@ export interface Interceptor {
 export interface PipelineOptions {
   interceptors?: Interceptor[];
   dimNames?: string[];
+  stages?: AIStage[];
   reprocessImported?: boolean;
 }
 
@@ -187,49 +188,58 @@ export async function runPipeline(
     return allErrors;
   }
 
-  // Segment always runs — it's cheap when there are no large parts
-  allErrors.push(...merge(ctx, await run("segmenting", ctx, interceptors, () => segment(ctx, metricConfig!))));
-  await runPost("segmenting", ctx, interceptors);
+  const requestedStages = options?.stages;
+  const shouldSegment = !requestedStages || requestedStages.includes("segmenting");
+  const shouldIdentify = !requestedStages || shouldSegment || requestedStages.includes("identifying-components");
+  const shouldClassify = !requestedStages || shouldIdentify || requestedStages.includes("classifying-components");
+  const shouldColor = !requestedStages || shouldIdentify || requestedStages.includes("coloring");
 
-  // --- Dimension-level stages (each has its own idempotency) ---
+  if (shouldSegment) {
+    allErrors.push(...merge(ctx, await run("segmenting", ctx, interceptors, () => segment(ctx, metricConfig!))));
+    await runPost("segmenting", ctx, interceptors);
+  }
 
   const dims = ensureDimensions(ctx);
   const activeDimNames = options?.dimNames ?? getDimensionNames(ctx);
   for (const name of activeDimNames) ensureDimension(dims, name);
 
-  // Identify — all dimensions in parallel (skips if discoveredComponents exist)
-  await run("identifying-components", ctx, interceptors, () =>
-    Promise.all(activeDimNames.map(async (dimName) => {
-      const { result, error } = await identifyForDimension(
-        ctx.conversation!, dims[dimName]!, metricConfig,
-      );
-      Object.assign(dims[dimName]!, result);
-      if (error) allErrors.push(error);
-    })),
-  );
-  await runPost("identifying-components", ctx, interceptors);
-
-  // Classify + Color run concurrently across all dimensions.
-  await Promise.all([
-    run("classifying-components", ctx, interceptors, () =>
+  if (shouldIdentify) {
+    await run("identifying-components", ctx, interceptors, () =>
       Promise.all(activeDimNames.map(async (dimName) => {
+        const { result, error } = await identifyForDimension(
+          ctx.conversation!, dims[dimName]!, metricConfig,
+        );
+        Object.assign(dims[dimName]!, result);
+        if (error) allErrors.push(error);
+      })),
+    );
+    await runPost("identifying-components", ctx, interceptors);
+  }
+
+  const dimensionTasks: Promise<void>[] = [];
+  if (shouldClassify) {
+    dimensionTasks.push(run("classifying-components", ctx, interceptors, async () => {
+      await Promise.all(activeDimNames.map(async (dimName) => {
         const classified = await classifyForDimension(ctx.conversation!, dims[dimName]!, metricConfig!);
         Object.assign(dims[dimName]!, classified.result);
         if (classified.error) allErrors.push(classified.error);
-      })),
-    ),
-    run("coloring", ctx, interceptors, () =>
-      Promise.all(activeDimNames.map(async (dimName) => {
+      }));
+    }));
+  }
+  if (shouldColor) {
+    dimensionTasks.push(run("coloring", ctx, interceptors, async () => {
+      await Promise.all(activeDimNames.map(async (dimName) => {
         const colored = await colorForDimension(dims[dimName]!, metricConfig!, ctx.presetColors);
         Object.assign(dims[dimName]!, colored.result);
         if (colored.error) allErrors.push(colored.error);
-      })),
-    ),
-  ]);
+      }));
+    }));
+  }
+  await Promise.all(dimensionTasks);
 
   ctx.dimensions = dims;
-  await runPost("classifying-components", ctx, interceptors);
-  await runPost("coloring", ctx, interceptors);
+  if (shouldClassify) await runPost("classifying-components", ctx, interceptors);
+  if (shouldColor) await runPost("coloring", ctx, interceptors);
 
   finishWorkflowMetrics(ctx, workflowStart);
   return allErrors;
