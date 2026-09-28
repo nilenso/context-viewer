@@ -325,6 +325,59 @@ export function openColoringPromptEditor(id: string, dimensionName?: string) {
 
 // ---- Prompt apply actions ----
 
+function updateDimension(
+  selectedConversationId: string,
+  dimensionName: string,
+  update: Partial<NonNullable<ViewerConversationState["dimensions"]>[string]>,
+) {
+  const store = useConversationStore.getState();
+  const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (!targetIds.has(conv.id)) return conv;
+      const dimension = conv.dimensions?.[dimensionName] || createEmptyDimension(dimensionName);
+      return {
+        ...conv,
+        dimensions: {
+          ...(conv.dimensions || {}),
+          [dimensionName]: { ...dimension, ...update },
+        },
+      };
+    }),
+  );
+  persistDimensions(targetIds);
+}
+
+export function savePrompt(selectedConversation: ViewerConversationState | undefined) {
+  if (!selectedConversation?.conversation) return;
+  const ui = useUIStore.getState();
+  updateDimension(
+    selectedConversation.id,
+    ui.editingDimensionName || "default",
+    { prompt: ui.editingPrompt },
+  );
+  ui.setIsPromptDialogOpen(false);
+}
+
+export function saveComponents(selectedConversation: ViewerConversationState | undefined) {
+  if (!selectedConversation?.conversation) return;
+  const ui = useUIStore.getState();
+  const components = ui.editingComponents
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (components.length === 0) return;
+  updateDimension(
+    selectedConversation.id,
+    ui.editingDimensionName || "default",
+    {
+      customComponents: components,
+      componentDescriptions: Object.fromEntries(components.map((component) => [component, component])),
+    },
+  );
+  ui.setIsComponentsDialogOpen(false);
+}
+
 export async function applyPrompt(selectedConversation: ViewerConversationState | undefined) {
   const ui = useUIStore.getState();
   ui.setIsPromptDialogOpen(false);

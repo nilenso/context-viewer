@@ -26,6 +26,8 @@ import {
   reprocessComponents,
   applyPrompt,
   applyComponents,
+  savePrompt,
+  saveComponents,
   applySegmentationPrompt,
   applySummaryPrompt,
   applyAnalysisPrompt,
@@ -548,6 +550,7 @@ export default function App() {
         description="Customize the prompt used to identify components in the conversation. The AI will use this prompt to analyze the conversation and identify logical components."
         value={ui.editingPrompt}
         onChange={ui.setEditingPrompt}
+        onSave={() => savePrompt(selectedConversation)}
         onApply={() => applyPrompt(selectedConversation)}
         placeholder="Enter your component identification prompt..."
         warningText={
@@ -564,6 +567,7 @@ export default function App() {
         description="Edit the list of components used for mapping. One component per line. These components will be used instead of AI-identified components."
         value={ui.editingComponents}
         onChange={ui.setEditingComponents}
+        onSave={() => saveComponents(selectedConversation)}
         onApply={() => applyComponents(selectedConversation)}
         placeholder="Enter components (one per line)..."
         warningText={

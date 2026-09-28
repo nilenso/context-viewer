@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   setEditingDimensionName: vi.fn(),
   setEditingPrompt: vi.fn(),
   setIsPromptDialogOpen: vi.fn(),
+  setIsComponentsDialogOpen: vi.fn(),
 }));
 
 vi.mock("context-analyzer", () => ({
@@ -42,12 +43,15 @@ vi.mock("@/stores/ui-store", () => ({
   useUIStore: {
     getState: () => ({
       editingDimensionName: "default",
+      editingPrompt: "Find activities",
+      editingComponents: "planning\nexecution",
       activeDimensions: new Set(["default", "topic"]),
       setReprocessingId: mocks.setReprocessingId,
       setActiveDimensions: mocks.setActiveDimensions,
       setEditingDimensionName: mocks.setEditingDimensionName,
       setEditingPrompt: mocks.setEditingPrompt,
       setIsPromptDialogOpen: mocks.setIsPromptDialogOpen,
+      setIsComponentsDialogOpen: mocks.setIsComponentsDialogOpen,
     }),
   },
 }));
@@ -80,6 +84,8 @@ import {
   addDimension,
   removeDimension,
   renameDimension,
+  saveComponents,
+  savePrompt,
   reprocessComponents,
   resumePipelinesWithApiKeyAction,
 } from "@/stores/actions";
@@ -207,6 +213,58 @@ describe("viewer session actions", () => {
       customSummaryPrompt: "Summarize together",
       customAnalysisPrompt: "Compare files",
     });
+  });
+
+  it("saves a dimension prompt without replacing generated outputs", () => {
+    useConversationStore.setState({
+      conversations: [conversation("one", {
+        dimensions: {
+          default: {
+            name: "default",
+            discoveredComponents: ["existing"],
+            componentMapping: { "part:one": "existing" },
+            componentTimeline: [],
+            componentColors: { existing: "#ff0000" },
+          },
+        },
+      })],
+    });
+
+    savePrompt(useConversationStore.getState().getConversation("one"));
+
+    expect(useConversationStore.getState().getConversation("one")?.dimensions?.default).toMatchObject({
+      prompt: "Find activities",
+      discoveredComponents: ["existing"],
+      componentMapping: { "part:one": "existing" },
+    });
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
+  it("saves custom components without replacing generated outputs", () => {
+    useConversationStore.setState({
+      conversations: [conversation("one", {
+        dimensions: {
+          default: {
+            name: "default",
+            discoveredComponents: ["existing"],
+            componentMapping: { "part:one": "existing" },
+            componentTimeline: [],
+            componentColors: { existing: "#ff0000" },
+          },
+        },
+      })],
+    });
+
+    saveComponents(useConversationStore.getState().getConversation("one"));
+
+    expect(useConversationStore.getState().getConversation("one")?.dimensions?.default).toMatchObject({
+      customComponents: ["planning", "execution"],
+      discoveredComponents: ["existing"],
+      componentMapping: { "part:one": "existing" },
+    });
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
+    expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
   it("saves added dimensions without reprocessing", () => {
