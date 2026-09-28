@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
-import type { DimensionData,  } from "context-analyzer";
+import type { DimensionData, WorkflowStageMetric } from "context-analyzer";
 import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
@@ -62,6 +62,32 @@ interface StepInfo {
   label: string;
   description: string;
   optional?: boolean;
+}
+
+const metricStageLabels: Record<string, string> = {
+  parsing: "Parse",
+  "counting-tokens": "Tokens",
+  segmenting: "Segment",
+  "identifying-components": "Topic identification",
+  "classifying-components": "Classification",
+  coloring: "Colors",
+};
+
+function formatCost(metric: WorkflowStageMetric): string {
+  if (metric.missingCostCallCount > 0 && metric.costCallCount === 0) return "Cost unknown";
+  const digits = metric.costUsd >= 1 ? 3 : metric.costUsd >= 0.001 ? 4 : 5;
+  return `${metric.missingCostCallCount > 0 ? "~" : ""}$${metric.costUsd.toFixed(digits)}`;
+}
+
+function combineMetrics(metrics: Array<WorkflowStageMetric | undefined>): WorkflowStageMetric | undefined {
+  const available = metrics.filter((metric): metric is WorkflowStageMetric => !!metric);
+  if (available.length === 0) return undefined;
+  return available.reduce((total, metric) => ({
+    wallClockMs: total.wallClockMs + metric.wallClockMs,
+    costUsd: total.costUsd + metric.costUsd,
+    costCallCount: total.costCallCount + metric.costCallCount,
+    missingCostCallCount: total.missingCostCallCount + metric.missingCostCallCount,
+  }), { wallClockMs: 0, costUsd: 0, costCallCount: 0, missingCostCallCount: 0 });
 }
 
 const processingSteps: StepInfo[] = [
@@ -130,6 +156,7 @@ export function WorkflowDetailModal({
   const status = conv?.status ?? (group && firstMember ? firstMember.status : undefined);
   const currentStep = conv?.step;
   const stepTimings = conv?.stepTimings ?? firstMember?.stepTimings;
+  const workflowMetrics = group ? undefined : conv?.workflowMetrics;
   const aiSummary = conv?.aiSummary ?? group?.aiSummary;
   const warnings = conv?.warnings;
   const dimensions = conv?.dimensions ?? firstMember?.dimensions;
@@ -167,6 +194,17 @@ export function WorkflowDetailModal({
 
     return unsubscribe;
   }, [conversationId]);
+
+  const getMetric = (step: StageGroup) => {
+    if (!workflowMetrics) return undefined;
+    if (step === "finding-components") {
+      return combineMetrics([
+        workflowMetrics.stages["identifying-components"],
+        workflowMetrics.stages["classifying-components"],
+      ]);
+    }
+    return workflowMetrics.stages[step];
+  };
 
   const toggleStep = (step: StageGroup) => {
     setExpandedSteps((prev) => {
@@ -311,6 +349,29 @@ export function WorkflowDetailModal({
           </div>
         )}
 
+        {workflowMetrics?.latestRun && (
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground">Wall clock time</div>
+                <div className="font-medium">{formatDuration(workflowMetrics.latestRun.wallClockMs)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Cost</div>
+                <div className="font-medium">{formatCost(workflowMetrics.latestRun)}</div>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Stages counted: {workflowMetrics.latestRun.stages
+                .map((stage) => metricStageLabels[stage] || stage)
+                .join(", ") || "None"}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Total wall clock time differs from summed stage times because some stages and calls run in parallel.
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
           <div className="space-y-2 pb-4">
             {processingSteps.map((step) => {
@@ -319,6 +380,7 @@ export function WorkflowDetailModal({
               const stepLogs = getLogsForStep(step.key);
               const isExpanded = expandedSteps.has(step.key);
               const legacyTiming = stepTimings?.[step.key];
+              const metric = getMetric(step.key);
 
               const isSummaryClickable =
                 step.key === "summarizing" &&
@@ -452,26 +514,36 @@ export function WorkflowDetailModal({
                           </p>
                         </div>
 
-                        {/* Timing display */}
+                        {/* Timing and cost display */}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {metric ? (
+                            <>
+                              <Badge variant="outline" className="text-xs">
+                                Wall {formatDuration(metric.wallClockMs)}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {formatCost(metric)}
+                              </Badge>
+                            </>
+                          ) : workflowMetrics ? (
+                            <Badge variant="outline" className="text-xs">Not run</Badge>
+                          ) : null}
                           {timing?.startTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {formatTime(timing.startTime)}
                             </span>
                           )}
-                          {timing?.durationMs !== undefined && (
+                          {!workflowMetrics && timing?.durationMs !== undefined && (
                             <Badge variant="outline" className="text-xs">
                               {formatDuration(timing.durationMs)}
                             </Badge>
                           )}
-                          {/* Fallback to legacy timing if available */}
-                          {!timing?.durationMs &&
-                            legacyTiming !== undefined && (
-                              <Badge variant="outline" className="text-xs">
-                                {legacyTiming}s
-                              </Badge>
-                            )}
+                          {!workflowMetrics && !timing?.durationMs && legacyTiming !== undefined && (
+                            <Badge variant="outline" className="text-xs">
+                              {legacyTiming}s
+                            </Badge>
+                          )}
                         </div>
 
                         <ChevronRight
@@ -485,6 +557,26 @@ export function WorkflowDetailModal({
 
                     <CollapsibleContent>
                       <div className="border-t px-3 py-2 bg-muted/30">
+                        {isFindComponentsStep && workflowMetrics && (
+                          <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                            {[
+                              ["Topic identification", workflowMetrics.stages["identifying-components"]],
+                              ["Classification", workflowMetrics.stages["classifying-components"]],
+                            ].map(([label, stageMetric]) => (
+                              <div key={label as string} className="rounded border bg-background p-2">
+                                <div className="font-medium">{label as string}</div>
+                                {stageMetric ? (
+                                  <div className="mt-1 text-muted-foreground">
+                                    Wall {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · {formatCost(stageMetric as WorkflowStageMetric)}
+                                  </div>
+                                ) : (
+                                  <div className="mt-1 text-muted-foreground">Not run</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Dimension Accordion - show inside Find components step */}
                         {isFindComponentsStep && (() => {
                           const dims = dimensions;
