@@ -542,15 +542,14 @@ export function WorkflowDetailModal({
                           <p className="text-xs text-muted-foreground">
                             {step.description}
                           </p>
-                        </div>
 
-                        {/* Timing and cost display */}
-                        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
-                          {configuredModel && (
-                            <Badge variant="secondary" className="text-xs font-normal">
-                              {configuredModel}
-                            </Badge>
-                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {configuredModel && (
+                              <Badge variant="secondary" className="text-xs gap-1 font-normal">
+                                <span className="font-medium">Model</span>
+                                {configuredModel}
+                              </Badge>
+                            )}
                           {metric ? (
                             <>
                               <Badge variant="outline" className="text-xs gap-1">
@@ -574,7 +573,11 @@ export function WorkflowDetailModal({
                                 />
                                 {formatDuration(Math.max(0, metric.wallClockMs - (metric.llmTimeMs || 0)))}
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <MetricLabel
+                                  label="Cost"
+                                  description="OpenRouter-reported cost of LLM API calls made by this stage."
+                                />
                                 {formatCost(metric)}
                               </Badge>
                             </>
@@ -596,7 +599,8 @@ export function WorkflowDetailModal({
                             <Badge variant="outline" className="text-xs">
                               {legacyTiming}s
                             </Badge>
-                          )}
+                            )}
+                          </div>
                         </div>
 
                         <ChevronRight
