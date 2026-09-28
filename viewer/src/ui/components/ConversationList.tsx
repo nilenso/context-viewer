@@ -659,6 +659,13 @@ export function ConversationList() {
                                 conversation.stepTimings?.[step.key];
                               const isFindComponentsStep =
                                 step.key === "finding-components";
+                              const stageMetric = isFindComponentsStep
+                                ? [
+                                    conversation.workflowMetrics?.stages["identifying-components"],
+                                    conversation.workflowMetrics?.stages["classifying-components"],
+                                  ].reduce((total, metric) => total + (metric?.wallClockMs || 0), 0)
+                                : conversation.workflowMetrics?.stages[step.key]?.wallClockMs;
+                              const executionMs = stageMetric || (timing !== undefined ? timing * 1000 : undefined);
                               const isSegmentingStep =
                                 step.key === "segmenting";
                               const isSummaryStep = step.key === "summarizing";
@@ -736,9 +743,9 @@ export function ConversationList() {
                                       </span>
                                     )}
                                     {status === "completed" &&
-                                      timing !== undefined && (
+                                      executionMs !== undefined && (
                                         <span className="text-gray-500 text-xs">
-                                          ({timing}s)
+                                          ({executionMs}ms)
                                         </span>
                                       )}
                                   </div>
