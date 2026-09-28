@@ -86,7 +86,7 @@ export function ApiKeyInput({
     <div className="mt-3 pt-3 border-t space-y-2">
       <div className="text-xs font-medium text-muted-foreground">Models by stage</div>
       {stages.map(({ stage, label }) => (
-        <label key={stage} className="grid grid-cols-[1fr_150px] items-center gap-2 text-xs">
+        <label key={stage} className="grid grid-cols-[1fr_220px] items-center gap-2 text-xs">
           <span>{label}</span>
           <select
             value={stageModels[stage] || getAnalyzerConfig().model}
@@ -106,7 +106,7 @@ export function ApiKeyInput({
         </label>
       ))}
       {selectedId && (
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="flex flex-col gap-2 pt-1">
           <Button
             size="sm"
             onClick={() => reprocessStageModels(selectedId, false)}
@@ -114,7 +114,7 @@ export function ApiKeyInput({
             className="h-8 text-xs"
           >
             <RefreshCw className={`h-3 w-3 mr-1 ${reprocessingId === selectedId ? "animate-spin" : ""}`} />
-            Re-run changed stages
+            Re-run stage
           </Button>
           <Button
             variant="outline"

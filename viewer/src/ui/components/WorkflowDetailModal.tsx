@@ -841,8 +841,8 @@ export function WorkflowDetailModal({
                         {isFindComponentsStep && workflowMetrics && (
                           <Tabs defaultValue="identifying-components" className="mb-3">
                             <TabsList className="grid w-full grid-cols-2">
-                              <TabsTrigger value="identifying-components">Topic identification</TabsTrigger>
-                              <TabsTrigger value="classifying-components">Classification</TabsTrigger>
+                              <TabsTrigger value="identifying-components" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Topic identification</TabsTrigger>
+                              <TabsTrigger value="classifying-components" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Classification</TabsTrigger>
                             </TabsList>
                             {([
                               ["identifying-components", "Topic identification"],
@@ -875,8 +875,8 @@ export function WorkflowDetailModal({
                                               {(call.request || call.response) && (
                                                 <Tabs defaultValue="request" className="col-span-4 border-t pt-1.5">
                                                   <TabsList className="grid h-8 w-full grid-cols-2">
-                                                    <TabsTrigger value="request" className="text-xs">Request</TabsTrigger>
-                                                    <TabsTrigger value="response" className="text-xs">Response</TabsTrigger>
+                                                    <TabsTrigger value="request" className="text-xs data-[state=active]:bg-blue-600 data-[state=active]:text-white">Request</TabsTrigger>
+                                                    <TabsTrigger value="response" className="text-xs data-[state=active]:bg-blue-600 data-[state=active]:text-white">Response</TabsTrigger>
                                                   </TabsList>
                                                   <TabsContent value="request" className="mt-1">
                                                     <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-[11px]">{call.request || "Request unavailable"}</pre>

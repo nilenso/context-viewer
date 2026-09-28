@@ -7,28 +7,28 @@ export type { AIApiMode, AIStage, ReasoningEffort } from "context-analyzer";
 export const DEFAULT_MODEL = "openai/gpt-6-luna";
 export const STAGE_MODEL_OPTIONS: Record<AIStage, Array<{ value: string; label: string }>> = {
   segmenting: [
-    { value: "openai/gpt-6-luna", label: "Luna 6" },
-    { value: "openai/gpt-5.4-mini", label: "OpenAI Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google Flash" },
+    { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
+    { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
+    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
   "identifying-components": [
-    { value: "openai/gpt-6-luna", label: "Luna 6" },
-    { value: "openai/gpt-5.4-mini", label: "OpenAI Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google Flash" },
+    { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
+    { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
+    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
   "classifying-components": [
-    { value: "openai/gpt-6-luna", label: "Luna 6" },
-    { value: "openai/gpt-5.4-mini", label: "OpenAI Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google Flash" },
-    { value: "typesafe/jev-1.13", label: "Jev 1.13" },
+    { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
+    { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
+    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
+    { value: "typesafe/jev-1.13", label: "TypeSafe: Jev 1.13" },
   ],
   coloring: [
-    { value: "openai/gpt-6-luna", label: "Luna 6" },
-    { value: "openai/gpt-5.4-mini", label: "OpenAI Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google Flash" },
+    { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
+    { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
+    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
-  summarizing: [{ value: "openai/gpt-6-luna", label: "Luna 6" }],
-  analyzing: [{ value: "openai/gpt-6-luna", label: "Luna 6" }],
+  summarizing: [{ value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" }],
+  analyzing: [{ value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" }],
 };
 
 let runtimeApiKey: string | null = null;
