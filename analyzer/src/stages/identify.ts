@@ -1,6 +1,6 @@
 import type { Conversation } from "../model/schema";
 import type { DimensionData } from "../model/types";
-import type { AIConfig } from "../config";
+import { getStageModel, type AIConfig } from "../config";
 import { getPrompt } from "./prompts";
 import { generateWithMetrics } from "./generate-with-metrics";
 import { stripLargeContent } from "./strip-large-content";
@@ -21,7 +21,7 @@ export async function identifyComponents(
   const strippedConversation = stripLargeContent(conversation);
   const conversationJson = JSON.stringify(strippedConversation, null, 2);
 
-  log.info(`Calling AI to identify components (model: ${config.model})${customPrompt ? " with custom prompt" : ""}`);
+  log.info(`Calling AI to identify components (model: ${getStageModel(config, "identifying-components")})${customPrompt ? " with custom prompt" : ""}`);
 
   const prompt = getPrompt("component-identification", {
     conversationJson,

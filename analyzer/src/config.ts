@@ -67,6 +67,10 @@ export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
 /**
  * Build providerOptions for Vercel AI SDK calls based on config.
  */
+export function getStageModel(config: AIConfig, stage: AIStage): string {
+  return config.stageModels?.[stage] || config.model;
+}
+
 export function getProviderOptions(config: AIConfig): Record<string, Record<string, string>> | undefined {
   if (!config.reasoningEffort) return undefined;
   return {

@@ -7,7 +7,7 @@
 
 import type { Conversation } from "../model/schema";
 import type { DimensionData, ComponentTimelineSnapshot } from "../model/types";
-import type { AIConfig } from "../config";
+import { getStageModel, type AIConfig } from "../config";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
 import { generateWithMetrics } from "./generate-with-metrics";
 import { stripLargeContent } from "./strip-large-content";
@@ -115,7 +115,7 @@ export async function mapComponentsToIds(
   const strippedConversation = stripLargeContent(conversation);
   const allParts = extractPartsWithContext(strippedConversation);
 
-  log.info(`Mapping ${allParts.length} parts in batches of ${BATCH_SIZE} (model: ${config.model})`);
+  log.info(`Mapping ${allParts.length} parts in batches of ${BATCH_SIZE} (model: ${getStageModel(config, "classifying-components")})`);
 
   const batches: PartWithContext[][] = [];
   for (let i = 0; i < allParts.length; i += BATCH_SIZE) {

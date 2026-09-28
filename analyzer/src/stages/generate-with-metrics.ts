@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import type { AIConfig, AIStage } from "../config";
-import { createModel, getProviderOptions } from "../config";
+import { createModel, getProviderOptions, getStageModel } from "../config";
 
 function getCost(result: unknown): number | undefined {
   const value = result as {
@@ -25,7 +25,7 @@ function getCost(result: unknown): number | undefined {
 }
 
 export async function generateWithMetrics(stage: AIStage, prompt: string, config: AIConfig) {
-  const model = config.stageModels?.[stage] || config.model;
+  const model = getStageModel(config, stage);
   try {
     const result = await generateText({
       model: createModel({ ...config, model }),

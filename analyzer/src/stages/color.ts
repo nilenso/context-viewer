@@ -4,7 +4,7 @@
  */
 
 import type { DimensionData } from "../model/types";
-import type { AIConfig } from "../config";
+import { getStageModel, type AIConfig } from "../config";
 import { getPrompt } from "./prompts";
 import { generateWithMetrics } from "./generate-with-metrics";
 import { stageLogger } from "../logger";
@@ -31,7 +31,7 @@ export async function assignComponentColors(
   // AI-based color assignment
   const componentsJson = JSON.stringify(components, null, 2);
 
-  log.info(`Calling AI to assign colors (model: ${config.model})`);
+  log.info(`Calling AI to assign colors (model: ${getStageModel(config, "coloring")})`);
 
   const prompt = getPrompt("component-coloring", { componentsJson, customPrompt: customColoringPrompt });
 

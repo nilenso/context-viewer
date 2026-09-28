@@ -1,6 +1,6 @@
 import type { Conversation, Message } from "../model/schema";
 import type { PipelineState } from "../model/types";
-import type { AIConfig } from "../config";
+import { getStageModel, type AIConfig } from "../config";
 import { getPrompt } from "./prompts";
 import { generateWithMetrics } from "./generate-with-metrics";
 import { stageLogger } from "../logger";
@@ -38,7 +38,7 @@ async function segmentTextWithAI(
   config: AIConfig,
   customPrompt?: string,
 ): Promise<{ patterns: string[]; error?: StageError }> {
-  log.info(`Calling AI to segment text (${text.length} chars, model: ${config.model})${customPrompt ? " with custom prompt" : ""}`);
+  log.info(`Calling AI to segment text (${text.length} chars, model: ${getStageModel(config, "segmenting")})${customPrompt ? " with custom prompt" : ""}`);
 
   const prompt = getPrompt("segmentation", { text, customPrompt });
 
