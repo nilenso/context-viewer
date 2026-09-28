@@ -18,6 +18,7 @@ import {
   getDefaultSummaryPrompt,
   getDefaultAnalysisPrompt,
   getDefaultColoringPrompt,
+  saveSessionDimensions,
 } from "context-analyzer";
 import type { PipelineState, Stage, Interceptor } from "context-analyzer";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "context-analyzer";
@@ -390,25 +391,6 @@ export async function applyColoringPrompt(selectedConversation: ViewerConversati
 
 // ---- Dimension management ----
 
-export function addDimension(selectedConversationId: string, name: string) {
-  const store = useConversationStore.getState();
-  const ui = useUIStore.getState();
-
-  store.setConversations((prev) =>
-    prev.map((conv) => {
-      if (conv.id !== selectedConversationId) return conv;
-      const dims = { ...(conv.dimensions || {}) };
-      dims[name] = createEmptyDimension(name);
-      return { ...conv, dimensions: dims };
-    }),
-  );
-
-  ui.setActiveDimensions(new Set([...ui.activeDimensions, name]));
-  ui.setEditingDimensionName(name);
-  ui.setEditingPrompt(getDefaultComponentIdentificationPrompt());
-  ui.setIsPromptDialogOpen(true);
-}
-
 function dimensionTargets(selectedConversationId: string): ViewerConversationState[] {
   const store = useConversationStore.getState();
   const group = store.getGroup(selectedConversationId);
@@ -418,70 +400,85 @@ function dimensionTargets(selectedConversationId: string): ViewerConversationSta
     .filter((conv): conv is ViewerConversationState => !!conv?.conversation);
 }
 
-export async function removeDimension(selectedConversationId: string, name: string) {
-  if (name === "default") return;
+function persistDimensions(ids: Set<string>) {
   const store = useConversationStore.getState();
-  const ui = useUIStore.getState();
-  const targets = dimensionTargets(selectedConversationId);
-  const targetIds = new Set(targets.map((conv) => conv.id));
-  if (!targets.some((conv) => conv.dimensions?.[name])) return;
-
-  store.setConversations((prev) =>
-    prev.map((conv) => {
-      if (!targetIds.has(conv.id)) return conv;
-      const dims = { ...(conv.dimensions || {}) };
-      delete dims[name];
-      return { ...conv, dimensions: dims };
-    }),
-  );
-  const next = new Set(ui.activeDimensions);
-  next.delete(name);
-  ui.setActiveDimensions(next);
-
-  ui.setReprocessingId(selectedConversationId);
-  try {
-    await Promise.all(targets.map((conv) =>
-      reprocessWithSession(conv, { removeDimensions: [name] }),
-    ));
-  } finally {
-    ui.setReprocessingId(null);
+  for (const id of ids) {
+    const conversation = store.getConversation(id);
+    if (!conversation?.sessionId) continue;
+    saveSessionDimensions(conversation.sessionId, id, conversation.dimensions || {});
   }
 }
 
-export async function renameDimension(selectedConversationId: string, oldName: string, newName: string) {
+export function addDimension(selectedConversationId: string, name: string) {
+  const store = useConversationStore.getState();
+  const ui = useUIStore.getState();
+  const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (!targetIds.has(conv.id) || conv.dimensions?.[name]) return conv;
+      return {
+        ...conv,
+        dimensions: { ...(conv.dimensions || {}), [name]: createEmptyDimension(name) },
+      };
+    }),
+  );
+  persistDimensions(targetIds);
+
+  ui.setActiveDimensions(new Set([...ui.activeDimensions, name]));
+  ui.setEditingDimensionName(name);
+  ui.setEditingPrompt(getDefaultComponentIdentificationPrompt());
+  ui.setIsPromptDialogOpen(true);
+}
+
+export function removeDimension(selectedConversationId: string, name: string) {
+  if (name === "default") return;
+  const store = useConversationStore.getState();
+  const ui = useUIStore.getState();
+  const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+  if (![...targetIds].some((id) => store.getConversation(id)?.dimensions?.[name])) return;
+
+  store.setConversations((prev) =>
+    prev.map((conv) => {
+      if (!targetIds.has(conv.id) || !conv.dimensions?.[name]) return conv;
+      const dimensions = { ...conv.dimensions };
+      delete dimensions[name];
+      return { ...conv, dimensions };
+    }),
+  );
+  persistDimensions(targetIds);
+
+  const next = new Set(ui.activeDimensions);
+  next.delete(name);
+  ui.setActiveDimensions(next);
+}
+
+export function renameDimension(selectedConversationId: string, oldName: string, newName: string) {
   if (oldName === newName) return;
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
-  const targets = dimensionTargets(selectedConversationId);
-  const targetIds = new Set(targets.map((conv) => conv.id));
-  if (!targets.some((conv) => conv.dimensions?.[oldName])) return;
-  if (targets.some((conv) => conv.dimensions?.[newName])) return;
+  const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+  if (![...targetIds].some((id) => store.getConversation(id)?.dimensions?.[oldName])) return;
+  if ([...targetIds].some((id) => store.getConversation(id)?.dimensions?.[newName])) return;
 
   store.setConversations((prev) =>
     prev.map((conv) => {
       if (!targetIds.has(conv.id)) return conv;
-      const dims = { ...(conv.dimensions || {}) };
-      if (!dims[oldName] || dims[newName]) return conv;
-      dims[newName] = { ...dims[oldName]!, name: newName };
-      delete dims[oldName];
-      return { ...conv, dimensions: dims };
+      const dimension = conv.dimensions?.[oldName];
+      if (!dimension) return conv;
+      const dimensions = { ...conv.dimensions, [newName]: { ...dimension, name: newName } };
+      delete dimensions[oldName];
+      return { ...conv, dimensions };
     }),
   );
+  persistDimensions(targetIds);
+
   const next = new Set(ui.activeDimensions);
   if (next.has(oldName)) {
     next.delete(oldName);
     next.add(newName);
   }
   ui.setActiveDimensions(next);
-
-  ui.setReprocessingId(selectedConversationId);
-  try {
-    await Promise.all(targets.map((conv) =>
-      reprocessWithSession(conv, { renameDimensions: { [oldName]: newName } }),
-    ));
-  } finally {
-    ui.setReprocessingId(null);
-  }
 }
 
 // ---- Orchestration actions ----

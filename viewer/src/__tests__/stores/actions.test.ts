@@ -6,12 +6,17 @@ const mocks = vi.hoisted(() => ({
   analyzeContext: vi.fn(),
   setReprocessingId: vi.fn(),
   setActiveDimensions: vi.fn(),
+  saveSessionDimensions: vi.fn(),
+  setEditingDimensionName: vi.fn(),
+  setEditingPrompt: vi.fn(),
+  setIsPromptDialogOpen: vi.fn(),
 }));
 
 vi.mock("context-analyzer", () => ({
   analyze: mocks.analyze,
   summarize: mocks.summarize,
   analyzeContext: mocks.analyzeContext,
+  saveSessionDimensions: mocks.saveSessionDimensions,
   buildSessionExport: vi.fn(),
   createEmptyDimension: (name: string) => ({
     name,
@@ -40,6 +45,9 @@ vi.mock("@/stores/ui-store", () => ({
       activeDimensions: new Set(["default", "topic"]),
       setReprocessingId: mocks.setReprocessingId,
       setActiveDimensions: mocks.setActiveDimensions,
+      setEditingDimensionName: mocks.setEditingDimensionName,
+      setEditingPrompt: mocks.setEditingPrompt,
+      setIsPromptDialogOpen: mocks.setIsPromptDialogOpen,
     }),
   },
 }));
@@ -69,6 +77,7 @@ import {
   applyPromptsToAllAction,
   generateAnalysis,
   generateSummary,
+  addDimension,
   removeDimension,
   renameDimension,
   reprocessComponents,
@@ -200,7 +209,21 @@ describe("viewer session actions", () => {
     });
   });
 
-  it("synchronizes group dimension renames and removals with member sessions", async () => {
+  it("saves added dimensions without reprocessing", () => {
+    useConversationStore.setState({ conversations: [conversation("one")] });
+
+    addDimension("one", "activity");
+
+    expect(useConversationStore.getState().getConversation("one")?.dimensions?.activity).toBeDefined();
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledWith(
+      "session:one",
+      "one",
+      expect.objectContaining({ activity: expect.objectContaining({ name: "activity" }) }),
+    );
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
+  it("saves group dimension renames without reprocessing", () => {
     const withTopic = (id: string) => conversation(id, {
       dimensions: {
         topic: {
@@ -216,39 +239,39 @@ describe("viewer session actions", () => {
       conversations: [withTopic("one"), withTopic("two")],
       groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
     });
-    mocks.analyze.mockImplementation(async (options: any) => {
-      const id = String(options.sessionId).replace("session:", "");
-      const current = useConversationStore.getState().getConversation(id)!;
-      const dimensions = { ...(current.dimensions || {}) };
-      for (const [oldName, newName] of Object.entries(options.renameDimensions || {})) {
-        const dimension = dimensions[oldName];
-        if (dimension) {
-          dimensions[String(newName)] = { ...dimension, name: String(newName) };
-          delete dimensions[oldName];
-        }
-      }
-      for (const name of options.removeDimensions || []) delete dimensions[name];
-      return {
-        ...resultFor(id),
-        states: [{ ...current, dimensions }],
-      };
-    });
 
-    await renameDimension("group", "topic", "activity");
+    renameDimension("group", "topic", "activity");
+
     expect(useConversationStore.getState().conversations.every((conv) =>
       !!conv.dimensions?.activity && !conv.dimensions?.topic,
     )).toBe(true);
-    expect(mocks.analyze.mock.calls.every(([options]) =>
-      options.renameDimensions?.topic === "activity",
-    )).toBe(true);
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledTimes(2);
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
 
-    mocks.analyze.mockClear();
-    await removeDimension("group", "activity");
+  it("saves group dimension removals without reprocessing", () => {
+    const withActivity = (id: string) => conversation(id, {
+      dimensions: {
+        activity: {
+          name: "activity",
+          discoveredComponents: ["planning"],
+          componentMapping: {},
+          componentTimeline: [],
+          componentColors: {},
+        },
+      },
+    });
+    useConversationStore.setState({
+      conversations: [withActivity("one"), withActivity("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+
+    removeDimension("group", "activity");
+
     expect(useConversationStore.getState().conversations.every((conv) =>
       !conv.dimensions?.activity,
     )).toBe(true);
-    expect(mocks.analyze.mock.calls.every(([options]) =>
-      options.removeDimensions?.[0] === "activity",
-    )).toBe(true);
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledTimes(2);
+    expect(mocks.analyze).not.toHaveBeenCalled();
   });
 });
