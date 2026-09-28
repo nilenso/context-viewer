@@ -250,7 +250,8 @@ export function openPromptEditor(id: string, dimensionName?: string) {
   const ui = useUIStore.getState();
   ui.setEditingDimensionName(dimName);
 
-  const dimPrompt = sourceConv?.dimensions?.[dimName]?.prompt;
+  const dimPrompt = group?.dimensions?.[dimName]?.prompt
+    || sourceConv?.dimensions?.[dimName]?.prompt;
   const currentPrompt =
     dimPrompt ||
     ui.loadedPreset?.componentIdentificationPrompt ||
@@ -271,7 +272,10 @@ export function openComponentsEditor(id: string, dimensionName?: string) {
   const ui = useUIStore.getState();
   ui.setEditingDimensionName(dimName);
 
-  const currentComponents = sourceConv?.dimensions?.[dimName]?.discoveredComponents || [];
+  const currentComponents = group?.dimensions?.[dimName]?.customComponents
+    || sourceConv?.dimensions?.[dimName]?.customComponents
+    || sourceConv?.dimensions?.[dimName]?.discoveredComponents
+    || [];
   ui.setEditingComponents([...new Set(currentComponents)].join("\n"));
   ui.setIsComponentsDialogOpen(true);
 }
@@ -318,7 +322,8 @@ export function openColoringPromptEditor(id: string, dimensionName?: string) {
   const ui = useUIStore.getState();
   const dimName = dimensionName || ui.editingDimensionName || "default";
   ui.setEditingDimensionName(dimName);
-  const dimPrompt = sourceConv?.dimensions?.[dimName]?.customColoringPrompt;
+  const dimPrompt = group?.dimensions?.[dimName]?.customColoringPrompt
+    || sourceConv?.dimensions?.[dimName]?.customColoringPrompt;
   ui.setEditingColoringPrompt(dimPrompt || getDefaultColoringPrompt());
   ui.setIsColoringPromptDialogOpen(true);
 }

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   setEditingPrompt: vi.fn(),
   setIsPromptDialogOpen: vi.fn(),
   setIsComponentsDialogOpen: vi.fn(),
+  setEditingComponents: vi.fn(),
 }));
 
 vi.mock("context-analyzer", () => ({
@@ -52,6 +53,7 @@ vi.mock("@/stores/ui-store", () => ({
       setEditingPrompt: mocks.setEditingPrompt,
       setIsPromptDialogOpen: mocks.setIsPromptDialogOpen,
       setIsComponentsDialogOpen: mocks.setIsComponentsDialogOpen,
+      setEditingComponents: mocks.setEditingComponents,
     }),
   },
 }));
@@ -83,6 +85,8 @@ import {
   applyPromptsToAllAction,
   generateAnalysis,
   generateSummary,
+  openComponentsEditor,
+  openPromptEditor,
   addDimension,
   removeDimension,
   renameDimension,
@@ -241,6 +245,31 @@ describe("viewer session actions", () => {
     });
     expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
     expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
+  it("opens group editors from group dimension configuration", () => {
+    useConversationStore.setState({
+      conversations: [conversation("one"), conversation("two")],
+      groups: {
+        group: {
+          id: "group",
+          name: "Group",
+          fileIds: ["one", "two"],
+          dimensions: {
+            default: {
+              prompt: "Group prompt",
+              customComponents: ["planning", "execution"],
+            },
+          },
+        },
+      },
+    });
+
+    openPromptEditor("group", "default");
+    openComponentsEditor("group", "default");
+
+    expect(mocks.setEditingPrompt).toHaveBeenCalledWith("Group prompt");
+    expect(mocks.setEditingComponents).toHaveBeenCalledWith("planning\nexecution");
   });
 
   it("stores saved prompts on the group source of truth", () => {
