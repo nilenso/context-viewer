@@ -737,6 +737,24 @@ export function deleteConversation(id: string) {
   if (currentId === id) navigateToId(null);
 }
 
+const configurableModelStages: AIStage[] = [
+  "segmenting",
+  "identifying-components",
+  "classifying-components",
+  "coloring",
+];
+
+export function getChangedModelStages(id: string): AIStage[] {
+  const store = useConversationStore.getState();
+  const targets = (store.getGroup(id)?.fileIds || [id])
+    .map((conversationId) => store.getConversation(conversationId))
+    .filter((conversation): conversation is ViewerConversationState => !!conversation);
+  return configurableModelStages.filter((stage) => targets.some((conversation) =>
+    conversation.stageModels?.[stage]
+      && conversation.stageModels[stage] !== conversation.workflowMetrics?.stages[stage]?.model
+  ));
+}
+
 export function saveStageModel(id: string, stage: AIStage, model: string) {
   const store = useConversationStore.getState();
   const group = store.getGroup(id);
@@ -752,6 +770,24 @@ export function saveStageModel(id: string, stage: AIStage, model: string) {
     if (conversation.sessionId) {
       saveSessionStageModels(conversation.sessionId, conversationId, stageModels);
     }
+  }
+}
+
+export async function reprocessStageModels(id: string, fullReprocess: boolean) {
+  const store = useConversationStore.getState();
+  const selected = store.getConversation(id) || store.getConversation(store.getGroup(id)?.fileIds[0] || "");
+  if (!selected) return;
+  const reprocessStages = fullReprocess ? undefined : getChangedModelStages(id);
+  if (!fullReprocess && reprocessStages!.length === 0) return;
+
+  const ui = useUIStore.getState();
+  ui.setReprocessingId(id);
+  try {
+    await Promise.all(resolveTargets(selected, store.getGroup(id)?.fileIds).map((conversation) =>
+      reprocessWithSession(conversation, fullReprocess ? { fullReprocess: true } : { reprocessStages }),
+    ));
+  } finally {
+    ui.setReprocessingId(null);
   }
 }
 

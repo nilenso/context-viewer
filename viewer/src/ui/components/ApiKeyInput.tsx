@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/ui/components/ui/button";
 import { Input } from "@/ui/components/ui/input";
 import { Card } from "@/ui/components/ui/card";
-import { Eye, EyeOff, Key, Check, Play } from "lucide-react";
+import { Eye, EyeOff, Key, Check, Play, RefreshCw } from "lucide-react";
 import {
   DEFAULT_MODEL,
   STAGE_MODEL_OPTIONS,
@@ -15,7 +15,8 @@ import {
 } from "@/lib/ai-config";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
-import { saveStageModel } from "@/stores/actions";
+import { useUIStore } from "@/stores/ui-store";
+import { getChangedModelStages, reprocessStageModels, saveStageModel } from "@/stores/actions";
 
 interface ApiKeyInputProps {
   onApiKeyChange: (hasKey: boolean) => void;
@@ -33,10 +34,10 @@ export function ApiKeyInput({
   const [error, setError] = useState<string | null>(null);
   const [, setModelVersion] = useState(0);
   const selectedId = useUrlStore((state) => state.conversationId);
-  const conversation = useConversationStore((state) =>
-    state.conversations.find((candidate) => candidate.id === selectedId),
-  );
+  const conversations = useConversationStore((state) => state.conversations);
+  const conversation = conversations.find((candidate) => candidate.id === selectedId);
   const group = useConversationStore((state) => selectedId ? state.groups[selectedId] : undefined);
+  const reprocessingId = useUIStore((state) => state.reprocessingId);
 
   const currentKey = getRuntimeApiKey();
   const isEnvConfigured = isApiKeyFromEnv();
@@ -104,6 +105,28 @@ export function ApiKeyInput({
           </select>
         </label>
       ))}
+      {selectedId && (
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button
+            size="sm"
+            onClick={() => reprocessStageModels(selectedId, false)}
+            disabled={reprocessingId === selectedId || getChangedModelStages(selectedId).length === 0}
+            className="h-8 text-xs"
+          >
+            <RefreshCw className={`h-3 w-3 mr-1 ${reprocessingId === selectedId ? "animate-spin" : ""}`} />
+            Re-run changed stages
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => reprocessStageModels(selectedId, true)}
+            disabled={reprocessingId === selectedId}
+            className="h-8 text-xs"
+          >
+            Full re-run
+          </Button>
+        </div>
+      )}
     </div>
   );
 
