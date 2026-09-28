@@ -406,7 +406,7 @@ export async function analyzeContext(
 // Session management
 // ============================================================================
 
-export { deleteSession } from "./session";
+export { deleteSession, saveSessionDimensions } from "./session";
 
 // ============================================================================
 // Internal helpers
