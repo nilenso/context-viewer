@@ -33,8 +33,9 @@ import type { DimensionData, WorkflowStageMetric } from "context-analyzer";
 import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
-import { DEFAULT_MODEL } from "@/lib/ai-config";
+import { DEFAULT_MODEL, getModelLabel } from "@/lib/ai-config";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/components/ui/tabs";
 import {
   type ConversationLogs,
   type LogEntry,
@@ -547,7 +548,7 @@ export function WorkflowDetailModal({
                             {configuredModel && (
                               <Badge variant="secondary" className="text-xs gap-1 font-normal">
                                 <span className="font-medium">Model</span>
-                                {configuredModel}
+                                {getModelLabel(configuredModel)}
                               </Badge>
                             )}
                           {metric ? (
@@ -614,30 +615,6 @@ export function WorkflowDetailModal({
 
                     <CollapsibleContent>
                       <div className="border-t px-3 py-2 bg-muted/30">
-                        {isFindComponentsStep && workflowMetrics && (
-                          <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
-                            {[
-                              ["Topic identification", workflowMetrics.stages["identifying-components"]],
-                              ["Classification", workflowMetrics.stages["classifying-components"]],
-                            ].map(([label, stageMetric]) => (
-                              <div key={label as string} className="rounded border bg-background p-2">
-                                <div className="font-medium">{label as string}</div>
-                                {stageMetric ? (
-                                  <div className="mt-1 text-muted-foreground">
-                                    {conv?.stageModels?.[
-                                      label === "Topic identification" ? "identifying-components" : "classifying-components"
-                                    ] || (stageMetric as WorkflowStageMetric).model || DEFAULT_MODEL}
-                                    <br />
-                                    Execution {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · LLM {formatDuration((stageMetric as WorkflowStageMetric).llmTimeMs || 0)} · Processing {formatDuration(Math.max(0, (stageMetric as WorkflowStageMetric).wallClockMs - ((stageMetric as WorkflowStageMetric).llmTimeMs || 0)))} · {formatCost(stageMetric as WorkflowStageMetric)}
-                                  </div>
-                                ) : (
-                                  <div className="mt-1 text-muted-foreground">Not run</div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
                         {/* Dimension Accordion - show inside Find components step */}
                         {isFindComponentsStep && (() => {
                           const dims = dimensions;
@@ -861,13 +838,75 @@ export function WorkflowDetailModal({
                           );
                         })()}
 
-                        {metric?.calls && metric.calls.length > 0 && (
+                        {isFindComponentsStep && workflowMetrics && (
+                          <Tabs defaultValue="identifying-components" className="mb-3">
+                            <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger value="identifying-components">Topic identification</TabsTrigger>
+                              <TabsTrigger value="classifying-components">Classification</TabsTrigger>
+                            </TabsList>
+                            {([
+                              ["identifying-components", "Topic identification"],
+                              ["classifying-components", "Classification"],
+                            ] as const).map(([stage, label]) => {
+                              const stageMetric = workflowMetrics.stages[stage];
+                              return (
+                                <TabsContent key={stage} value={stage} className="mt-2 rounded border bg-background p-3 text-xs">
+                                  <div className="font-medium">{label}</div>
+                                  {stageMetric ? (
+                                    <>
+                                      <div className="mt-1 text-muted-foreground">
+                                        {getModelLabel(conv?.stageModels?.[stage] || stageMetric.model || DEFAULT_MODEL)}
+                                        <br />
+                                        Execution {formatDuration(stageMetric.wallClockMs)} · LLM {formatDuration(stageMetric.llmTimeMs || 0)} · Processing {formatDuration(Math.max(0, stageMetric.wallClockMs - (stageMetric.llmTimeMs || 0)))} · {formatCost(stageMetric)}
+                                      </div>
+                                      {stageMetric.calls && stageMetric.calls.length > 0 && (
+                                        <div className="mt-3 space-y-1.5">
+                                          <div className="font-medium">LLM API calls ({stageMetric.calls.length})</div>
+                                          {stageMetric.calls.map((call, index) => (
+                                            <div key={`${call.startedAt}-${index}`} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded border px-2 py-1.5">
+                                              <span className="text-muted-foreground">#{index + 1}</span>
+                                              <span className="truncate" title={call.model}>{getModelLabel(call.model)}</span>
+                                              <span>{formatDuration(call.durationMs)}</span>
+                                              <span>{call.costUsd === undefined ? "Cost unknown" : `$${call.costUsd.toFixed(call.costUsd >= 0.001 ? 4 : 5)}`}</span>
+                                              <span />
+                                              <span className="col-span-3 text-muted-foreground">
+                                                Input {call.inputTokens?.toLocaleString() ?? "unknown"} · Output {call.outputTokens?.toLocaleString() ?? "unknown"} tokens
+                                              </span>
+                                              {(call.request || call.response) && (
+                                                <Tabs defaultValue="request" className="col-span-4 border-t pt-1.5">
+                                                  <TabsList className="grid h-8 w-full grid-cols-2">
+                                                    <TabsTrigger value="request" className="text-xs">Request</TabsTrigger>
+                                                    <TabsTrigger value="response" className="text-xs">Response</TabsTrigger>
+                                                  </TabsList>
+                                                  <TabsContent value="request" className="mt-1">
+                                                    <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-[11px]">{call.request || "Request unavailable"}</pre>
+                                                  </TabsContent>
+                                                  <TabsContent value="response" className="mt-1">
+                                                    <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-[11px]">{call.response || "Response unavailable"}</pre>
+                                                  </TabsContent>
+                                                </Tabs>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="mt-1 text-muted-foreground">Not run</div>
+                                  )}
+                                </TabsContent>
+                              );
+                            })}
+                          </Tabs>
+                        )}
+
+                        {!isFindComponentsStep && metric?.calls && metric.calls.length > 0 && (
                           <div className="mb-3 space-y-1.5">
                             <div className="text-xs font-medium">LLM API calls ({metric.calls.length})</div>
                             {metric.calls.map((call, index) => (
                               <div key={`${call.startedAt}-${index}`} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded border bg-background px-2 py-1.5 text-xs">
                                 <span className="text-muted-foreground">#{index + 1}</span>
-                                <span className="truncate" title={call.model}>{call.model}</span>
+                                <span className="truncate" title={call.model}>{getModelLabel(call.model)}</span>
                                 <span>{formatDuration(call.durationMs)}</span>
                                 <span>{call.costUsd === undefined ? "Cost unknown" : `$${call.costUsd.toFixed(call.costUsd >= 0.001 ? 4 : 5)}`}</span>
                                 <span />

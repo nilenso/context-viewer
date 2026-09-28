@@ -103,6 +103,133 @@ async function mapPartsBatch(
   }
 }
 
+const TYPESAFE_MODEL = "typesafe/jev-1.13";
+const OPENROUTER_TYPESAFE_ENDPOINT = "https://openrouter.ai/api/alpha/decisions";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function mapPartsBatchWithJev(
+  parts: PartWithContext[],
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  config: AIConfig,
+): Promise<{ mapping: Record<string, string>; error?: StageError }> {
+  const request = {
+    state: {
+      parts: parts.map(({ partId, ...part }) => ({ id: partId, ...part })),
+    },
+    model: TYPESAFE_MODEL,
+    questions: Object.fromEntries(parts.map((part) => [
+      part.partId,
+      {
+        type: "choice",
+        instructions: `In the ${dimensionName} dimension, classify the object in \`state.parts\` whose \`id\` is \`${part.partId}\`. Classify its semantic content; use its role and partType only as context.`,
+        criteria: Object.fromEntries(components.map((component) => [component, descriptions[component] || null])),
+      },
+    ])),
+  };
+  const startedAt = Date.now();
+  let response: Response;
+  let responseText: string;
+
+  try {
+    response = await fetch(OPENROUTER_TYPESAFE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+    responseText = await response.text();
+  } catch (error) {
+    const endedAt = Date.now();
+    config.recordCall?.("classifying-components", {
+      model: TYPESAFE_MODEL,
+      startedAt,
+      endedAt,
+      durationMs: endedAt - startedAt,
+      request: JSON.stringify(request, null, 2),
+    });
+    return { mapping: {}, error: upstreamError("classify", `OpenRouter Decisions API call failed: ${error instanceof Error ? error.message : String(error)}`) };
+  }
+
+  const endedAt = Date.now();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(responseText);
+  } catch {
+    payload = undefined;
+  }
+  const usage = isRecord(payload) && isRecord(payload.usage) ? payload.usage : undefined;
+  config.recordCall?.("classifying-components", {
+    model: TYPESAFE_MODEL,
+    startedAt,
+    endedAt,
+    durationMs: endedAt - startedAt,
+    request: JSON.stringify(request, null, 2),
+    response: responseText,
+    inputTokens: typeof usage?.input_tokens === "number" ? usage.input_tokens : undefined,
+    outputTokens: typeof usage?.output_tokens === "number" ? usage.output_tokens : undefined,
+    costUsd: typeof usage?.cost === "number" ? usage.cost : undefined,
+  });
+
+  if (!response.ok) {
+    return { mapping: {}, error: upstreamError("classify", `OpenRouter Decisions API returned ${response.status} ${response.statusText}${responseText ? `: ${responseText}` : ""}`.trim()) };
+  }
+
+  if (!payload) {
+    return { mapping: {}, error: parseError("classify", "OpenRouter Decisions response was not valid JSON") };
+  }
+
+  const answers = isRecord(payload) && isRecord(payload.answers) ? payload.answers : undefined;
+  if (!answers) return { mapping: {}, error: parseError("classify", "OpenRouter Decisions response contained no answers object") };
+
+  const allowedChoices = new Set(components);
+  const mapping: Record<string, string> = {};
+  let malformed = false;
+  parts.forEach((part) => {
+    const answer = answers[part.partId];
+    if (!isRecord(answer) || typeof answer.choice !== "string" || !allowedChoices.has(answer.choice)) {
+      malformed = true;
+      return;
+    }
+    mapping[part.partId] = answer.choice;
+  });
+
+  return {
+    mapping,
+    error: malformed ? parseError("classify", "OpenRouter Decisions response contained an invalid or missing Choice answer") : undefined,
+  };
+}
+
+async function mapComponentsToIdsWithJev(
+  conversation: Conversation,
+  components: string[],
+  descriptions: Record<string, string>,
+  dimensionName: string,
+  config: AIConfig,
+): Promise<{ mapping: Record<string, string>; errors: StageError[] }> {
+  const allParts = extractPartsWithContext(stripLargeContent(conversation));
+  const batches: PartWithContext[][] = [];
+  for (let index = 0; index < allParts.length; index += 20) batches.push(allParts.slice(index, index + 20));
+
+  log.info(`Mapping ${allParts.length} parts with Jev in ${batches.length} parallel batches of 20`);
+  const results = await Promise.all(
+    batches.map((batch) => mapPartsBatchWithJev(batch, components, descriptions, dimensionName, config)),
+  );
+  const mapping: Record<string, string> = {};
+  const errors: StageError[] = [];
+  for (const result of results) {
+    Object.assign(mapping, result.mapping);
+    if (result.error) errors.push(result.error);
+  }
+  return { mapping, errors };
+}
+
 export async function mapComponentsToIds(
   conversation: Conversation,
   components: string[],
@@ -199,12 +326,20 @@ export async function classifyForDimension(
     componentDescriptions = dimData.prompt || getDefaultComponentIdentificationPrompt();
   }
 
-  const { mapping, errors } = await mapComponentsToIds(
-    conversation,
-    dimData.discoveredComponents,
-    config,
-    componentDescriptions,
-  );
+  const { mapping, errors } = getStageModel(config, "classifying-components") === TYPESAFE_MODEL
+    ? await mapComponentsToIdsWithJev(
+        conversation,
+        dimData.discoveredComponents,
+        dimData.componentDescriptions || {},
+        dimData.name,
+        config,
+      )
+    : await mapComponentsToIds(
+        conversation,
+        dimData.discoveredComponents,
+        config,
+        componentDescriptions,
+      );
 
   const totalParts = conversation.messages.reduce((sum, msg) => sum + msg.parts.length, 0);
   const mappedParts = Object.keys(mapping).length;

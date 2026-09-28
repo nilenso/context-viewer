@@ -59,6 +59,8 @@ export interface WorkflowCallMetric {
   costUsd?: number;
   inputTokens?: number;
   outputTokens?: number;
+  request?: string;
+  response?: string;
 }
 
 export interface WorkflowStageMetric {

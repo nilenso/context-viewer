@@ -67,6 +67,8 @@ export const WorkflowCallMetricSchema = z.object({
   costUsd: z.number().optional(),
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
+  request: z.string().optional(),
+  response: z.string().optional(),
 });
 
 export const WorkflowStageMetricSchema = z.object({

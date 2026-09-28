@@ -42,11 +42,19 @@ export async function generateWithMetrics(stage: AIStage, prompt: string, config
       costUsd: getCost(result),
       inputTokens: result.usage?.inputTokens,
       outputTokens: result.usage?.outputTokens,
+      request: stage === "identifying-components" || stage === "classifying-components" ? prompt : undefined,
+      response: stage === "identifying-components" || stage === "classifying-components" ? result.text : undefined,
     });
     return result;
   } catch (error) {
     const endedAt = Date.now();
-    config.recordCall?.(stage, { model, startedAt, endedAt, durationMs: endedAt - startedAt });
+    config.recordCall?.(stage, {
+      model,
+      startedAt,
+      endedAt,
+      durationMs: endedAt - startedAt,
+      request: stage === "identifying-components" || stage === "classifying-components" ? prompt : undefined,
+    });
     throw error;
   }
 }
