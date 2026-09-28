@@ -3,11 +3,10 @@
  * Assigns colors to identified components via preset mapping or AI.
  */
 
-import { generateText } from "ai";
 import type { DimensionData } from "../model/types";
 import type { AIConfig } from "../config";
 import { getPrompt } from "./prompts";
-import { getProviderOptions, createModel } from "../config";
+import { generateWithMetrics } from "./generate-with-metrics";
 import { stageLogger } from "../logger";
 import { upstreamError, parseError, type StageError } from "../errors";
 
@@ -30,7 +29,6 @@ export async function assignComponentColors(
   }
 
   // AI-based color assignment
-  const model = createModel(config);
   const componentsJson = JSON.stringify(components, null, 2);
 
   log.info(`Calling AI to assign colors (model: ${config.model})`);
@@ -38,11 +36,7 @@ export async function assignComponentColors(
   const prompt = getPrompt("component-coloring", { componentsJson, customPrompt: customColoringPrompt });
 
   try {
-    const result = await generateText({
-      model,
-      prompt,
-      providerOptions: getProviderOptions(config),
-    });
+    const result = await generateWithMetrics("coloring", prompt, config);
 
     log.debug(`AI response for colors: ${result.text}`);
 

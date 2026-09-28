@@ -1,9 +1,8 @@
-import { generateText } from "ai";
 import type { Conversation } from "../model/schema";
 import type { DimensionData } from "../model/types";
 import type { AIConfig } from "../config";
 import { getPrompt } from "./prompts";
-import { getProviderOptions, createModel } from "../config";
+import { generateWithMetrics } from "./generate-with-metrics";
 import { stripLargeContent } from "./strip-large-content";
 import { stageLogger } from "../logger";
 import { upstreamError, parseError, inputError, type StageError } from "../errors";
@@ -19,8 +18,6 @@ export async function identifyComponents(
   config: AIConfig,
   customPrompt?: string,
 ): Promise<{ components: string[]; error?: StageError }> {
-  const model = createModel(config);
-
   const strippedConversation = stripLargeContent(conversation);
   const conversationJson = JSON.stringify(strippedConversation, null, 2);
 
@@ -32,11 +29,7 @@ export async function identifyComponents(
   });
 
   try {
-    const result = await generateText({
-      model,
-      prompt,
-      providerOptions: getProviderOptions(config),
-    });
+    const result = await generateWithMetrics("identifying-components", prompt, config);
 
     log.debug(`AI response for components: ${result.text.substring(0, 200)}...`);
 

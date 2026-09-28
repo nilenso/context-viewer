@@ -1,9 +1,8 @@
-import { generateText } from "ai";
 import type { Conversation, Message } from "../model/schema";
 import type { PipelineState } from "../model/types";
 import type { AIConfig } from "../config";
 import { getPrompt } from "./prompts";
-import { getProviderOptions, createModel } from "../config";
+import { generateWithMetrics } from "./generate-with-metrics";
 import { stageLogger } from "../logger";
 import { addTokenCounts } from "../operations/token-counting";
 import { upstreamError, parseError, type StageError } from "../errors";
@@ -39,18 +38,12 @@ async function segmentTextWithAI(
   config: AIConfig,
   customPrompt?: string,
 ): Promise<{ patterns: string[]; error?: StageError }> {
-  const model = createModel(config);
-
   log.info(`Calling AI to segment text (${text.length} chars, model: ${config.model})${customPrompt ? " with custom prompt" : ""}`);
 
   const prompt = getPrompt("segmentation", { text, customPrompt });
 
   try {
-    const result = await generateText({
-      model,
-      prompt,
-      providerOptions: getProviderOptions(config),
-    });
+    const result = await generateWithMetrics("segmenting", prompt, config);
 
     log.debug(`AI response: ${result.text.substring(0, 200)}...`);
 

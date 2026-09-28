@@ -30,12 +30,17 @@ export interface AnalyzerConfig {
 // Internal AIConfig — resolved from AnalyzerConfig, threaded through stages
 // ============================================================================
 
+export interface AICallMetric {
+  costUsd?: number;
+}
+
 export interface AIConfig {
   apiKey: string;
   model: string;
   baseURL: string | undefined;
   apiMode: AIApiMode;
   reasoningEffort: ReasoningEffort | undefined;
+  recordCall?: (stage: string, metric: AICallMetric) => void;
 }
 
 export function resolveAIConfig(config: AnalyzerConfig): AIConfig {

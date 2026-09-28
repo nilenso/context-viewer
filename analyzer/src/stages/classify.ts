@@ -5,12 +5,11 @@
  * then build a component timeline.
  */
 
-import { generateText } from "ai";
 import type { Conversation } from "../model/schema";
 import type { DimensionData, ComponentTimelineSnapshot } from "../model/types";
 import type { AIConfig } from "../config";
 import { getPrompt, getDefaultComponentIdentificationPrompt } from "./prompts";
-import { getProviderOptions, createModel } from "../config";
+import { generateWithMetrics } from "./generate-with-metrics";
 import { stripLargeContent } from "./strip-large-content";
 import { stageLogger } from "../logger";
 import { buildComponentTimeline as buildComponentTimelineCore } from "../operations/aggregation";
@@ -62,8 +61,6 @@ async function mapPartsBatch(
   config: AIConfig,
   componentDescriptions?: string,
 ): Promise<{ mapping: Record<string, string>; error?: StageError }> {
-  const model = createModel(config);
-
   const partsJson = JSON.stringify(parts, null, 2);
   const componentsJson = JSON.stringify(components, null, 2);
 
@@ -74,11 +71,7 @@ async function mapPartsBatch(
   });
 
   try {
-    const result = await generateText({
-      model,
-      prompt,
-      providerOptions: getProviderOptions(config),
-    });
+    const result = await generateWithMetrics("classifying-components", prompt, config);
 
     const jsonMatch = result.text.match(/\{[^]*\}/s);
     if (!jsonMatch) {

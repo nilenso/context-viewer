@@ -167,6 +167,26 @@ describe("runPipeline", () => {
     expect(dim.componentTimeline.length).toBe(1);
     expect(dim.componentTimeline[0]!.totalTokens).toBeGreaterThan(0);
 
+    expect(ctx.workflowMetrics?.latestRun).toMatchObject({
+      stages: [
+        "parsing",
+        "counting-tokens",
+        "segmenting",
+        "identifying-components",
+        "classifying-components",
+        "coloring",
+      ],
+      costUsd: 0,
+      costCallCount: 0,
+      missingCostCallCount: 5,
+    });
+    expect(ctx.workflowMetrics?.stages).toMatchObject({
+      parsing: { costUsd: 0, missingCostCallCount: 0 },
+      segmenting: { costUsd: 0, missingCostCallCount: 1 },
+      "identifying-components": { costUsd: 0, missingCostCallCount: 1 },
+      "classifying-components": { costUsd: 0, missingCostCallCount: 2 },
+      coloring: { costUsd: 0, missingCostCallCount: 1 },
+    });
   });
 
   it("skips pipeline for Context Viewer export files", async () => {

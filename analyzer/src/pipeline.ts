@@ -65,9 +65,19 @@ async function run<T>(
     if (i.stage === name && i.timing === "pre") await i.fn(ctx);
   }
 
+  const metric = {
+    wallClockMs: 0,
+    costUsd: 0,
+    costCallCount: 0,
+    missingCostCallCount: 0,
+  };
+  ctx.workflowMetrics!.stages[name] = metric;
+  ctx.workflowMetrics!.latestRun!.stages.push(name);
+
   const start = Date.now();
   const result = await fn();
-  ctx.stepTimings![name] = Math.round((Date.now() - start) / 1000);
+  metric.wallClockMs = Date.now() - start;
+  ctx.stepTimings![name] = Math.round(metric.wallClockMs / 1000);
   log.info(`[${ctx.filename}] Completed ${name} in ${ctx.stepTimings![name]}s`);
 
   // Post-interceptors (run after result is available but before merge in caller)
@@ -92,6 +102,17 @@ function merge(ctx: PipelineState, result: Partial<PipelineState> & { warnings?:
   return errors || [];
 }
 
+function finishWorkflowMetrics(ctx: PipelineState, start: number) {
+  const latestRun = ctx.workflowMetrics!.latestRun!;
+  latestRun.wallClockMs = Date.now() - start;
+  for (const stage of latestRun.stages) {
+    const metric = ctx.workflowMetrics!.stages[stage]!;
+    latestRun.costUsd += metric.costUsd;
+    latestRun.costCallCount += metric.costCallCount;
+    latestRun.missingCostCallCount += metric.missingCostCallCount;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The pipeline — imperative, reads top-to-bottom
 // ---------------------------------------------------------------------------
@@ -111,6 +132,28 @@ export async function runPipeline(
 ): Promise<StageError[]> {
   const allErrors: StageError[] = [];
   const interceptors = options?.interceptors || [];
+  const workflowStart = Date.now();
+  ctx.workflowMetrics ||= { stages: {} };
+  ctx.workflowMetrics.latestRun = {
+    wallClockMs: 0,
+    costUsd: 0,
+    costCallCount: 0,
+    missingCostCallCount: 0,
+    stages: [],
+  };
+  const metricConfig = aiConfig && {
+    ...aiConfig,
+    recordCall: (stage: string, metric: { costUsd?: number }) => {
+      const stageMetric = ctx.workflowMetrics!.stages[stage];
+      if (!stageMetric) return;
+      if (metric.costUsd === undefined) {
+        stageMetric.missingCostCallCount++;
+      } else {
+        stageMetric.costUsd += metric.costUsd;
+        stageMetric.costCallCount++;
+      }
+    },
+  };
 
   // --- Conversation-level stages ---
 
@@ -130,11 +173,12 @@ export async function runPipeline(
   }
 
   if (!aiConfig?.apiKey) {
+    finishWorkflowMetrics(ctx, workflowStart);
     return allErrors;
   }
 
   // Segment always runs — it's cheap when there are no large parts
-  allErrors.push(...merge(ctx, await run("segmenting", ctx, interceptors, () => segment(ctx, aiConfig))));
+  allErrors.push(...merge(ctx, await run("segmenting", ctx, interceptors, () => segment(ctx, metricConfig!))));
   await runPost("segmenting", ctx, interceptors);
 
   // --- Dimension-level stages (each has its own idempotency) ---
@@ -147,7 +191,7 @@ export async function runPipeline(
   await run("identifying-components", ctx, interceptors, () =>
     Promise.all(activeDimNames.map(async (dimName) => {
       const { result, error } = await identifyForDimension(
-        ctx.conversation!, dims[dimName]!, aiConfig,
+        ctx.conversation!, dims[dimName]!, metricConfig,
       );
       Object.assign(dims[dimName]!, result);
       if (error) allErrors.push(error);
@@ -155,24 +199,28 @@ export async function runPipeline(
   );
   await runPost("identifying-components", ctx, interceptors);
 
-  // Classify + Color — parallel per dimension, both stages parallel within each
-  await run("classifying-components", ctx, interceptors, () =>
-    Promise.all(activeDimNames.map(async (dimName) => {
-      const dim = dims[dimName]!;
-      const [classified, colored] = await Promise.all([
-        classifyForDimension(ctx.conversation!, dim, aiConfig),
-        colorForDimension(dim, aiConfig, ctx.presetColors),
-      ]);
-      Object.assign(dim, classified.result, colored.result);
-      if (classified.error) allErrors.push(classified.error);
-      if (colored.error) allErrors.push(colored.error);
-    })),
-  );
+  // Classify + Color run concurrently across all dimensions.
+  await Promise.all([
+    run("classifying-components", ctx, interceptors, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const classified = await classifyForDimension(ctx.conversation!, dims[dimName]!, metricConfig!);
+        Object.assign(dims[dimName]!, classified.result);
+        if (classified.error) allErrors.push(classified.error);
+      })),
+    ),
+    run("coloring", ctx, interceptors, () =>
+      Promise.all(activeDimNames.map(async (dimName) => {
+        const colored = await colorForDimension(dims[dimName]!, metricConfig!, ctx.presetColors);
+        Object.assign(dims[dimName]!, colored.result);
+        if (colored.error) allErrors.push(colored.error);
+      })),
+    ),
+  ]);
 
   ctx.dimensions = dims;
-  // Post-interceptors for classify see the final dimensions
   await runPost("classifying-components", ctx, interceptors);
   await runPost("coloring", ctx, interceptors);
 
+  finishWorkflowMetrics(ctx, workflowStart);
   return allErrors;
 }
