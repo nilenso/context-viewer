@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Context Viewer — State & Configuration Flow</title>
+<style>
+:root{--bg:#f4f6f3;--paper:#fff;--ink:#142019;--muted:#627069;--line:#d7ded9;--green:#195c3d;--mint:#dff5e7;--blue:#e7efff;--amber:#fff0c9;--dark:#17231c;--red:#8d342d}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.58 Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.shell{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}aside{position:sticky;top:0;height:100vh;overflow:auto;background:var(--dark);padding:28px 22px;color:#dce9e0}aside h2{margin:0;color:#9ce2b5;font-size:18px}aside p{margin:4px 0 22px;color:#9fb0a5;font-size:12px}aside a{display:block;padding:5px 0;color:#dce9e0;text-decoration:none;font-size:13px}aside a:hover{color:#9ce2b5}main{width:min(1180px,100%);padding:58px clamp(22px,5vw,76px) 100px}h1{max-width:930px;margin:12px 0 20px;font-size:clamp(42px,6vw,72px);line-height:1;letter-spacing:-.055em}h2{margin:68px 0 18px;font-size:30px;letter-spacing:-.03em}h3{margin:30px 0 10px;font-size:20px}.lede{max-width:850px;color:var(--muted);font-size:19px}.stamp{display:inline-block;border:1px solid var(--line);border-radius:999px;background:var(--paper);padding:5px 11px;color:var(--muted);font:11px ui-monospace,monospace}.callout{margin:18px 0;padding:16px 18px;border-left:4px solid var(--green);background:var(--mint)}.warning{border-color:#d89b1d;background:var(--amber)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.card{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:18px}.card h3{margin:0 0 8px;font-size:17px}.owner{display:inline-block;margin-bottom:10px;border-radius:4px;padding:2px 7px;background:var(--mint);color:var(--green);font:11px ui-monospace,monospace}.flow{overflow:auto;margin:16px 0;padding:20px;border-radius:10px;background:var(--dark);color:#e8f0ea;font:13px/1.72 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}.sequence{counter-reset:step}.step{position:relative;margin:0 0 10px 44px;border:1px solid var(--line);border-radius:9px;background:var(--paper);padding:15px 18px}.step:before{counter-increment:step;content:counter(step);position:absolute;left:-44px;top:13px;width:29px;height:29px;border-radius:50%;background:var(--green);color:white;text-align:center;font:bold 13px/29px ui-monospace,monospace}.step b{color:var(--green)}table{width:100%;border-collapse:collapse;background:var(--paper);font-size:14px}th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}th{background:#e7ece8}code{border-radius:4px;background:#e9eeea;padding:2px 5px;color:#254033;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.flow code{background:none;color:inherit;padding:0}.links{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.links a{border:1px solid var(--line);border-radius:5px;background:#f8faf8;padding:3px 7px;color:var(--green);font:11px ui-monospace,monospace;text-decoration:none}.legend{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border-radius:999px;padding:5px 10px;font-size:12px}.domain{background:var(--mint)}.ui{background:var(--blue)}.config{background:var(--amber)}.external{background:#f4dfdc}.arrow{color:#839089}.compact td:first-child{width:24%}.truth{font-weight:700;color:var(--green)}footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted)}@media(max-width:850px){.shell{display:block}aside{position:relative;height:auto}aside nav{columns:2}.grid{grid-template-columns:1fr}main{padding-top:36px}}@media print{aside{display:none}.shell{display:block}main{max-width:none;padding:20px}.card,.step,table{break-inside:avoid}}
+</style>
+</head>
+<body><div class="shell"><aside><h2>State & configuration</h2><p>Implementation guide · pinned snapshot</p><nav>
+<a href="#mental-model">Mental model</a><a href="#stores">Frontend state</a><a href="#domain-state">Analyzer state</a><a href="#upload">Initial upload flow</a><a href="#model-config">Model configuration</a><a href="#save-model">Changing model</a><a href="#rerun">Reprocessing</a><a href="#groups">Groups</a><a href="#metrics">Metrics feedback</a><a href="#imports">Import/export</a><a href="#narratives">Summary & analysis</a><a href="#precedence">Precedence tables</a><a href="#debug">Debugging checklist</a><a href="#invariants">Invariants</a>
+</nav></aside><main>
+<header><span class="stamp">Source snapshot · 29343cd8ddee6e05495a02cf246b8c67b89f38a1 · 2026-09-28</span><h1>How state and model configuration move through Context Viewer.</h1><p class="lede">Detailed implementation map from React controls through Zustand, analyzer sessions, pipeline stage resolution, OpenRouter calls, and metrics back into UI. Source links are GitHub permalinks to exact code lines.</p></header>
+
+<section id="mental-model"><h2>1. Mental model</h2><div class="legend"><span class="pill domain">Domain state</span><span class="pill ui">Frontend/UI state</span><span class="pill config">Configuration</span><span class="pill external">External API</span></div><div class="flow">User input
+   │
+   ▼
+React component ──intent──► viewer/stores/actions.ts
+   │                              │
+   │ subscribes                   ├── mutate Zustand conversation/group state
+   │                              ├── persist config into analyzer session
+   │                              └── call analyze({ sessionId, ...options }, config)
+   ▼                                                    │
+Zustand stores                                          ▼
+   ├── conversation-store                     analyzer in-memory Session
+   ├── ui-store                                         │
+   └── url-store                                        ▼
+                                               runPipeline(ctx, aiConfig)
+                                                         │
+                              stageModels[stage] ─────────┤
+                                                         ▼
+                                              generateWithMetrics(...)
+                                                         │
+                                                         ▼
+                                               OpenRouter-compatible API
+                                                         │
+                             result + call metric ◄───────┘
+                                      │
+                                      ▼
+                     interceptor copies PipelineState into Zustand
+                                      │
+                                      ▼
+                               React rerenders UI</div><div class="callout"><strong>Central distinction:</strong> Zustand contains UI-visible copies. Analyzer session contains authoritative mutable pipeline state for iteration. Actions deliberately update both when configuration must survive next analyzer call.</div></section>
+
+<section id="stores"><h2>2. Frontend state: three Zustand stores</h2><div class="grid"><article class="card"><span class="owner">conversation-store</span><h3>Domain projection</h3><p>Owns conversations and groups shown by viewer. Each conversation extends analyzer <code>PipelineState</code> with UI lifecycle fields.</p><ul><li><code>conversations[]</code></li><li><code>groups{}</code></li><li><code>status</code>, <code>step</code>, <code>error</code></li><li><code>sessionId</code></li></ul><p class="truth">Source of truth for rendered analysis.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L13-L63">type and API</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L122-L182">mutations</a></div></article><article class="card"><span class="owner">ui-store</span><h3>Transient interaction state</h3><p>Owns selections, open dialogs, draft prompt text, active dimensions, presets, import progress, and reprocessing spinner.</p><p>Draft editor values are not pipeline inputs until Save/Apply action copies them.</p><p class="truth">Source of truth for temporary UI intent.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/ui-store.ts#L12-L88">UIStore fields</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/ui-store.ts#L90-L174">defaults/mutations</a></div></article><article class="card"><span class="owner">url-store</span><h3>Navigable view state</h3><p>Owns selected conversation/group, tabs, filters, panel state, search, sorting, comparison layout, and import URL.</p><p>Navigation uses <code>pushState</code>; filter/layout changes use <code>replaceState</code>; <code>popstate</code> reparses URL.</p><p class="truth">Source of truth for shareable navigation.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/url-store.ts#L27-L70">URL state</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/url-store.ts#L105-L163">history sync</a></div></article></div>
+<h3>What is not in a Zustand store?</h3><table class="compact"><thead><tr><th>State</th><th>Location</th><th>Reason</th></tr></thead><tbody><tr><td>Runtime API key</td><td>Module variable in <code>viewer/lib/ai-config.ts</code></td><td>Not exported with conversation and not placed in URL/domain state.</td></tr><tr><td>Default runtime stage models</td><td>Module variable in <code>viewer/lib/ai-config.ts</code></td><td>Defaults for future uploads when no selected conversation/group owns config.</td></tr><tr><td>Iterative pipeline state</td><td>Analyzer module-level session map</td><td>Pipeline can clear outputs and rerun without reconstructing state from UI.</td></tr><tr><td>Derived group conversation</td><td><code>useMemo</code> in <code>App.tsx</code></td><td>Groups remain references; merged conversation is derived, never stored.</td></tr></tbody></table></section>
+
+<section id="domain-state"><h2>3. Analyzer state and viewer projection</h2><div class="flow">PipelineState
+├── identity: id, filename, title
+├── inputs
+│   ├── rawContent
+│   ├── prompts / threshold / preset colors
+│   └── stageModels
+├── canonical data
+│   ├── conversation
+│   ├── metadata
+│   └── dimensions[name]
+├── deterministic data
+│   ├── staticComponents
+│   ├── staticMapping
+│   └── staticTimeline
+└── tracking
+    ├── warnings
+    ├── stepTimings
+    └── workflowMetrics
+
+ViewerConversationState extends PipelineState
+└── status, step, error, pausedAtStep, sessionId</div><p>Analyzer state is copied into conversation store after every stage by pre/post interceptors. Pre marks stage as processing. Post spreads full current <code>ctx</code> into selected viewer conversation. Final analyzer result adds session identity and terminal status.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/model/types.ts#L130-L168">PipelineState</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L16-L23">ViewerConversationState</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L68-L101">interceptor bridge</a></div></section>
+
+<section id="upload"><h2>4. Initial upload: state passage end to end</h2><div class="sequence"><div class="step"><b>Drop input.</b> <code>App</code> passes files and loaded preset to <code>processFileDrop</code>.</div><div class="step"><b>Normalize import envelope.</b> <code>parseFileDropInput</code> separates processable files, old IDs, and imported groups.</div><div class="step"><b>Create UI placeholders.</b> Viewer allocates fresh file ID and inserts pending <code>ViewerConversationState</code> before analysis starts.</div><div class="step"><b>Resolve runtime AI config.</b> Viewer reads module API key/environment and runtime model defaults through <code>getAnalyzerConfig()</code>.</div><div class="step"><b>Call analyzer once per file.</b> Each file receives independent analyzer session. Files process concurrently.</div><div class="step"><b>Create analyzer state.</b> <code>analyze()</code> builds <code>PipelineState</code> from raw file and creates session.</div><div class="step"><b>Run stages.</b> Pipeline invokes Parse, Count, Segment, Identify, then Classification and Coloring.</div><div class="step"><b>Publish progress.</b> Interceptors copy current analyzer state to matching Zustand conversation after every stage.</div><div class="step"><b>Finalize.</b> Viewer stores returned state, <code>sessionId</code>, normalized errors, and success/paused state.</div></div><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L232-L324">processFileDrop</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/index.ts#L195-L259">analyze</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/pipeline.ts#L123-L232">runPipeline</a></div></section>
+
+<section id="model-config"><h2>5. Model configuration: ownership and resolution</h2><h3>Available model policy</h3><table><thead><tr><th>Stage</th><th>Allowed choices</th><th>Default</th></tr></thead><tbody><tr><td>Segmentation</td><td>Luna 6, OpenAI Mini, Google Flash</td><td>Luna 6</td></tr><tr><td>Topic identification</td><td>Luna 6, OpenAI Mini, Google Flash</td><td>Luna 6</td></tr><tr><td>Classification</td><td>Luna 6, OpenAI Mini, Google Flash, Jev</td><td>Luna 6</td></tr><tr><td>Coloring</td><td>Luna 6, OpenAI Mini, Google Flash</td><td>Luna 6</td></tr><tr><td>Summary / Analysis</td><td>Luna 6 only in viewer catalog</td><td>Luna 6</td></tr></tbody></table><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/lib/ai-config.ts#L7-L40">catalog</a></div>
+<h3>Which configuration does dropdown display?</h3><div class="flow">selected group.stageModels
+        │ present
+        ▼
+       use it
+        │ absent
+        ▼
+selected conversation.stageModels
+        │ present
+        ▼
+       use it
+        │ absent
+        ▼
+runtimeStageModels (future-upload defaults)</div><p>This precedence is UI ownership. Selecting group means group configuration is displayed. Selecting file means file configuration is displayed. No selection edits module-level runtime defaults.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/ui/components/ApiKeyInput.tsx#L70-L108">selector resolution</a></div>
+<h3>Which model does an API call use?</h3><div class="flow">AI stage calls generateWithMetrics(stage, prompt, config)
+                              │
+                              ▼
+getStageModel(config, stage)
+  ├── config.stageModels[stage] exists ──► selected stage model
+  └── otherwise ─────────────────────────► config.model
+                                              │
+                                              └── resolved default: openai/gpt-6-luna
+
+resolved model
+  └── createModel({ ...config, model })
+        └── createOpenAI({ apiKey, baseURL })
+              └── chat/responses model(model ID)
+                    └── generateText({ prompt, providerOptions })</div><div class="callout"><strong>Important:</strong> <code>stageMetric.model</code> never selects future model. It records historical call provenance. Selection uses <code>stageModels[stage]</code>, then base <code>model</code>.</div><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/config.ts#L61-L97">config resolution/model creation</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/stages/generate-with-metrics.ts#L27-L52">call wrapper</a></div></section>
+
+<section id="save-model"><h2>6. Changing one stage model</h2><div class="sequence"><div class="step"><b>Select option.</b> Dropdown emits stage key plus OpenRouter model ID.</div><div class="step"><b>Determine owner.</b> With selected ID, call <code>saveStageModel</code>. Without selection, update runtime defaults only.</div><div class="step"><b>Update group if selected.</b> Merge changed stage into <code>group.stageModels</code>.</div><div class="step"><b>Resolve target files.</b> Group targets all member IDs; file targets itself.</div><div class="step"><b>Update conversation copy.</b> Merge changed stage into every target conversation’s <code>stageModels</code>.</div><div class="step"><b>Update analyzer session.</b> For each target with <code>sessionId</code>, <code>saveSessionStageModels</code> writes cloned map into corresponding <code>PipelineState</code>.</div><div class="step"><b>Stop.</b> No API call occurs. Configured and last-used model may now differ.</div></div><div class="flow">UI event
+  └─ saveStageModel(id, "classifying-components", "typesafe/jev-router")
+       ├─ group.stageModels[classifying] = Jev             (if group selected)
+       ├─ conversation.stageModels[classifying] = Jev      (each target)
+       └─ session.state.stageModels[classifying] = Jev     (each target)
+
+No pipeline run. No cost. Existing workflow metric still describes previous call.</div><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/actions.ts#L740-L774">saveStageModel</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/session.ts#L71-L84">session persistence</a></div></section>
+
+<section id="rerun"><h2>7. Re-run changed stages vs full re-run</h2><h3>Detect changed models</h3><p><code>getChangedModelStages</code> compares each configured conversation stage model against <code>workflowMetrics.stages[stage].model</code>. Any target mismatch marks stage changed. Missing historical metric also counts as mismatch when configured model exists.</p><table><thead><tr><th>Changed stage</th><th>Outputs cleared</th><th>Stages that effectively call LLM</th></tr></thead><tbody><tr><td>Segmentation</td><td>Canonical conversation and deterministic outputs reset; all dimension outputs cleared.</td><td>Segment → Identify → Classify + Color</td></tr><tr><td>Topic identification</td><td>Discovered components, mapping, timeline, colors.</td><td>Identify → Classify + Color</td></tr><tr><td>Classification</td><td>Mapping and timeline.</td><td>Classification only; Coloring enters stage wrapper but skips with existing colors.</td></tr><tr><td>Coloring</td><td>Component colors.</td><td>Coloring only.</td></tr></tbody></table><h3>Changed-stage flow</h3><div class="flow">button: Re-run changed stages
+  └─ getChangedModelStages(selected ID)
+       └─ configured model != last metric model
+            └─ reprocessStageModels(id, false)
+                 └─ analyze({ sessionId, reprocessStages }, getAnalyzerConfig())
+                      └─ applyIterationInputs clears affected outputs
+                           └─ runPipeline sees missing outputs
+                                └─ generateWithMetrics resolves ctx.stageModels[stage]</div><h3>Full rerun flow</h3><div class="flow">button: Full re-run
+  └─ reprocessStageModels(id, true)
+       └─ analyze({ sessionId, fullReprocess: true }, config)
+            └─ clear conversation + static outputs + every dimension output
+                 └─ rawContent remains authoritative
+                      └─ Parse → Count → Segment → Identify → Classify ∥ Color</div><div class="warning callout"><strong>Stage wrappers may appear in latest workflow even when their idempotent operation skips.</strong> Actual LLM calls are authoritative in <code>metric.calls</code>. Reprocessing clears only outputs required to force intended calls.</div><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/actions.ts#L740-L791">changed detection and action</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/session.ts#L168-L285">invalidation</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/index.ts#L195-L240">iteration entry</a></div></section>
+
+<section id="groups"><h2>8. Group state and propagation</h2><p>A group is configuration plus references, not combined analyzer session. Each member retains independent <code>sessionId</code> and <code>PipelineState</code>.</p><div class="flow">Group
+├── id / name / title
+├── fileIds[] ─────────► Conversation A ─► Session A
+│                  ├──► Conversation B ─► Session B
+│                  └──► Conversation C ─► Session C
+├── dimensions / activeDimensions
+├── stageModels
+└── summary / analysis fields
+
+App derives virtual conversation at render time:
+member messages + namespaced IDs + merged dimensions + originMap</div><p>Model edit on group updates group config, every member conversation copy, and every member analyzer session. Reprocessing uses <code>Promise.all</code> across members.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/model/types.ts#L170-L190">Group</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/ui/App.tsx#L52-L137">virtual group</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/actions.ts#L758-L789">model propagation</a></div></section>
+
+<section id="metrics"><h2>9. Metrics close configuration loop</h2><div class="sequence"><div class="step"><b>Stage runner allocates metric.</b> New record starts with execution/cost counters and empty calls.</div><div class="step"><b>Call wrapper timestamps request.</b> Resolved model and start timestamp are captured immediately before <code>generateText</code>.</div><div class="step"><b>Call completion records provenance.</b> End time, duration, model, tokens, and provider-reported cost flow through <code>recordCall</code>.</div><div class="step"><b>Pipeline aggregates stage.</b> Stage LLM time spans earliest call start to latest end. Stage execution time covers complete stage function.</div><div class="step"><b>Interceptor publishes metric.</b> Updated <code>PipelineState.workflowMetrics</code> enters conversation store.</div><div class="step"><b>UI compares desired vs actual.</b> Configured model drives headings and changed-stage detection; per-call detail shows actual model used.</div></div><table><thead><tr><th>Field</th><th>Meaning</th><th>Does it select next model?</th></tr></thead><tbody><tr><td><code>conversation.stageModels[stage]</code></td><td>Current desired configuration.</td><td><strong>Yes</strong></td></tr><tr><td><code>workflowMetrics.stages[stage].model</code></td><td>Most recently recorded model for stage.</td><td>No</td></tr><tr><td><code>workflowMetrics.stages[stage].calls[].model</code></td><td>Exact model attached to individual call.</td><td>No</td></tr><tr><td><code>DEFAULT_MODEL</code></td><td>Fallback when no stage/base model exists.</td><td>Yes, as final fallback</td></tr></tbody></table><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/model/types.ts#L54-L81">metric types</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/pipeline.ts#L45-L110">aggregation</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/ui/components/WorkflowDetailModal.tsx#L545-L640">display</a></div></section>
+
+<section id="imports"><h2>10. Import/export state transfer</h2><p>Exports serialize domain state, stage configuration, metrics, and group metadata. API key and transient UI state are intentionally absent.</p><div class="flow">Export file
+├── canonical conversation + metadata
+├── dimensions and prompts
+├── stageModels
+├── workflowMetrics
+├── optional summary / analysis
+└── groups with member references and group stageModels
+
+Import
+  └─ Context Viewer parser validates metadata
+       └─ pipeline detects parserName == "Context Viewer"
+            └─ restorePreProcessedImport(...)
+                 └─ bypass normal AI pipeline
+                      └─ viewer remaps imported file IDs for groups</div><div class="callout"><strong>Security boundary:</strong> runtime API key is not part of <code>PipelineState</code> or export schema. Imported content needs current browser key only when user requests new AI work.</div><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/model/export-schema.ts#L46-L156">schemas</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/pipeline.ts#L156-L164">restore bypass</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/conversation-store.ts#L232-L280">group ID remap</a></div></section>
+
+<section id="narratives"><h2>11. Summary and analysis state</h2><p>Summary and analysis sit outside main pipeline. Viewer actions call dedicated analyzer operations with current conversation and prompt. Streamed chunks append into conversation/group state.</p><div class="flow">Generate summary
+  ├─ selected conversation/group + saved prompt
+  ├─ getAnalyzerConfig() base model (Luna default)
+  ├─ summarize(...)
+  └─ append chunks → aiSummary
+
+Generate analysis
+  ├─ conversation component data + summary + prompt
+  ├─ getAnalyzerConfig() base model (Luna default)
+  ├─ analyzeContext(...)
+  └─ append chunks → analysis</div><p>These operations do not use configurable four-stage dropdowns. Viewer catalog fixes <code>summarizing</code> and <code>analyzing</code> to Luna.</p><div class="links"><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/analyzer/src/index.ts#L331-L407">analyzer operations</a><a href="https://github.com/nilenso/context-viewer/blob/29343cd8ddee6e05495a02cf246b8c67b89f38a1/viewer/src/stores/actions.ts#L172-L239">viewer actions</a></div></section>
+
+<section id="precedence"><h2>12. Precedence tables</h2><h3>Model dropdown value</h3><table><thead><tr><th>Priority</th><th>Source</th><th>When used</th></tr></thead><tbody><tr><td>1</td><td><code>group.stageModels</code></td><td>Selected ID is group.</td></tr><tr><td>2</td><td><code>conversation.stageModels</code></td><td>Selected ID is conversation.</td></tr><tr><td>3</td><td><code>runtimeStageModels</code></td><td>No saved owner selected.</td></tr><tr><td>4</td><td><code>DEFAULT_MODEL</code></td><td>Stage key absent from chosen map.</td></tr></tbody></table><h3>Actual stage API model</h3><table><thead><tr><th>Priority</th><th>Source</th><th>Typical value</th></tr></thead><tbody><tr><td>1</td><td><code>ctx.stageModels[stage]</code>, copied into metric config</td><td>Conversation/group saved selection</td></tr><tr><td>2</td><td><code>aiConfig.model</code></td><td><code>VITE_AI_MODEL</code> or Luna</td></tr><tr><td>3</td><td>Analyzer resolver default</td><td><code>openai/gpt-6-luna</code></td></tr></tbody></table><h3>Workflow breakdown label</h3><table><thead><tr><th>Priority</th><th>Source</th><th>Meaning</th></tr></thead><tbody><tr><td>1</td><td><code>conversation.stageModels[stage]</code></td><td>Configured model</td></tr><tr><td>2</td><td><code>stageMetric.model</code></td><td>Historical model fallback</td></tr><tr><td>3</td><td><code>DEFAULT_MODEL</code></td><td>Luna fallback</td></tr></tbody></table></section>
+
+<section id="debug"><h2>13. Debugging checklist</h2><table><thead><tr><th>Symptom</th><th>Inspect in order</th></tr></thead><tbody><tr><td>Dropdown says Luna but old metric says Mini</td><td>Expected before rerun. Check <code>conversation.stageModels</code>, then per-call metric. Click Re-run changed stages.</td></tr><tr><td>Re-run changed stages disabled</td><td>Configured model equals stage metric model for all target files, or no selected ID.</td></tr><tr><td>Group member uses wrong model</td><td>Check group map → each member conversation map → each analyzer session state map.</td></tr><tr><td>Log reports different model</td><td>Stage logs must use <code>getStageModel</code>. Per-call metric remains strongest evidence.</td></tr><tr><td>Classification reruns but colors do not</td><td>Expected: classification model change does not alter component names; existing colors remain valid.</td></tr><tr><td>Segmentation selection appears unused</td><td>Existing segmented conversation must be reset. Use Full re-run or changed-stage flow where segmentation mismatch triggers raw reparse.</td></tr><tr><td>Imported file makes no API calls</td><td>Expected for Context Viewer export restoration. New AI work requires explicit reprocess.</td></tr><tr><td>UI progress is stale</td><td>Trace analyzer interceptor → <code>updateConversation</code> ID match → component Zustand selector.</td></tr></tbody></table></section>
+
+<section id="invariants"><h2>14. Invariants worth preserving</h2><div class="grid"><article class="card"><h3>One owner per state kind</h3><p>Domain result in conversation store; ephemeral editor state in UI store; navigation in URL store; iterative execution in analyzer session.</p></article><article class="card"><h3>Configured ≠ executed</h3><p>Configuration selects next call. Metrics report prior/actual calls. Never use metrics as implicit configuration.</p></article><article class="card"><h3>No hidden spending</h3><p>Changing model persists only. Explicit rerun starts provider calls.</p></article><article class="card"><h3>Groups derive, members execute</h3><p>Group owns shared config, but each file keeps independent session and pipeline state.</p></article><article class="card"><h3>Raw input enables full rebuild</h3><p>Full rerun clears derived data while retaining <code>rawContent</code>.</p></article><article class="card"><h3>Provider failures stay visible</h3><p>No automatic model fallback changes provenance behind user’s back.</p></article></div></section>
+<footer><p>Companion to <a href="context-viewer-decisions.html">Core Decisions</a>. Source code wins if newer commits disagree. Update snapshot hash and line permalinks when flow changes.</p></footer>
+</main></div></body></html>
