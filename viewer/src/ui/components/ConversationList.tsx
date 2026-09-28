@@ -38,7 +38,8 @@ import {
 } from "context-analyzer";
 import type { Group,  } from "context-analyzer";
 import type { ViewerConversationState as PipelineState } from "@/stores/conversation-store";
-import { type StageGroup, hasStageRun, isStageRunning, stageToGroup } from "@/lib/stage-groups";
+import type { StageGroup } from "@/lib/stage-groups";
+import { getWorkflowStageExecutionMs, getWorkflowStageStatus } from "@/lib/workflow-state";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -76,7 +77,7 @@ export function ConversationList() {
   const isCollapsed = useUrlStore((s) => s.sidebarCollapsed);
 
   // Computed
-  const pausedPipelineCount = conversations.filter((c) => c.status === "paused-for-api-key").length;
+  const pausedPipelineCount = conversations.filter((c) => c.status === "paused").length;
 
   // Local handlers
   const handleToggleCollapse = () => useUrlStore.getState().setSidebarCollapsed(!isCollapsed);
@@ -131,7 +132,7 @@ export function ConversationList() {
 
   // Count of selectable conversations (non-grouped, success status)
   const selectableConversations = conversations.filter(
-    (c) => c.status === "success",
+    (c) => c.status === "completed",
   );
   const canGroup = selectedIds.size >= 2;
 
@@ -181,67 +182,6 @@ export function ConversationList() {
     { key: "summarizing", label: "Generate summary", optional: true },
     { key: "analyzing", label: "Generate analysis", optional: true },
   ];
-
-  const getStepStatus = (
-    conversation: PipelineState,
-    stepKey: StageGroup,
-  ): "pending" | "in-progress" | "completed" | "paused" => {
-    if (conversation.status === "failed") return "pending";
-    if (conversation.status === "pending") return "pending";
-
-    // Handle paused-for-api-key status
-    if (conversation.status === "paused-for-api-key") {
-      const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
-      const pausedAtIndex = processingSteps.findIndex(
-        (s) => s.key === conversation.pausedAtStep,
-      );
-      if (stepIndex < pausedAtIndex) return "completed";
-      if (stepIndex === pausedAtIndex) return "paused";
-      return "pending";
-    }
-
-    if (
-      conversation.status === "processing"
-      && ["segmenting", "finding-components", "coloring"].includes(stepKey)
-    ) {
-      if (isStageRunning(conversation.step, stepKey)) return "in-progress";
-      if (hasStageRun(conversation.workflowMetrics, stepKey)) return "completed";
-    }
-
-    const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
-    const mappedStep = stageToGroup(conversation.step);
-    const currentStepIndex = processingSteps.findIndex(
-      (s) => s.key === mappedStep,
-    );
-
-    if (conversation.status === "success" && conversation.workflowMetrics?.latestRun) {
-      if (["segmenting", "finding-components", "coloring"].includes(stepKey)) {
-        return hasStageRun(conversation.workflowMetrics, stepKey) ? "completed" : "pending";
-      }
-    }
-
-    if (stepKey === "summarizing") {
-      if (conversation.aiSummary && conversation.aiSummary.length > 0) {
-        return "completed";
-      }
-      if (
-        conversation.status === "processing" &&
-        isStageRunning(conversation.step, "summarizing")
-      ) {
-        return "in-progress";
-      }
-      return "pending";
-    }
-
-    if (currentStepIndex === -1 && conversation.status === "success") {
-      // All steps completed
-      return "completed";
-    }
-
-    if (stepIndex < currentStepIndex) return "completed";
-    if (stepIndex === currentStepIndex) return "in-progress";
-    return "pending";
-  };
 
   // When collapsed, show minimal UI
   if (isCollapsed) {
@@ -409,14 +349,14 @@ export function ConversationList() {
                 id: g.id,
                 filename: g.name,
                 title: g.title,
-                status: "success",
+                status: "completed",
               }))].map((conversation) => {
-                const isProcessing =
-                  conversation.status === "processing" ||
-                  (conversation.status === "success" && conversation.step);
+                const isInProgress =
+                  conversation.status === "in-progress" ||
+                  (conversation.status === "completed" && conversation.step);
                 const isExpanded = !collapsedProgress.has(conversation.id);
                 const isSelectable =
-                  !isGroupEntry(conversation.id) && conversation.status === "success";
+                  !isGroupEntry(conversation.id) && conversation.status === "completed";
                 const isSelected = selectedIds.has(conversation.id);
 
                 return (
@@ -450,7 +390,7 @@ export function ConversationList() {
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (isProcessing || conversation.status === "success") {
+                        if (isInProgress || conversation.status === "completed") {
                           toggleProgress(conversation.id);
                         }
                         if (isSelectionMode && isSelectable) {
@@ -482,17 +422,17 @@ export function ConversationList() {
                             conversation.status === "pending" && (
                               <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
                             )}
-                          {!isGroupEntry(conversation.id) && isProcessing && (
+                          {!isGroupEntry(conversation.id) && isInProgress && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
                           )}
                           {!isGroupEntry(conversation.id) &&
-                            conversation.status === "success" &&
+                            conversation.status === "completed" &&
                             !conversation.step &&
                             (!conversation.warnings || conversation.warnings.length === 0) && (
                               <FileText className="h-4 w-4 shrink-0" />
                             )}
                           {!isGroupEntry(conversation.id) &&
-                            conversation.status === "success" &&
+                            conversation.status === "completed" &&
                             !conversation.step &&
                             conversation.warnings && conversation.warnings.length > 0 && (
                               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
@@ -502,7 +442,7 @@ export function ConversationList() {
                               <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                             )}
                           {!isGroupEntry(conversation.id) &&
-                            conversation.status === "paused-for-api-key" && (
+                            conversation.status === "paused" && (
                               <Pause className="h-4 w-4 shrink-0 text-amber-600" />
                             )}
                           {editingId === conversation.id ? (
@@ -541,9 +481,9 @@ export function ConversationList() {
                             </span>
                           )}
                           {/* Expand button to open pipeline detail modal */}
-                          {(conversation.status === "processing" ||
-                            conversation.status === "success" ||
-                            conversation.status === "paused-for-api-key") && (
+                          {(conversation.status === "in-progress" ||
+                            conversation.status === "completed" ||
+                            conversation.status === "paused") && (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -557,7 +497,7 @@ export function ConversationList() {
                           )}
                           {/* Ungroup button for grouped conversations */}
                           {isGroupEntry(conversation.id) &&
-                            conversation.status === "success" &&
+                            conversation.status === "completed" &&
                             !conversation.step && (
                               <div
                                 onClick={(e) => {
@@ -570,9 +510,9 @@ export function ConversationList() {
                                 <Ungroup className="h-4 w-4 text-purple-600 hover:text-purple-800" />
                               </div>
                             )}
-                          {(isProcessing ||
-                            conversation.status === "success" ||
-                            conversation.status === "paused-for-api-key") && (
+                          {(isInProgress ||
+                            conversation.status === "completed" ||
+                            conversation.status === "paused") && (
                             <div
                               onClick={(e) =>
                                 toggleProgress(conversation.id, e)
@@ -605,7 +545,7 @@ export function ConversationList() {
                           )}
 
                         <div className="flex gap-2 items-center flex-wrap">
-                          {conversation.status === "success" &&
+                          {conversation.status === "completed" &&
                             !conversation.step &&
                             conversation.summary && (
                               <Badge
@@ -635,7 +575,7 @@ export function ConversationList() {
                             </Badge>
                           )}
 
-                          {conversation.status === "paused-for-api-key" && (
+                          {conversation.status === "paused" && (
                             <Badge
                               variant="outline"
                               className="self-start text-xs border-amber-500 text-amber-700 bg-amber-50"
@@ -644,7 +584,7 @@ export function ConversationList() {
                             </Badge>
                           )}
 
-                          {conversation.status === "success" &&
+                          {conversation.status === "completed" &&
                             !conversation.step &&
                             conversation.warnings && conversation.warnings.length > 0 && (
                               <Badge
@@ -661,25 +601,16 @@ export function ConversationList() {
 
                     {/* Progress Checklist */}
                     {isExpanded &&
-                      (isProcessing || conversation.status === "success" || conversation.status === "paused-for-api-key") && (
+                      (isInProgress || conversation.status === "completed" || conversation.status === "paused") && (
                         <div className="px-3 pb-3 pt-1 border-t">
                           <div className="space-y-1">
                             {processingSteps.map((step) => {
-                              const status = getStepStatus(
-                                conversation,
-                                step.key,
-                              );
+                              const status = getWorkflowStageStatus(conversation, step.key);
                               const timing =
                                 conversation.stepTimings?.[step.key];
                               const isFindComponentsStep =
                                 step.key === "finding-components";
-                              const stageMetric = isFindComponentsStep
-                                ? [
-                                    conversation.workflowMetrics?.stages["identifying-components"],
-                                    conversation.workflowMetrics?.stages["classifying-components"],
-                                  ].reduce((total, metric) => total + (metric?.wallClockMs || 0), 0)
-                                : conversation.workflowMetrics?.stages[step.key]?.wallClockMs;
-                              const executionMs = stageMetric || (timing !== undefined ? timing * 1000 : undefined);
+                              const executionMs = getWorkflowStageExecutionMs(conversation, step.key);
                               const isSegmentingStep =
                                 step.key === "segmenting";
                               const isSummaryStep = step.key === "summarizing";
@@ -688,13 +619,13 @@ export function ConversationList() {
                               // Summary step is clickable when conversation is complete but summary wasn't run
                               const isSummaryClickable =
                                 isSummaryStep &&
-                                conversation.status === "success" &&
+                                conversation.status === "completed" &&
                                 !conversation.step &&
                                 timing === undefined;
                               // Analysis step is clickable when conversation is complete but analysis wasn't run
                               const isAnalysisClickable =
                                 isAnalysisStep &&
-                                conversation.status === "success" &&
+                                conversation.status === "completed" &&
                                 !conversation.step &&
                                 timing === undefined;
                               const isClickable = isSummaryClickable || isAnalysisClickable;
@@ -1042,13 +973,13 @@ export function ConversationList() {
                       )}
 
                     {/* Action buttons at bottom of card */}
-                    {conversation.status === "success" && !conversation.step && (
+                    {conversation.status === "completed" && !conversation.step && (
                       <div className="px-3 pb-2 pt-1 border-t flex items-center gap-3">
                         {!isGroupEntry(conversation.id) &&
                           conversations.filter(
                             (c) =>
                               c.id !== conversation.id &&
-                              c.status === "success" &&
+                              c.status === "completed" &&
                               !isGroupEntry(c.id) &&
                               !c.step,
                           ).length > 0 && (
@@ -1138,7 +1069,7 @@ export function ConversationList() {
             id: expandedGroup.id,
             filename: expandedGroup.name,
             title: expandedGroup.title,
-            status: "success" as const,
+            status: "completed" as const,
           } : undefined);
           if (!displayConv) return null;
           return (

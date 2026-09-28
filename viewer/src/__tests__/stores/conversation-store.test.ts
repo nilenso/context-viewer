@@ -90,10 +90,10 @@ describe("conversation store analyzer sessions", () => {
 
     expect(mocks.analyze).toHaveBeenCalledTimes(2);
     expect(mocks.analyze.mock.calls.map(([options]) => options.files.id)).toEqual(["viewer-1", "viewer-2"]);
-    expect(progressStates).toEqual(["processing", "processing"]);
+    expect(progressStates).toEqual(["in-progress", "in-progress"]);
     expect(useConversationStore.getState().conversations).toMatchObject([
-      { id: "viewer-1", sessionId: "session:viewer-1", status: "success" },
-      { id: "viewer-2", sessionId: "session:viewer-2", status: "success" },
+      { id: "viewer-1", sessionId: "session:viewer-1", status: "completed" },
+      { id: "viewer-2", sessionId: "session:viewer-2", status: "completed" },
     ]);
   });
 
@@ -117,7 +117,7 @@ describe("conversation store analyzer sessions", () => {
     );
 
     expect(useConversationStore.getState().conversations).toMatchObject([
-      { filename: "good.txt", status: "success" },
+      { filename: "good.txt", status: "completed" },
       { filename: "bad.txt", status: "failed", error: "Cannot parse file" },
     ]);
   });
@@ -135,7 +135,7 @@ describe("conversation store analyzer sessions", () => {
     await useConversationStore.getState().processFileDrop([inputFile("export.json")], null);
 
     expect(useConversationStore.getState().conversations[0]).toMatchObject({
-      status: "success",
+      status: "completed",
       pausedAtStep: undefined,
     });
   });
@@ -160,7 +160,7 @@ describe("conversation store analyzer sessions", () => {
       conversations: [
         {
           ...analyzerState("one", "one.txt"),
-          status: "success",
+          status: "completed",
           dimensions: {
             topic: {
               name: "topic",
@@ -173,7 +173,7 @@ describe("conversation store analyzer sessions", () => {
             },
           },
         },
-        { ...analyzerState("two", "two.txt"), status: "success" },
+        { ...analyzerState("two", "two.txt"), status: "completed" },
       ],
     });
 

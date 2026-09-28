@@ -123,7 +123,7 @@ export default function App() {
       id: selectedGroup.id,
       filename: selectedGroup.name,
       title: selectedGroup.title,
-      status: "success",
+      status: "completed",
       conversation: { messages: allMessages },
       dimensions: Object.keys(mergedDims).length > 0 ? mergedDims : undefined,
       staticComponents: [...staticComponentsSet],
@@ -280,7 +280,7 @@ export default function App() {
 
   // Switch to analysis tab when analysis starts streaming
   useEffect(() => {
-    if (selectedConversation?.status === "processing" && selectedConversation.step === "analyzing") {
+    if (selectedConversation?.status === "in-progress" && selectedConversation.step === "analyzing") {
       useUrlStore.getState().setInsightsTab("analysis");
     }
   }, [selectedConversation?.status, selectedConversation?.step]);
@@ -495,7 +495,7 @@ export default function App() {
                     <h2 className="text-xl font-semibold text-muted-foreground mb-2">Waiting to process</h2>
                     <p className="text-sm text-muted-foreground">{selectedConversation.filename} will be processed soon</p>
                   </Card>
-                ) : selectedConversation.status === "processing" ? (
+                ) : selectedConversation.status === "in-progress" ? (
                   <Card className="p-12 text-center">
                     <Loader2 className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-spin" />
                     <h2 className="text-xl font-semibold text-muted-foreground mb-2">Processing...</h2>
@@ -526,10 +526,10 @@ export default function App() {
                   summary={selectedConversation.aiSummary}
                   analysis={selectedConversation.analysis}
                   isSummaryStreaming={
-                    selectedConversation.status === "processing" && selectedConversation.step === "summarizing"
+                    selectedConversation.status === "in-progress" && selectedConversation.step === "summarizing"
                   }
                   isAnalysisStreaming={
-                    selectedConversation.status === "processing" && selectedConversation.step === "analyzing"
+                    selectedConversation.status === "in-progress" && selectedConversation.step === "analyzing"
                   }
                   activeTab={insightsTab}
                   onTabChange={(tab) => useUrlStore.getState().setInsightsTab(tab as InsightsTab)}
@@ -539,13 +539,13 @@ export default function App() {
                   conversation={selectedConversation.conversation}
                   onGenerateSummary={() => generateSummary(selectedConversation.id, selectedConversation)}
                   canGenerateSummary={
-                    selectedConversation.status === "success" &&
+                    selectedConversation.status === "completed" &&
                     !!selectedConversation.conversation &&
                     !selectedConversation.aiSummary
                   }
                   onGenerateAnalysis={() => generateAnalysis(selectedConversation.id, selectedConversation)}
                   canGenerateAnalysis={
-                    selectedConversation.status === "success" &&
+                    selectedConversation.status === "completed" &&
                     !!getAllComponents(selectedConversation).length &&
                     !selectedConversation.analysis
                   }

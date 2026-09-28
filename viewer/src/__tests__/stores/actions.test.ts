@@ -108,7 +108,7 @@ function conversation(id: string, overrides: Partial<ViewerConversationState> = 
     },
     warnings: [],
     stepTimings: {},
-    status: "success",
+    status: "completed",
     sessionId: `session:${id}`,
     ...overrides,
   };
@@ -138,8 +138,8 @@ describe("viewer session actions", () => {
   it("resumes each paused file through its own session", async () => {
     useConversationStore.setState({
       conversations: [
-        conversation("one", { status: "paused-for-api-key" }),
-        conversation("two", { status: "paused-for-api-key" }),
+        conversation("one", { status: "paused" }),
+        conversation("two", { status: "paused" }),
       ],
     });
 
@@ -150,8 +150,8 @@ describe("viewer session actions", () => {
       "session:two",
     ]);
     expect(useConversationStore.getState().conversations).toMatchObject([
-      { id: "one", status: "success" },
-      { id: "two", status: "success" },
+      { id: "one", status: "completed" },
+      { id: "two", status: "completed" },
     ]);
   });
 
@@ -182,8 +182,8 @@ describe("viewer session actions", () => {
     ]);
     expect(useConversationStore.getState().conversations).toMatchObject([
       { id: "source" },
-      { id: "one", status: "success" },
-      { id: "two", status: "success" },
+      { id: "one", status: "completed" },
+      { id: "two", status: "completed" },
     ]);
   });
 

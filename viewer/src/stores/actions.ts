@@ -55,14 +55,14 @@ function buildInterceptors(): Interceptor[] {
       stage, timing: "pre",
       fn: (ctx) => {
         markStepStart(ctx.id, stage);
-        updateFn(ctx.id, { status: "processing", step: stage });
+        updateFn(ctx.id, { status: "in-progress", step: stage });
       },
     });
     interceptors.push({
       stage, timing: "post",
       fn: (ctx) => {
         markStepEnd(ctx.id, stage);
-        updateFn(ctx.id, { ...ctx, status: "processing" });
+        updateFn(ctx.id, { ...ctx, status: "in-progress" });
       },
     });
   }
@@ -99,7 +99,7 @@ async function reprocessWithSession(
     store.updateConversation(id, {
       ...state,
       warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
-      status: "success",
+      status: "completed",
       step: undefined,
       error: undefined,
     });
@@ -200,7 +200,7 @@ export async function generateAnalysis(
     };
     const group = store.getGroup(id);
     if (group) store.updateGroup(id, update);
-    else store.updateConversation(id, { ...update, status: "success" });
+    else store.updateConversation(id, { ...update, status: "completed" });
   } catch (error) {
     console.error("Analysis failed:", error);
   } finally {
@@ -230,7 +230,7 @@ export async function generateSummary(
     };
     const group = store.getGroup(id);
     if (group) store.updateGroup(id, update);
-    else store.updateConversation(id, { ...update, status: "success" });
+    else store.updateConversation(id, { ...update, status: "completed" });
   } catch (error) {
     console.error("Summary failed:", error);
   } finally {
@@ -672,7 +672,7 @@ export async function applyPromptsToAllAction(sourceId: string) {
           store.updateConversation(state.id, {
             ...state,
             warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
-            status: "success",
+            status: "completed",
             step: undefined,
             error: undefined,
           });
@@ -691,7 +691,7 @@ export async function applyPromptsToAllAction(sourceId: string) {
 
 export async function resumePipelinesWithApiKeyAction() {
   const store = useConversationStore.getState();
-  const paused = store.conversations.filter((c) => c.status === "paused-for-api-key" && c.sessionId);
+  const paused = store.conversations.filter((c) => c.status === "paused" && c.sessionId);
 
   // Re-run each paused conversation through the pipeline (no option changes, just resumed)
   await Promise.all(paused.map((conv) => reprocessWithSession(conv, {})));

@@ -14,7 +14,7 @@ import { markStepStart, markStepEnd } from "@/lib/pipeline-logging";
 
 /** Extended PipelineState with viewer-specific lifecycle fields */
 export interface ViewerConversationState extends PipelineState {
-  status?: "pending" | "processing" | "success" | "failed" | "paused-for-api-key";
+  status?: "pending" | "in-progress" | "completed" | "failed" | "paused";
   step?: string;
   error?: string;
   pausedAtStep?: string;
@@ -81,7 +81,7 @@ function buildInterceptors(
       timing: "pre",
       fn: (ctx) => {
         markStepStart(ctx.id, stage);
-        updateFn(ctx.id, { status: "processing", step: stage });
+        updateFn(ctx.id, { status: "in-progress", step: stage });
       },
     });
     interceptors.push({
@@ -92,7 +92,7 @@ function buildInterceptors(
         // Push the full state into the store after each stage
         updateFn(ctx.id, {
           ...ctx,
-          status: "processing",
+          status: "in-progress",
         });
       },
     });
@@ -130,7 +130,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     getGroupsForFile: (fileId) =>
       Object.values(get().groups).filter((g) => g.fileIds.includes(fileId)),
     getPausedCount: () =>
-      get().conversations.filter((c) => c.status === "paused-for-api-key").length,
+      get().conversations.filter((c) => c.status === "paused").length,
 
     // ---- Mutations ----
     updateConversation: (id, update) =>
@@ -303,7 +303,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             ...state,
             sessionId: result.sessionId,
             warnings: [...(state.warnings || []), ...formatAnalyzerErrors(result.errors)],
-            status: "success",
+            status: "completed",
             pausedAtStep: undefined,
             step: undefined,
             error: undefined,
@@ -321,7 +321,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
       const store = get();
       const validIds = ids.filter((id) => {
         const conv = store.conversations.find((c) => c.id === id);
-        return conv?.conversation && conv.status === "success";
+        return conv?.conversation && conv.status === "completed";
       });
       if (validIds.length < 2) return "";
 

@@ -16,7 +16,7 @@ import {
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
-import { hasStageRun } from "@/lib/stage-groups";
+import { getWorkflowStageStatus } from "@/lib/workflow-state";
 import { getChangedModelStages, reprocessStageModels, saveStageModel } from "@/stores/actions";
 
 interface ApiKeyInputProps {
@@ -87,7 +87,7 @@ export function ApiKeyInput({
   const hasPreviousRun = conversations.some((candidate) =>
     targetIds.includes(candidate.id)
       && (["segmenting", "finding-components", "coloring"] as const)
-        .some((stage) => hasStageRun(candidate.workflowMetrics, stage)),
+        .some((stage) => getWorkflowStageStatus(candidate, stage) === "completed"),
   );
   const modelSelectors = (
     <div className="mt-3 pt-3 border-t space-y-2">

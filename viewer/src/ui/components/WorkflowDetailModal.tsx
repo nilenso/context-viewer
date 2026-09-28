@@ -30,7 +30,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
 import type { DimensionData, WorkflowStageMetric } from "context-analyzer";
-import { type StageGroup, isStageRunning, stageToGroup } from "@/lib/stage-groups";
+import type { StageGroup } from "@/lib/stage-groups";
+import { getWorkflowStageStatus } from "@/lib/workflow-state";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
 import { DEFAULT_MODEL, getModelLabel } from "@/lib/ai-config";
@@ -240,47 +241,6 @@ export function WorkflowDetailModal({
     });
   };
 
-  const getStepStatus = (
-    stepKey: StageGroup,
-  ): "pending" | "in-progress" | "completed" | "not-run" => {
-    if (status === "failed") return "pending";
-    if (status === "pending") return "pending";
-
-    const stepIndex = processingSteps.findIndex((s) => s.key === stepKey);
-    const mappedStep = stageToGroup(currentStep);
-    const currentStepIndex = processingSteps.findIndex(
-      (s) => s.key === mappedStep,
-    );
-
-    // Special handling for summary step - check if aiSummary exists
-    if (stepKey === "summarizing") {
-      if (aiSummary && aiSummary.length > 0) {
-        return "completed";
-      }
-      if (status === "processing" && isStageRunning(currentStep, "summarizing")) {
-        return "in-progress";
-      }
-      return "pending";
-    }
-
-    // If all steps completed (no current step and success)
-    if (currentStepIndex === -1 && status === "success") {
-      // Check if step was actually run (has timing or is before analysis)
-      if (stepTimings?.[stepKey] !== undefined) {
-        return "completed";
-      }
-      // Analysis is optional - if no timing, it wasn't run
-      if (stepKey === "analyzing") {
-        return "not-run";
-      }
-      return "completed";
-    }
-
-    if (stepIndex < currentStepIndex) return "completed";
-    if (stepIndex === currentStepIndex) return "in-progress";
-    return "pending";
-  };
-
   const getStepTiming = (stepKey: StageGroup): StepTiming | undefined => {
     return logs?.stepTimings[stepKey as keyof typeof logs.stepTimings];
   };
@@ -291,19 +251,19 @@ export function WorkflowDetailModal({
   };
 
   const getStatusIcon = (
-    stepStatus: "pending" | "in-progress" | "completed" | "not-run",
+    stepStatus: "pending" | "in-progress" | "completed" | "paused" | "not-run",
     stepKey: StageGroup,
   ) => {
     const isSummaryClickable =
       stepKey === "summarizing" &&
-      status === "success" &&
+      status === "completed" &&
       !currentStep &&
       stepTimings?.summarizing === undefined &&
       true;
 
     const isAnalysisClickable =
       stepKey === "analyzing" &&
-      status === "success" &&
+      status === "completed" &&
       !currentStep &&
       stepTimings?.analyzing === undefined;
 
@@ -316,6 +276,8 @@ export function WorkflowDetailModal({
         return <Check className="h-4 w-4 text-green-600" />;
       case "in-progress":
         return <Loader2 className="h-4 w-4 animate-spin text-blue-600" />;
+      case "paused":
+        return <Clock className="h-4 w-4 text-amber-600" />;
       case "not-run":
         return <Circle className="h-4 w-4 text-gray-300" />;
       default:
@@ -334,13 +296,13 @@ export function WorkflowDetailModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="truncate">{title || filename}</span>
-            {status === "processing" && (
+            {status === "in-progress" && (
               <Badge variant="secondary" className="shrink-0">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 Processing
               </Badge>
             )}
-            {status === "success" && !currentStep && (
+            {status === "completed" && !currentStep && (
               <Badge
                 variant="secondary"
                 className="shrink-0 bg-green-100 text-green-700"
@@ -403,7 +365,17 @@ export function WorkflowDetailModal({
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
           <div className="space-y-2 pb-4">
             {processingSteps.map((step) => {
-              const stepStatus = getStepStatus(step.key);
+              const stepStatus = getWorkflowStageStatus({
+                ...conv,
+                status,
+                step: currentStep,
+                stepTimings,
+                workflowMetrics,
+                aiSummary,
+                analysis: conv?.analysis ?? group?.analysis,
+                conversation: conv?.conversation ?? firstMember?.conversation,
+                staticComponents: conv?.staticComponents ?? firstMember?.staticComponents,
+              }, step.key);
               const timing = getStepTiming(step.key);
               const stepLogs = getLogsForStep(step.key);
               const isExpanded = expandedSteps.has(step.key);
@@ -415,13 +387,13 @@ export function WorkflowDetailModal({
 
               const isSummaryClickable =
                 step.key === "summarizing" &&
-                status === "success" &&
+                status === "completed" &&
                 !currentStep &&
                 stepTimings?.summarizing === undefined;
 
               const isAnalysisClickable =
                 step.key === "analyzing" &&
-                status === "success" &&
+                status === "completed" &&
                 !currentStep &&
                 stepTimings?.analyzing === undefined;
 
