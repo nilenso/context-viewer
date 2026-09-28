@@ -16,6 +16,7 @@ interface PromptEditorDialogProps {
   description: string;
   value: string;
   onChange: (value: string) => void;
+  onSave?: () => void;
   onApply: () => void;
   placeholder?: string;
   warningText: string;
@@ -33,6 +34,7 @@ export function PromptEditorDialog({
   description,
   value,
   onChange,
+  onSave,
   onApply,
   placeholder = "Enter your prompt...",
   warningText,
@@ -90,6 +92,11 @@ export function PromptEditorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
+          {onSave && (
+            <Button variant="outline" onClick={onSave} disabled={!value.trim()}>
+              Save
+            </Button>
+          )}
           <Button onClick={onApply} disabled={!value.trim()}>
             {applyButtonText}
           </Button>
