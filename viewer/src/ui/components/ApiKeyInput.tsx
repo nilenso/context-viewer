@@ -16,6 +16,7 @@ import {
 import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
+import { hasStageRun } from "@/lib/stage-groups";
 import { getChangedModelStages, reprocessStageModels, saveStageModel } from "@/stores/actions";
 
 interface ApiKeyInputProps {
@@ -82,11 +83,17 @@ export function ApiKeyInput({
     { stage: "coloring", label: "Coloring" },
   ];
   const stageModels = group?.stageModels || conversation?.stageModels || getRuntimeStageModels();
+  const targetIds = group?.fileIds || (conversation ? [conversation.id] : []);
+  const hasPreviousRun = conversations.some((candidate) =>
+    targetIds.includes(candidate.id)
+      && (["segmenting", "finding-components", "coloring"] as const)
+        .some((stage) => hasStageRun(candidate.workflowMetrics, stage)),
+  );
   const modelSelectors = (
     <div className="mt-3 pt-3 border-t space-y-2">
       <div className="text-xs font-medium text-muted-foreground">Models by stage</div>
       {stages.map(({ stage, label }) => (
-        <label key={stage} className="grid grid-cols-[1fr_220px] items-center gap-2 text-xs">
+        <label key={stage} className="grid gap-1 text-xs">
           <span>{label}</span>
           <select
             value={stageModels[stage] || getAnalyzerConfig().model}
@@ -97,7 +104,7 @@ export function ApiKeyInput({
                 setModelVersion((version) => version + 1);
               }
             }}
-            className="h-8 rounded-md border border-input bg-background px-2"
+            className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2"
           >
             {STAGE_MODEL_OPTIONS[stage].map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -108,22 +115,22 @@ export function ApiKeyInput({
       {selectedId && (
         <div className="flex flex-col gap-2 pt-1">
           <Button
+            variant="outline"
             size="sm"
             onClick={() => reprocessStageModels(selectedId, false)}
-            disabled={reprocessingId === selectedId || getChangedModelStages(selectedId).length === 0}
+            disabled={!hasPreviousRun || reprocessingId === selectedId || getChangedModelStages(selectedId).length === 0}
             className="h-8 text-xs"
           >
             <RefreshCw className={`h-3 w-3 mr-1 ${reprocessingId === selectedId ? "animate-spin" : ""}`} />
             Re-run stage
           </Button>
           <Button
-            variant="outline"
             size="sm"
             onClick={() => reprocessStageModels(selectedId, true)}
             disabled={reprocessingId === selectedId}
             className="h-8 text-xs"
           >
-            Full re-run
+            Run all stages
           </Button>
         </div>
       )}

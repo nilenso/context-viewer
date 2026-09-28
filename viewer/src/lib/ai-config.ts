@@ -9,23 +9,19 @@ export const STAGE_MODEL_OPTIONS: Record<AIStage, Array<{ value: string; label: 
   segmenting: [
     { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
     { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
   "identifying-components": [
     { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
     { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
   "classifying-components": [
     { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
     { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
     { value: "typesafe/jev-1.13", label: "TypeSafe: Jev 1.13" },
   ],
   coloring: [
     { value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" },
     { value: "openai/gpt-5.4-mini", label: "OpenAI: GPT-5.4 Mini" },
-    { value: "~google/gemini-flash-latest", label: "Google: Gemini Flash Latest" },
   ],
   summarizing: [{ value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" }],
   analyzing: [{ value: "openai/gpt-6-luna", label: "OpenAI: GPT-6 Luna" }],
