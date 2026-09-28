@@ -203,7 +203,9 @@ export async function analyze(
       throw new Error(`Session not found: ${options.sessionId}`);
     }
     const iterResult = applyIterationInputs(session.states, buildIterationInputs(options));
-    affectedDimNames = iterResult.affectedDimNames.length > 0 ? iterResult.affectedDimNames : undefined;
+    affectedDimNames = iterResult.affectedDimNames.length > 0
+      ? iterResult.affectedDimNames
+      : options.reprocessDimensions === undefined ? undefined : [];
   } else {
     // --- First run: build states from files ---
     const files = options.files;

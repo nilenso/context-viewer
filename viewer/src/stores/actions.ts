@@ -396,6 +396,7 @@ async function reprocessActiveDimensions(selectedConversation: ViewerConversatio
   const ui = useUIStore.getState();
   const group = useConversationStore.getState().getGroup(selectedConversation.id);
   const activeDimensions = new Set(group?.activeDimensions || ui.activeDimensions);
+  if (ui.editingDimensionName) activeDimensions.add(ui.editingDimensionName);
   ui.setReprocessingId(selectedConversation.id);
   try {
     await Promise.all(resolveTargets(selectedConversation).map((conversation) => {
