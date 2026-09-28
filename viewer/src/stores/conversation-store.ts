@@ -206,6 +206,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         fileIds,
         dimensions,
         activeDimensions: dimensions ? Object.keys(dimensions) : undefined,
+        stageModels: get().getConversation(fileIds[0] || "")?.stageModels,
       };
       set((state) => ({ groups: { ...state.groups, [groupId]: group } }));
       return groupId;
@@ -260,6 +261,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             fileIds: newIds,
             dimensions: group.dimensions,
             activeDimensions: group.activeDimensions,
+            stageModels: group.stageModels,
           };
         }
       }

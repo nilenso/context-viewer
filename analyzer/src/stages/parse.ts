@@ -96,6 +96,7 @@ export function restorePreProcessedImport(
     customSummaryPrompt: metadata.customSummaryPrompt,
     customAnalysisPrompt: metadata.customAnalysisPrompt,
     workflowMetrics: metadata.workflowMetrics,
+    stageModels: metadata.stageModels,
     dimensions,
     staticComponents: staticResult.components,
     staticMapping: staticResult.mapping,

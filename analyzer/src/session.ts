@@ -59,16 +59,28 @@ export function deleteSession(id: string): boolean {
   return sessions.delete(id);
 }
 
+function getSessionState(sessionId: string, stateId: string): PipelineState {
+  const session = sessions.get(sessionId);
+  if (!session) throw new Error(`Session not found: ${sessionId}`);
+  const state = session.states.find((candidate) => candidate.id === stateId);
+  if (!state) throw new Error(`Session ${sessionId} did not contain file ${stateId}`);
+  return state;
+}
+
 export function saveSessionDimensions(
   sessionId: string,
   stateId: string,
   dimensions: Record<string, DimensionData>,
 ): void {
-  const session = sessions.get(sessionId);
-  if (!session) throw new Error(`Session not found: ${sessionId}`);
-  const state = session.states.find((candidate) => candidate.id === stateId);
-  if (!state) throw new Error(`Session ${sessionId} did not contain file ${stateId}`);
-  state.dimensions = structuredClone(dimensions);
+  getSessionState(sessionId, stateId).dimensions = structuredClone(dimensions);
+}
+
+export function saveSessionStageModels(
+  sessionId: string,
+  stateId: string,
+  stageModels: Record<string, string>,
+): void {
+  getSessionState(sessionId, stateId).stageModels = structuredClone(stageModels);
 }
 
 // ---------------------------------------------------------------------------

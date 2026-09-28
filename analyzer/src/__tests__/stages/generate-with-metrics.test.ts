@@ -25,10 +25,11 @@ describe("generateWithMetrics", () => {
 
     await generateWithMetrics("segmenting", "prompt", {
       ...baseConfig,
+      stageModels: { segmenting: "segment-model" },
       recordCall: (stage, metric) => calls.push({ stage, metric }),
     });
 
-    expect(calls).toEqual([{ stage: "segmenting", metric: { costUsd: 0.00123 } }]);
+    expect(calls).toEqual([{ stage: "segmenting", metric: { costUsd: 0.00123, model: "segment-model" } }]);
   });
 
   it("records unknown cost when response omits it", async () => {
@@ -40,6 +41,6 @@ describe("generateWithMetrics", () => {
       recordCall: (_stage, metric) => calls.push(metric),
     });
 
-    expect(calls).toEqual([{}]);
+    expect(calls).toEqual([{ model: "model" }]);
   });
 });

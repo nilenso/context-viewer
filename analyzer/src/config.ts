@@ -15,10 +15,18 @@ import type { LogLevel, LogSink } from "./logger";
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
 export type AIApiMode = "responses" | "chat";
+export type AIStage =
+  | "segmenting"
+  | "identifying-components"
+  | "classifying-components"
+  | "coloring"
+  | "summarizing"
+  | "analyzing";
 
 export interface AnalyzerConfig {
   apiKey: string;
-  model?: string;              // default: "gpt-5.4-mini"
+  model?: string;              // default: "openai/gpt-6-luna"
+  stageModels?: Partial<Record<AIStage, string>>;
   baseURL?: string;
   apiMode?: AIApiMode;         // default: "responses"
   reasoningEffort?: ReasoningEffort;
@@ -32,11 +40,13 @@ export interface AnalyzerConfig {
 
 export interface AICallMetric {
   costUsd?: number;
+  model: string;
 }
 
 export interface AIConfig {
   apiKey: string;
   model: string;
+  stageModels?: Partial<Record<AIStage, string>>;
   baseURL: string | undefined;
   apiMode: AIApiMode;
   reasoningEffort: ReasoningEffort | undefined;
@@ -46,7 +56,8 @@ export interface AIConfig {
 export function resolveAIConfig(config: AnalyzerConfig): AIConfig {
   return {
     apiKey: config.apiKey,
-    model: config.model || "gpt-5.4-mini",
+    model: config.model || "openai/gpt-6-luna",
+    stageModels: config.stageModels || {},
     baseURL: config.baseURL,
     apiMode: config.apiMode || "responses",
     reasoningEffort: config.reasoningEffort,

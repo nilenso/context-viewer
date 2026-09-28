@@ -53,6 +53,7 @@ export interface DimensionData {
 
 export interface WorkflowStageMetric {
   wallClockMs: number;
+  model?: string;
   costUsd: number;
   costCallCount: number;
   missingCostCallCount: number;
@@ -95,6 +96,7 @@ export interface ConversationMetadata {
   customColoringPrompt?: string;
   dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string }>;
   workflowMetrics?: WorkflowMetrics;
+  stageModels?: Record<string, string>;
 }
 
 export interface ParseResult {
@@ -126,6 +128,7 @@ export interface PipelineState {
   customAnalysisPrompt?: string;
   segmentationThreshold?: number;
   presetColors?: Record<string, string>;
+  stageModels?: Record<string, string>;
 
   // Core data
   conversation?: Conversation;
@@ -167,6 +170,7 @@ export interface Group {
   fileIds: string[];
   dimensions?: Record<string, GroupDimensionConfig>;
   activeDimensions?: string[];
+  stageModels?: Record<string, string>;
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   aiSummary?: string;

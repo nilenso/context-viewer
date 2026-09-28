@@ -49,6 +49,7 @@ export class ContextViewerParser implements Parser {
       // Multi-dimension data
       dimensions: file.dimensions,
       workflowMetrics: file.workflowMetrics,
+      stageModels: file.stageModels,
     };
   }
 }

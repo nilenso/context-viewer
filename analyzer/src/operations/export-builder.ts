@@ -97,6 +97,7 @@ export function buildFileExport(conv: PipelineState): FileExport {
     metadata: conv.metadata,
     customPrompts,
     workflowMetrics: conv.workflowMetrics,
+    stageModels: conv.stageModels,
   };
   if (conv.title) {
     result.title = conv.title;
@@ -154,6 +155,7 @@ export function buildSessionExport(
         fileIds: g.fileIds,
         dimensions: g.dimensions,
         activeDimensions: g.activeDimensions,
+        stageModels: g.stageModels,
       };
     }),
     analytics: buildAnalytics(individualFiles),

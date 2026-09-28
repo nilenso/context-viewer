@@ -141,11 +141,14 @@ export async function runPipeline(
     missingCostCallCount: 0,
     stages: [],
   };
+  if (aiConfig && !ctx.stageModels) ctx.stageModels = { ...aiConfig.stageModels };
   const metricConfig = aiConfig && {
     ...aiConfig,
-    recordCall: (stage: string, metric: { costUsd?: number }) => {
+    stageModels: ctx.stageModels || {},
+    recordCall: (stage: string, metric: { costUsd?: number; model: string }) => {
       const stageMetric = ctx.workflowMetrics!.stages[stage];
       if (!stageMetric) return;
+      stageMetric.model = metric.model;
       if (metric.costUsd === undefined) {
         stageMetric.missingCostCallCount++;
       } else {

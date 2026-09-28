@@ -61,6 +61,7 @@ export const ExportDimensionSchema = z.object({
 
 export const WorkflowStageMetricSchema = z.object({
   wallClockMs: z.number(),
+  model: z.string().optional(),
   costUsd: z.number(),
   costCallCount: z.number(),
   missingCostCallCount: z.number(),
@@ -83,6 +84,7 @@ export const FileExportSchema = z.object({
   customPrompts: CustomPromptsSchema.optional(),
   dimensions: z.record(z.string(), ExportDimensionSchema).optional(), // Multi-dimension data
   workflowMetrics: WorkflowMetricsSchema.optional(),
+  stageModels: z.record(z.string(), z.string()).optional(),
 });
 
 // ============================================================================
@@ -104,6 +106,7 @@ export const GroupExportSchema = z.object({
   fileIds: z.array(z.string()), // References to FileExport.id
   dimensions: z.record(z.string(), GroupDimensionConfigSchema).optional(),
   activeDimensions: z.array(z.string()).optional(),
+  stageModels: z.record(z.string(), z.string()).optional(),
 });
 
 // ============================================================================

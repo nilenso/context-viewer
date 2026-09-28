@@ -411,7 +411,7 @@ export async function analyzeContext(
 // Session management
 // ============================================================================
 
-export { deleteSession, saveSessionDimensions } from "./session";
+export { deleteSession, saveSessionDimensions, saveSessionStageModels } from "./session";
 
 // ============================================================================
 // Internal helpers
@@ -669,7 +669,7 @@ export type {
   TextPart, ReasoningPart, ToolCallPart, ToolResultPart, ImagePart, FilePart,
 } from "./model/schema";
 export type { PipelineState, DimensionData, GroupDimensionConfig, ConversationSummary, ConversationMetadata, ComponentTimelineSnapshot, WorkflowMetrics, WorkflowRunMetric, WorkflowStageMetric, Stage, Group } from "./model/types";
-export type { AnalyzerConfig, AIConfig, AIApiMode, ReasoningEffort } from "./config";
+export type { AnalyzerConfig, AIConfig, AIApiMode, AIStage, ReasoningEffort } from "./config";
 export type { StageError, ErrorCategory } from "./errors";
 export type { LogLevel, LogEntry, LogSink } from "./logger";
 export type { Interceptor, PipelineOptions } from "./pipeline";

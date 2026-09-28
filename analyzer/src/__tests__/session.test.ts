@@ -17,7 +17,7 @@ vi.mock("../config", async (importOriginal) => {
 });
 
 import { generateText } from "ai";
-import { analyze, analyze2, deleteSession, saveSessionDimensions } from "../index";
+import { analyze, analyze2, deleteSession, saveSessionDimensions, saveSessionStageModels } from "../index";
 import type { AnalyzerConfig } from "../config";
 import type { PipelineState, Stage } from "../model/types";
 import "../parsers/index";
@@ -227,6 +227,20 @@ describe("session — iteration", () => {
 
     expect(result2.states[0]!.dimensions?.topic?.componentColors.greeting).toBe("#00ff00");
     expect(result2.analytics[0]!.dimensions.topic!.components[0]!.color).toBe("#00ff00");
+  });
+
+  it("saves stage models without running the pipeline", async () => {
+    const result = await analyze({ files: { content: minimalContent, filename: "test.jsonl" } }, noAiConfig);
+
+    saveSessionStageModels(result.sessionId, result.states[0]!.id, {
+      segmenting: "google/gemini-flash-latest",
+      "classifying-components": "typesafe/jev-router",
+    });
+
+    expect(result.states[0]!.stageModels).toEqual({
+      segmenting: "google/gemini-flash-latest",
+      "classifying-components": "typesafe/jev-router",
+    });
   });
 
   it("saves dimensions without running the pipeline", async () => {

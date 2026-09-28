@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import type { AIConfig } from "../config";
+import type { AIConfig, AIStage } from "../config";
 import { createModel, getProviderOptions } from "../config";
 
 function getCost(result: unknown): number | undefined {
@@ -24,17 +24,18 @@ function getCost(result: unknown): number | undefined {
   );
 }
 
-export async function generateWithMetrics(stage: string, prompt: string, config: AIConfig) {
+export async function generateWithMetrics(stage: AIStage, prompt: string, config: AIConfig) {
+  const model = config.stageModels?.[stage] || config.model;
   try {
     const result = await generateText({
-      model: createModel(config),
+      model: createModel({ ...config, model }),
       prompt,
       providerOptions: getProviderOptions(config),
     });
-    config.recordCall?.(stage, { costUsd: getCost(result) });
+    config.recordCall?.(stage, { costUsd: getCost(result), model });
     return result;
   } catch (error) {
-    config.recordCall?.(stage, {});
+    config.recordCall?.(stage, { model });
     throw error;
   }
 }
