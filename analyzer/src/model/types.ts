@@ -134,11 +134,21 @@ export interface PipelineState {
 // Group
 // ---------------------------------------------------------------------------
 
+export interface GroupDimensionConfig {
+  prompt?: string;
+  customComponents?: string[];
+  componentDescriptions?: Record<string, string>;
+  customColoringPrompt?: string;
+  componentColors?: Record<string, string>;
+}
+
 export interface Group {
   id: string;
   name: string;
   title?: string;
   fileIds: string[];
+  dimensions?: Record<string, GroupDimensionConfig>;
+  activeDimensions?: string[];
   customSummaryPrompt?: string;
   customAnalysisPrompt?: string;
   aiSummary?: string;

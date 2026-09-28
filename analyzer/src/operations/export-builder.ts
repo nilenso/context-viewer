@@ -146,15 +146,14 @@ export function buildSessionExport(
     exportedAt: new Date().toISOString(),
     files: individualFiles.map(buildFileExport),
     groups: groupList.map((g) => {
-      const group: { id: string; name: string; title?: string; fileIds: string[] } = {
+      return {
         id: g.id,
         name: g.name,
+        title: g.title,
         fileIds: g.fileIds,
+        dimensions: g.dimensions,
+        activeDimensions: g.activeDimensions,
       };
-      if (g.title) {
-        group.title = g.title;
-      }
-      return group;
     }),
     analytics: buildAnalytics(individualFiles),
   };

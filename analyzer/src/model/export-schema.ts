@@ -76,11 +76,21 @@ export const FileExportSchema = z.object({
 // Group Export
 // ============================================================================
 
+export const GroupDimensionConfigSchema = z.object({
+  prompt: z.string().optional(),
+  customComponents: z.array(z.string()).optional(),
+  componentDescriptions: z.record(z.string(), z.string()).optional(),
+  customColoringPrompt: z.string().optional(),
+  componentColors: z.record(z.string(), z.string()).optional(),
+});
+
 export const GroupExportSchema = z.object({
   id: z.string(),
   name: z.string(),
   title: z.string().optional(), // Custom display title for the group
   fileIds: z.array(z.string()), // References to FileExport.id
+  dimensions: z.record(z.string(), GroupDimensionConfigSchema).optional(),
+  activeDimensions: z.array(z.string()).optional(),
 });
 
 // ============================================================================

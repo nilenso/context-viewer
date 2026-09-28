@@ -430,11 +430,28 @@ describe("Session export", () => {
       },
     ];
 
-    const session = buildSessionExport(conversations);
+    const session = buildSessionExport(conversations, {
+      group: {
+        id: "group",
+        name: "Group",
+        fileIds: ["c1", "c2"],
+        dimensions: {
+          topic: {
+            prompt: "Find topics",
+            customComponents: ["greeting", "response"],
+          },
+        },
+        activeDimensions: ["topic"],
+      },
+    });
 
     expect(SessionExportSchema.safeParse(session).success).toBe(true);
     expect(session.version).toBe("1.0");
     expect(session.files).toHaveLength(2);
+    expect(session.groups[0]).toMatchObject({
+      dimensions: { topic: { prompt: "Find topics" } },
+      activeDimensions: ["topic"],
+    });
     expect(session.analytics.componentComparison).toHaveLength(2);
   });
 
