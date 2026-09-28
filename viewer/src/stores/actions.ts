@@ -332,6 +332,15 @@ function updateDimension(
 ) {
   const store = useConversationStore.getState();
   const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+  const group = store.getGroup(selectedConversationId);
+  if (group) {
+    store.updateGroup(group.id, {
+      dimensions: {
+        ...(group.dimensions || {}),
+        [dimensionName]: { ...(group.dimensions?.[dimensionName] || {}), ...update },
+      },
+    });
+  }
   store.setConversations((prev) =>
     prev.map((conv) => {
       if (!targetIds.has(conv.id)) return conv;
@@ -380,7 +389,8 @@ export function saveComponents(selectedConversation: ViewerConversationState | u
 
 async function reprocessActiveDimensions(selectedConversation: ViewerConversationState) {
   const ui = useUIStore.getState();
-  const activeDimensions = ui.activeDimensions;
+  const group = useConversationStore.getState().getGroup(selectedConversation.id);
+  const activeDimensions = new Set(group?.activeDimensions || ui.activeDimensions);
   ui.setReprocessingId(selectedConversation.id);
   try {
     await Promise.all(resolveTargets(selectedConversation).map((conversation) => {
@@ -493,6 +503,13 @@ export function addDimension(selectedConversationId: string, name: string) {
   const store = useConversationStore.getState();
   const ui = useUIStore.getState();
   const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
+  const group = store.getGroup(selectedConversationId);
+  if (group) {
+    store.updateGroup(group.id, {
+      dimensions: { ...(group.dimensions || {}), [name]: {} },
+      activeDimensions: [...new Set([...(group.activeDimensions || []), name])],
+    });
+  }
 
   store.setConversations((prev) =>
     prev.map((conv) => {
@@ -517,6 +534,15 @@ export function removeDimension(selectedConversationId: string, name: string) {
   const ui = useUIStore.getState();
   const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
   if (![...targetIds].some((id) => store.getConversation(id)?.dimensions?.[name])) return;
+  const group = store.getGroup(selectedConversationId);
+  if (group) {
+    const dimensions = { ...(group.dimensions || {}) };
+    delete dimensions[name];
+    store.updateGroup(group.id, {
+      dimensions,
+      activeDimensions: group.activeDimensions?.filter((dimension) => dimension !== name),
+    });
+  }
 
   store.setConversations((prev) =>
     prev.map((conv) => {
@@ -540,6 +566,20 @@ export function renameDimension(selectedConversationId: string, oldName: string,
   const targetIds = new Set(dimensionTargets(selectedConversationId).map((conv) => conv.id));
   if (![...targetIds].some((id) => store.getConversation(id)?.dimensions?.[oldName])) return;
   if ([...targetIds].some((id) => store.getConversation(id)?.dimensions?.[newName])) return;
+  const group = store.getGroup(selectedConversationId);
+  if (group) {
+    const dimensions = { ...(group.dimensions || {}) };
+    if (dimensions[oldName]) {
+      dimensions[newName] = dimensions[oldName];
+      delete dimensions[oldName];
+    }
+    store.updateGroup(group.id, {
+      dimensions,
+      activeDimensions: group.activeDimensions?.map((dimension) =>
+        dimension === oldName ? newName : dimension,
+      ),
+    });
+  }
 
   store.setConversations((prev) =>
     prev.map((conv) => {

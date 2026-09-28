@@ -102,6 +102,11 @@ export default function App() {
       }
     }
 
+    for (const [dimName, config] of Object.entries(selectedGroup.dimensions || {})) {
+      const dimension = mergedDims[dimName] || createEmptyDimension(dimName);
+      mergedDims[dimName] = { ...dimension, ...config };
+    }
+
     // Merge static components
     const staticComponentsSet = new Set<string>();
     const staticMapping: Record<string, string> = {};
@@ -137,6 +142,12 @@ export default function App() {
     if (groupDisplayData) return groupDisplayData.virtualState;
     return conversations.find((conv) => conv.id === selectedId) ?? conversations[0];
   }, [conversations, selectedId, groupDisplayData]);
+
+  useEffect(() => {
+    if (selectedGroup?.activeDimensions) {
+      ui.setActiveDimensions(new Set(selectedGroup.activeDimensions));
+    }
+  }, [selectedGroup?.id]);
 
   const memberComponentData = useMemo((): ConversationComponentData[] | undefined => {
     if (!selectedGroup) return undefined;
@@ -459,6 +470,14 @@ export default function App() {
                     componentColors={getDefaultDimension(selectedConversation)?.componentColors}
                     components={getAllComponents(selectedConversation)}
                     dimensions={selectedConversation.dimensions}
+                    onActiveDimensionsChange={(dimensions) => {
+                      ui.setActiveDimensions(dimensions);
+                      if (selectedGroup) {
+                        useConversationStore.getState().updateGroup(selectedGroup.id, {
+                          activeDimensions: [...dimensions],
+                        });
+                      }
+                    }}
                     staticMapping={selectedConversation.staticMapping}
                     staticTimeline={selectedConversation.staticTimeline}
                     warnings={selectedConversation.warnings}

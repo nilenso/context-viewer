@@ -3,17 +3,18 @@
  */
 
 import { SessionExportSchema, FileExportSchema } from "context-analyzer";
+import type { Group } from "context-analyzer";
 
 interface FileDropResult {
   filesToProcess: File[];
   oldIdToIndex: Map<string, number>;
-  sessionGroups: Array<{ id: string; name: string; title?: string; fileIds: string[] }>;
+  sessionGroups: Group[];
 }
 
 export async function parseFileDropInput(files: File[]): Promise<FileDropResult> {
   const filesToProcess: File[] = [];
   const oldIdToIndex = new Map<string, number>();
-  let sessionGroups: Array<{ id: string; name: string; title?: string; fileIds: string[] }> = [];
+  let sessionGroups: Group[] = [];
 
   for (const file of files) {
     if (file.name.endsWith(".json")) {

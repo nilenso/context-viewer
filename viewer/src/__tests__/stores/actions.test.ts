@@ -243,6 +243,22 @@ describe("viewer session actions", () => {
     expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
+  it("stores saved prompts on the group source of truth", () => {
+    const groupConversation = conversation("group", { sessionId: undefined });
+    useConversationStore.setState({
+      conversations: [conversation("one"), conversation("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+
+    savePrompt(groupConversation);
+
+    expect(useConversationStore.getState().groups.group).toMatchObject({
+      dimensions: { default: { prompt: "Find activities" } },
+    });
+    expect(mocks.saveSessionDimensions).toHaveBeenCalledTimes(2);
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
   it("saves custom components without replacing generated outputs", () => {
     useConversationStore.setState({
       conversations: [conversation("one", {

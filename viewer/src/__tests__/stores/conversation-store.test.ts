@@ -29,7 +29,7 @@ vi.mock("@/lib/pipeline-logging", () => ({
   markStepEnd: vi.fn(),
 }));
 
-import { useConversationStore } from "@/stores/conversation-store";
+import { useConversationStore, type ViewerConversationState } from "@/stores/conversation-store";
 
 function inputFile(name: string) {
   return {
@@ -38,7 +38,7 @@ function inputFile(name: string) {
   } as File;
 }
 
-function analyzerState(id: string, filename: string, parserName = "Plain Text") {
+function analyzerState(id: string, filename: string, parserName = "Plain Text"): ViewerConversationState {
   return {
     id,
     filename,
@@ -153,6 +153,42 @@ describe("conversation store analyzer sessions", () => {
     await useConversationStore.getState().processFileDrop([inputFile("export.json")], null);
 
     expect(useConversationStore.getState().conversations[0]?.warnings).toContain("classify: Rate limited");
+  });
+
+  it("creates groups with their own dimension configuration", () => {
+    useConversationStore.setState({
+      conversations: [
+        {
+          ...analyzerState("one", "one.txt"),
+          status: "success",
+          dimensions: {
+            topic: {
+              name: "topic",
+              prompt: "Find topics",
+              customComponents: ["planning"],
+              discoveredComponents: ["planning"],
+              componentMapping: {},
+              componentTimeline: [],
+              componentColors: { planning: "#ff0000" },
+            },
+          },
+        },
+        { ...analyzerState("two", "two.txt"), status: "success" },
+      ],
+    });
+
+    const id = useConversationStore.getState().groupConversations(["one", "two"], "Group");
+
+    expect(useConversationStore.getState().getGroup(id)).toMatchObject({
+      dimensions: {
+        topic: {
+          prompt: "Find topics",
+          customComponents: ["planning"],
+          componentColors: { planning: "#ff0000" },
+        },
+      },
+      activeDimensions: ["topic"],
+    });
   });
 
   it("deletes only the selected file's analyzer session", async () => {

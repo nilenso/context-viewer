@@ -666,7 +666,7 @@ export type {
   Conversation, Message, OriginInfo,
   TextPart, ReasoningPart, ToolCallPart, ToolResultPart, ImagePart, FilePart,
 } from "./model/schema";
-export type { PipelineState, DimensionData, ConversationSummary, ConversationMetadata, ComponentTimelineSnapshot, Stage, Group } from "./model/types";
+export type { PipelineState, DimensionData, GroupDimensionConfig, ConversationSummary, ConversationMetadata, ComponentTimelineSnapshot, Stage, Group } from "./model/types";
 export type { AnalyzerConfig, AIConfig, AIApiMode, ReasoningEffort } from "./config";
 export type { StageError, ErrorCategory } from "./errors";
 export type { LogLevel, LogEntry, LogSink } from "./logger";

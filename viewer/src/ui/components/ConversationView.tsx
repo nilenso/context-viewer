@@ -63,6 +63,7 @@ interface ConversationViewProps {
   components?: string[];
   // Multi-dimensional component data
   dimensions?: Record<string, DimensionData>;
+  onActiveDimensionsChange?: (dimensions: Set<string>) => void;
   // Static componentisation (deterministic, no AI)
   staticMapping?: Record<string, string>;
   staticTimeline?: ComponentTimelineSnapshot[];
@@ -85,6 +86,7 @@ export function ConversationView({
   componentColors,
   components,
   dimensions,
+  onActiveDimensionsChange,
   staticMapping,
   staticTimeline,
   warnings,
@@ -1113,7 +1115,7 @@ export function ConversationView({
               componentColors={componentColors}
               dimensions={dimensions}
               activeDimensions={activeDimensions}
-              onActiveDimensionsChange={setActiveDimensions}
+              onActiveDimensionsChange={onActiveDimensionsChange || setActiveDimensions}
               selectedComponent={selectedAutoComponent}
               onComponentSelect={(comp) => {
                 setSelectedAutoComponent(comp);

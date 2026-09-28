@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PipelineState, Stage, Interceptor } from "context-analyzer";
+import type { DimensionData, GroupDimensionConfig, PipelineState, Stage, Interceptor } from "context-analyzer";
 import { analyze, deleteSession } from "context-analyzer";
 import type { Group } from "context-analyzer";
 import { generateId } from "@/lib/id-generator";
@@ -101,6 +101,20 @@ function buildInterceptors(
   return interceptors;
 }
 
+function dimensionConfig(dimensions: Record<string, DimensionData> | undefined) {
+  if (!dimensions) return undefined;
+  return Object.fromEntries(Object.entries(dimensions).map(([name, dimension]): [string, GroupDimensionConfig] => [
+    name,
+    {
+      prompt: dimension.prompt,
+      customComponents: dimension.customComponents,
+      componentDescriptions: dimension.componentDescriptions,
+      customColoringPrompt: dimension.customColoringPrompt,
+      componentColors: dimension.componentColors,
+    },
+  ]));
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -184,7 +198,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     createGroup: (fileIds, name, id, title) => {
       const groupId = id || generateId();
       const groupName = name || `Grouped: ${fileIds.length} files`;
-      const group: Group = { id: groupId, name: groupName, title, fileIds };
+      const dimensions = dimensionConfig(get().getConversation(fileIds[0] || "")?.dimensions);
+      const group: Group = {
+        id: groupId,
+        name: groupName,
+        title,
+        fileIds,
+        dimensions,
+        activeDimensions: dimensions ? Object.keys(dimensions) : undefined,
+      };
       set((state) => ({ groups: { ...state.groups, [groupId]: group } }));
       return groupId;
     },
@@ -236,6 +258,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             name: group.name,
             title: group.title,
             fileIds: newIds,
+            dimensions: group.dimensions,
+            activeDimensions: group.activeDimensions,
           };
         }
       }
