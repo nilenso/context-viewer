@@ -32,6 +32,7 @@ import type { DimensionData, WorkflowStageMetric } from "context-analyzer";
 import { type StageGroup, stageToGroup } from "@/lib/stage-groups";
 import { getComponentWaffleStyles } from "@/ui/lib/component-colors";
 import { GroupFileOrderEditor } from "./GroupFileOrderEditor";
+import { DEFAULT_MODEL } from "@/lib/ai-config";
 import {
   type ConversationLogs,
   type LogEntry,
@@ -381,6 +382,9 @@ export function WorkflowDetailModal({
               const isExpanded = expandedSteps.has(step.key);
               const legacyTiming = stepTimings?.[step.key];
               const metric = getMetric(step.key);
+              const configuredModel = step.key === "summarizing" || step.key === "analyzing"
+                ? DEFAULT_MODEL
+                : conv?.stageModels?.[step.key];
 
               const isSummaryClickable =
                 step.key === "summarizing" &&
@@ -516,6 +520,11 @@ export function WorkflowDetailModal({
 
                         {/* Timing and cost display */}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {configuredModel && (
+                            <Badge variant="secondary" className="text-xs font-normal">
+                              {configuredModel}
+                            </Badge>
+                          )}
                           {metric ? (
                             <>
                               <Badge variant="outline" className="text-xs">
@@ -567,6 +576,10 @@ export function WorkflowDetailModal({
                                 <div className="font-medium">{label as string}</div>
                                 {stageMetric ? (
                                   <div className="mt-1 text-muted-foreground">
+                                    {(stageMetric as WorkflowStageMetric).model || conv?.stageModels?.[
+                                      label === "Topic identification" ? "identifying-components" : "classifying-components"
+                                    ] || DEFAULT_MODEL}
+                                    <br />
                                     Wall {formatDuration((stageMetric as WorkflowStageMetric).wallClockMs)} · {formatCost(stageMetric as WorkflowStageMetric)}
                                   </div>
                                 ) : (

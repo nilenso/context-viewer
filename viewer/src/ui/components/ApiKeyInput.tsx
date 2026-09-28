@@ -4,10 +4,18 @@ import { Input } from "@/ui/components/ui/input";
 import { Card } from "@/ui/components/ui/card";
 import { Eye, EyeOff, Key, Check, Play } from "lucide-react";
 import {
+  DEFAULT_MODEL,
+  STAGE_MODEL_OPTIONS,
   getRuntimeApiKey,
+  getRuntimeStageModels,
   setRuntimeApiKey,
+  setRuntimeStageModel,
   isApiKeyFromEnv,
+  type AIStage,
 } from "@/lib/ai-config";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useUrlStore } from "@/stores/url-store";
+import { saveStageModel } from "@/stores/actions";
 
 interface ApiKeyInputProps {
   onApiKeyChange: (hasKey: boolean) => void;
@@ -23,6 +31,12 @@ export function ApiKeyInput({
   const [inputValue, setInputValue] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [, setModelVersion] = useState(0);
+  const selectedId = useUrlStore((state) => state.conversationId);
+  const conversation = useConversationStore((state) =>
+    state.conversations.find((candidate) => candidate.id === selectedId),
+  );
+  const group = useConversationStore((state) => selectedId ? state.groups[selectedId] : undefined);
 
   const currentKey = getRuntimeApiKey();
   const isEnvConfigured = isApiKeyFromEnv();
@@ -60,14 +74,48 @@ export function ApiKeyInput({
     }
   };
 
+  const stages: Array<{ stage: AIStage; label: string }> = [
+    { stage: "segmenting", label: "Segmentation" },
+    { stage: "identifying-components", label: "Topic identification" },
+    { stage: "classifying-components", label: "Classification" },
+    { stage: "coloring", label: "Coloring" },
+  ];
+  const stageModels = group?.stageModels || conversation?.stageModels || getRuntimeStageModels();
+  const modelSelectors = (
+    <div className="mt-3 pt-3 border-t space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">Models by stage</div>
+      {stages.map(({ stage, label }) => (
+        <label key={stage} className="grid grid-cols-[1fr_150px] items-center gap-2 text-xs">
+          <span>{label}</span>
+          <select
+            value={stageModels[stage] || DEFAULT_MODEL}
+            onChange={(event) => {
+              if (selectedId) saveStageModel(selectedId, stage, event.target.value);
+              else {
+                setRuntimeStageModel(stage, event.target.value);
+                setModelVersion((version) => version + 1);
+              }
+            }}
+            className="h-8 rounded-md border border-input bg-background px-2"
+          >
+            {STAGE_MODEL_OPTIONS[stage].map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+
   // If configured via environment variable
   if (isEnvConfigured) {
     return (
       <Card className="p-3 mt-3 bg-green-50 border-green-200">
         <div className="flex items-center gap-2 text-sm text-green-700">
           <Check className="h-4 w-4" />
-          <span>API key configured via environment</span>
+          <span>OpenRouter key configured via environment</span>
         </div>
+        {modelSelectors}
       </Card>
     );
   }
@@ -79,7 +127,7 @@ export function ApiKeyInput({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-green-700">
             <Check className="h-4 w-4" />
-            <span>API key configured</span>
+            <span>OpenRouter key configured</span>
           </div>
           <Button
             variant="ghost"
@@ -102,6 +150,7 @@ export function ApiKeyInput({
             {pausedPipelineCount > 1 ? "s" : ""}
           </Button>
         )}
+        {modelSelectors}
       </Card>
     );
   }
@@ -111,7 +160,7 @@ export function ApiKeyInput({
     <Card className="p-3 mt-3 bg-amber-50 border-amber-200">
       <div className="flex items-center gap-2 text-sm text-amber-700 mb-2">
         <Key className="h-4 w-4" />
-        <span>Enter OpenAI API key for AI features</span>
+        <span>Enter OpenRouter API key for AI features</span>
       </div>
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -123,7 +172,7 @@ export function ApiKeyInput({
               setError(null);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="sk-..."
+            placeholder="sk-or-v1-..."
             className="h-8 text-sm pr-8"
           />
           <button
@@ -152,6 +201,7 @@ export function ApiKeyInput({
       <p className="text-xs text-amber-600 mt-1">
         Key is stored in memory only (lost on tab close)
       </p>
+      {modelSelectors}
     </Card>
   );
 }

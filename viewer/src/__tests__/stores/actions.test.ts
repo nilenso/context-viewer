@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   setReprocessingId: vi.fn(),
   setActiveDimensions: vi.fn(),
   saveSessionDimensions: vi.fn(),
+  saveSessionStageModels: vi.fn(),
   setEditingDimensionName: vi.fn(),
   setEditingPrompt: vi.fn(),
   setIsPromptDialogOpen: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("context-analyzer", () => ({
   summarize: mocks.summarize,
   analyzeContext: mocks.analyzeContext,
   saveSessionDimensions: mocks.saveSessionDimensions,
+  saveSessionStageModels: mocks.saveSessionStageModels,
   buildSessionExport: vi.fn(),
   createEmptyDimension: (name: string) => ({
     name,
@@ -92,6 +94,7 @@ import {
   renameDimension,
   saveComponents,
   savePrompt,
+  saveStageModel,
   reprocessComponents,
   resumePipelinesWithApiKeyAction,
 } from "@/stores/actions";
@@ -389,6 +392,24 @@ describe("viewer session actions", () => {
       expect.objectContaining({ reprocessDimensions: ["default", "topic"] }),
       expect.anything(),
     );
+  });
+
+  it("saves a group stage model to every member session", () => {
+    useConversationStore.setState({
+      conversations: [conversation("one"), conversation("two")],
+      groups: { group: { id: "group", name: "Group", fileIds: ["one", "two"] } },
+    });
+
+    saveStageModel("group", "classifying-components", "typesafe/jev-router");
+
+    expect(useConversationStore.getState().groups.group?.stageModels).toEqual({
+      "classifying-components": "typesafe/jev-router",
+    });
+    expect(useConversationStore.getState().conversations.every((item) =>
+      item.stageModels?.["classifying-components"] === "typesafe/jev-router",
+    )).toBe(true);
+    expect(mocks.saveSessionStageModels).toHaveBeenCalledTimes(2);
+    expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
   it("saves added dimensions without reprocessing", () => {

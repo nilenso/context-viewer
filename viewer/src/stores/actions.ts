@@ -19,8 +19,9 @@ import {
   getDefaultAnalysisPrompt,
   getDefaultColoringPrompt,
   saveSessionDimensions,
+  saveSessionStageModels,
 } from "context-analyzer";
-import type { PipelineState, Stage, Interceptor } from "context-analyzer";
+import type { AIStage, PipelineState, Stage, Interceptor } from "context-analyzer";
 import { DEFAULT_SEGMENTATION_THRESHOLD } from "context-analyzer";
 import { getAnalyzerConfig } from "@/lib/ai-config";
 import { formatAnalyzerErrors } from "@/lib/analyzer-errors";
@@ -736,12 +737,42 @@ export function deleteConversation(id: string) {
   if (currentId === id) navigateToId(null);
 }
 
+export function saveStageModel(id: string, stage: AIStage, model: string) {
+  const store = useConversationStore.getState();
+  const group = store.getGroup(id);
+  const ids = group?.fileIds || [id];
+  if (group) {
+    store.updateGroup(id, { stageModels: { ...(group.stageModels || {}), [stage]: model } });
+  }
+  for (const conversationId of ids) {
+    const conversation = store.getConversation(conversationId);
+    if (!conversation) continue;
+    const stageModels = { ...(conversation.stageModels || {}), [stage]: model };
+    store.updateConversation(conversationId, { stageModels });
+    if (conversation.sessionId) {
+      saveSessionStageModels(conversation.sessionId, conversationId, stageModels);
+    }
+  }
+}
+
 export function updateGroupSources(groupId: string, newSources: Array<{ id: string; filename: string; title?: string }>) {
   const newFileIds = newSources.map((s) => s.id);
   if (newFileIds.length <= 1) {
     ungroupConversation(groupId);
-  } else {
-    useConversationStore.getState().updateGroup(groupId, { fileIds: newFileIds });
+    return;
+  }
+
+  const store = useConversationStore.getState();
+  const group = store.getGroup(groupId);
+  store.updateGroup(groupId, { fileIds: newFileIds });
+  if (!group?.stageModels) return;
+  for (const conversationId of newFileIds) {
+    const conversation = store.getConversation(conversationId);
+    if (!conversation) continue;
+    store.updateConversation(conversationId, { stageModels: group.stageModels });
+    if (conversation.sessionId) {
+      saveSessionStageModels(conversation.sessionId, conversationId, group.stageModels);
+    }
   }
 }
 
