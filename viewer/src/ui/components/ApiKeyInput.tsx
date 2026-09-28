@@ -17,7 +17,7 @@ import { useConversationStore } from "@/stores/conversation-store";
 import { useUrlStore } from "@/stores/url-store";
 import { useUIStore } from "@/stores/ui-store";
 import { getWorkflowStageStatus } from "@/lib/workflow-state";
-import { getChangedModelStages, reprocessStageModels, saveStageModel } from "@/stores/actions";
+import { getChangedStages, reprocessStageModels, saveStageModel } from "@/stores/actions";
 
 interface ApiKeyInputProps {
   onApiKeyChange: (hasKey: boolean) => void;
@@ -118,7 +118,7 @@ export function ApiKeyInput({
             variant="outline"
             size="sm"
             onClick={() => reprocessStageModels(selectedId, false)}
-            disabled={!hasPreviousRun || reprocessingId === selectedId || getChangedModelStages(selectedId).length === 0}
+            disabled={!hasPreviousRun || reprocessingId === selectedId || getChangedStages(selectedId).length === 0}
             className="h-8 text-xs"
           >
             <RefreshCw className={`h-3 w-3 mr-1 ${reprocessingId === selectedId ? "animate-spin" : ""}`} />

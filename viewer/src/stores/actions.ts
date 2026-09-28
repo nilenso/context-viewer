@@ -370,7 +370,13 @@ export function savePrompt(selectedConversation: ViewerConversationState | undef
   updateDimension(
     selectedConversation.id,
     ui.editingDimensionName || "default",
-    { prompt: ui.editingPrompt },
+    {
+      prompt: ui.editingPrompt,
+      discoveredComponents: [],
+      componentMapping: {},
+      componentTimeline: [],
+      componentColors: {},
+    },
   );
   ui.setIsPromptDialogOpen(false);
 }
@@ -389,6 +395,10 @@ export function saveComponents(selectedConversation: ViewerConversationState | u
     {
       customComponents: components,
       componentDescriptions: Object.fromEntries(components.map((component) => [component, component])),
+      discoveredComponents: [],
+      componentMapping: {},
+      componentTimeline: [],
+      componentColors: {},
     },
   );
   ui.setIsComponentsDialogOpen(false);
@@ -745,15 +755,23 @@ const configurableModelStages: AIStage[] = [
   "coloring",
 ];
 
-export function getChangedModelStages(id: string): AIStage[] {
+export function getChangedStages(id: string): AIStage[] {
   const store = useConversationStore.getState();
   const targets = (store.getGroup(id)?.fileIds || [id])
     .map((conversationId) => store.getConversation(conversationId))
     .filter((conversation): conversation is ViewerConversationState => !!conversation);
-  return configurableModelStages.filter((stage) => targets.some((conversation) =>
+  const changed = new Set(configurableModelStages.filter((stage) => targets.some((conversation) =>
     conversation.stageModels?.[stage]
       && conversation.stageModels[stage] !== conversation.workflowMetrics?.stages[stage]?.model
-  ));
+  )));
+  for (const conversation of targets) {
+    for (const dimension of Object.values(conversation.dimensions || {})) {
+      if (dimension.discoveredComponents.length === 0) changed.add("identifying-components");
+      if (Object.keys(dimension.componentMapping).length === 0) changed.add("classifying-components");
+      if (Object.keys(dimension.componentColors).length === 0) changed.add("coloring");
+    }
+  }
+  return configurableModelStages.filter((stage) => changed.has(stage));
 }
 
 export function saveStageModel(id: string, stage: AIStage, model: string) {
@@ -778,7 +796,7 @@ export async function reprocessStageModels(id: string, fullReprocess: boolean) {
   const store = useConversationStore.getState();
   const selected = store.getConversation(id) || store.getConversation(store.getGroup(id)?.fileIds[0] || "");
   if (!selected) return;
-  const reprocessStages = fullReprocess ? undefined : getChangedModelStages(id);
+  const reprocessStages = fullReprocess ? undefined : getChangedStages(id);
   if (!fullReprocess && reprocessStages!.length === 0) return;
 
   const ui = useUIStore.getState();

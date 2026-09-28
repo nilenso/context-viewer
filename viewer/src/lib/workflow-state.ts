@@ -5,7 +5,7 @@ export type WorkflowStageStatus = "pending" | "in-progress" | "completed" | "pau
 
 type WorkflowState = Pick<
   PipelineState,
-  "conversation" | "staticComponents" | "aiSummary" | "analysis" | "stepTimings" | "workflowMetrics"
+  "conversation" | "dimensions" | "staticComponents" | "aiSummary" | "analysis" | "stepTimings" | "workflowMetrics"
 > & {
   status?: "pending" | "in-progress" | "completed" | "failed" | "paused";
   step?: string;
@@ -47,6 +47,15 @@ function getPipelineStageStatus(state: WorkflowState, stage: Stage): WorkflowSta
 
   if (state.status === "in-progress") {
     if (stage === state.step) return "in-progress";
+    if (
+      stage === "classifying-components"
+      && state.step === "coloring"
+      && Object.values(state.dimensions || {}).some((dimension) =>
+        Object.keys(dimension.componentMapping).length === 0
+      )
+    ) {
+      return "in-progress";
+    }
     if (hasStageRun(state.workflowMetrics, stage)) return "completed";
     return stageOrder.indexOf(stage) < stageOrder.indexOf(state.step as Stage) ? "completed" : "pending";
   }

@@ -371,6 +371,7 @@ export function WorkflowDetailModal({
                 step: currentStep,
                 stepTimings,
                 workflowMetrics,
+                dimensions,
                 aiSummary,
                 analysis: conv?.analysis ?? group?.analysis,
                 conversation: conv?.conversation ?? firstMember?.conversation,

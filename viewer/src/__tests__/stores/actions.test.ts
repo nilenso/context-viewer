@@ -224,7 +224,7 @@ describe("viewer session actions", () => {
     });
   });
 
-  it("saves a dimension prompt without replacing generated outputs", () => {
+  it("saves a dimension prompt and invalidates generated outputs", () => {
     useConversationStore.setState({
       conversations: [conversation("one", {
         dimensions: {
@@ -243,8 +243,9 @@ describe("viewer session actions", () => {
 
     expect(useConversationStore.getState().getConversation("one")?.dimensions?.default).toMatchObject({
       prompt: "Find activities",
-      discoveredComponents: ["existing"],
-      componentMapping: { "part:one": "existing" },
+      discoveredComponents: [],
+      componentMapping: {},
+      componentColors: {},
     });
     expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
     expect(mocks.analyze).not.toHaveBeenCalled();
@@ -291,7 +292,7 @@ describe("viewer session actions", () => {
     expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
-  it("saves custom components without replacing generated outputs", () => {
+  it("saves custom components and invalidates generated outputs", () => {
     useConversationStore.setState({
       conversations: [conversation("one", {
         dimensions: {
@@ -310,8 +311,9 @@ describe("viewer session actions", () => {
 
     expect(useConversationStore.getState().getConversation("one")?.dimensions?.default).toMatchObject({
       customComponents: ["planning", "execution"],
-      discoveredComponents: ["existing"],
-      componentMapping: { "part:one": "existing" },
+      discoveredComponents: [],
+      componentMapping: {},
+      componentColors: {},
     });
     expect(mocks.saveSessionDimensions).toHaveBeenCalledOnce();
     expect(mocks.analyze).not.toHaveBeenCalled();
