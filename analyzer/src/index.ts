@@ -19,7 +19,7 @@ import type {
   Stage,
 } from "./model/types";
 import type { Conversation, Message } from "./model/schema";
-import { type AnalyzerConfig, resolveAIConfig, type AIConfig } from "./config";
+import { type AnalyzerConfig, resolveAIConfig, type AIConfig, type AIStage } from "./config";
 import { configureLogger } from "./logger";
 import { runPipeline, type Interceptor, type PipelineOptions } from "./pipeline";
 import { runSummary } from "./stages/summarize";
@@ -83,6 +83,12 @@ export interface AnalyzeOptions {
 
   /** Clear generated outputs and rerun these dimensions from their saved inputs. */
   reprocessDimensions?: string[];
+
+  /** Clear outputs produced by these AI stages and rerun their dependents. */
+  reprocessStages?: AIStage[];
+
+  /** Reparse original content and rerun the full pipeline. */
+  fullReprocess?: boolean;
 
   /** Preset colors for components (applies to default dimension). */
   presetColors?: Record<string, string>;
@@ -464,7 +470,10 @@ function toAnalyzeOptions(options: Analyze2Options): AnalyzeOptions {
 
 /** Convert AnalyzeOptions into the shape applyIterationInputs expects. */
 function buildIterationInputs(options: AnalyzeOptions) {
-  const inputs: Parameters<typeof applyIterationInputs>[1] = {};
+  const inputs: Parameters<typeof applyIterationInputs>[1] = {
+    reprocessStages: options.reprocessStages,
+    fullReprocess: options.fullReprocess,
+  };
 
   if (options.prompts?.segmentation !== undefined) {
     inputs.segmentationPrompt = options.prompts.segmentation;

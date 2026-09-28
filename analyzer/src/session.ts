@@ -30,6 +30,7 @@
  *   - dimensions[name].componentColors — hex colors per component
  */
 
+import type { AIStage } from "./config";
 import type { PipelineState, DimensionData } from "./model/types";
 import { generateId } from "./id-generator";
 
@@ -141,6 +142,11 @@ function clearDimensionIdentification(dim: DimensionData): void {
   dim.componentColors = {};
 }
 
+function clearDimensionClassification(dim: DimensionData): void {
+  dim.componentMapping = {};
+  dim.componentTimeline = [];
+}
+
 function clearDimensionColors(dim: DimensionData): void {
   dim.componentColors = {};
 }
@@ -175,12 +181,37 @@ export function applyIterationInputs(
     renameDimensions?: Record<string, string>;
     removeDimensions?: string[];
     reprocessDimensions?: string[];
+    reprocessStages?: AIStage[];
+    fullReprocess?: boolean;
   },
 ): { affectedDimNames: string[] } {
   const affectedDims = new Set<string>();
 
   for (const ctx of states) {
+    if (newOptions.fullReprocess || newOptions.reprocessStages?.includes("segmenting")) {
+      ctx.conversation = undefined;
+      ctx.staticComponents = undefined;
+      ctx.staticMapping = undefined;
+      ctx.staticTimeline = undefined;
+    }
+
     if (ctx.dimensions) {
+      const stages = new Set(newOptions.reprocessStages || []);
+      for (const [name, dimension] of Object.entries(ctx.dimensions)) {
+        if (newOptions.fullReprocess || stages.has("segmenting") || stages.has("identifying-components")) {
+          clearDimensionIdentification(dimension);
+          affectedDims.add(name);
+        } else {
+          if (stages.has("classifying-components")) {
+            clearDimensionClassification(dimension);
+            affectedDims.add(name);
+          }
+          if (stages.has("coloring")) {
+            clearDimensionColors(dimension);
+            affectedDims.add(name);
+          }
+        }
+      }
       for (const [oldName, newName] of Object.entries(newOptions.renameDimensions || {})) {
         const dimension = ctx.dimensions[oldName];
         if (!dimension || oldName === newName || ctx.dimensions[newName]) continue;
