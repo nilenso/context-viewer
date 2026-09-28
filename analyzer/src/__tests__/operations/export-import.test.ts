@@ -411,6 +411,23 @@ describe("Session export", () => {
         componentMapping: { p1: "greeting" },
         componentColors: { greeting: "blue" },
         aiSummary: "Test",
+        workflowMetrics: {
+          stages: {
+            segmenting: {
+              wallClockMs: 1200,
+              costUsd: 0.0012,
+              costCallCount: 1,
+              missingCostCallCount: 0,
+            },
+          },
+          latestRun: {
+            wallClockMs: 1200,
+            costUsd: 0.0012,
+            costCallCount: 1,
+            missingCostCallCount: 0,
+            stages: ["segmenting"],
+          },
+        },
       },
       {
         id: "c2",
@@ -448,6 +465,9 @@ describe("Session export", () => {
     expect(SessionExportSchema.safeParse(session).success).toBe(true);
     expect(session.version).toBe("1.0");
     expect(session.files).toHaveLength(2);
+    expect(session.files[0]?.workflowMetrics).toMatchObject({
+      stages: { segmenting: { wallClockMs: 1200, costUsd: 0.0012 } },
+    });
     expect(session.groups[0]).toMatchObject({
       dimensions: { topic: { prompt: "Find topics" } },
       activeDimensions: ["topic"],

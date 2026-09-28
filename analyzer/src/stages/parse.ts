@@ -95,6 +95,7 @@ export function restorePreProcessedImport(
     customSegmentationPrompt: metadata.customSegmentationPrompt,
     customSummaryPrompt: metadata.customSummaryPrompt,
     customAnalysisPrompt: metadata.customAnalysisPrompt,
+    workflowMetrics: metadata.workflowMetrics,
     dimensions,
     staticComponents: staticResult.components,
     staticMapping: staticResult.mapping,

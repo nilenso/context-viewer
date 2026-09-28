@@ -48,6 +48,7 @@ export class ContextViewerParser implements Parser {
       customColoringPrompt: file.customPrompts?.coloring,
       // Multi-dimension data
       dimensions: file.dimensions,
+      workflowMetrics: file.workflowMetrics,
     };
   }
 }

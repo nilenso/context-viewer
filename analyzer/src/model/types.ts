@@ -51,6 +51,22 @@ export interface DimensionData {
 // Conversation summary
 // ---------------------------------------------------------------------------
 
+export interface WorkflowStageMetric {
+  wallClockMs: number;
+  costUsd: number;
+  costCallCount: number;
+  missingCostCallCount: number;
+}
+
+export interface WorkflowRunMetric extends WorkflowStageMetric {
+  stages: string[];
+}
+
+export interface WorkflowMetrics {
+  stages: Record<string, WorkflowStageMetric>;
+  latestRun?: WorkflowRunMetric;
+}
+
 export interface ConversationSummary {
   totalMessages: number;
   messagesByRole: Record<string, number>;
@@ -78,6 +94,7 @@ export interface ConversationMetadata {
   customAnalysisPrompt?: string;
   customColoringPrompt?: string;
   dimensions?: Record<string, { components: string[]; colors: Record<string, string>; prompt?: string; coloringPrompt?: string }>;
+  workflowMetrics?: WorkflowMetrics;
 }
 
 export interface ParseResult {
@@ -128,6 +145,7 @@ export interface PipelineState {
   // Tracking
   warnings?: string[];
   stepTimings?: Partial<Record<Stage | string, number>>;
+  workflowMetrics?: WorkflowMetrics;
 }
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,18 @@ export const ExportDimensionSchema = z.object({
   coloringPrompt: z.string().optional(),
 });
 
+export const WorkflowStageMetricSchema = z.object({
+  wallClockMs: z.number(),
+  costUsd: z.number(),
+  costCallCount: z.number(),
+  missingCostCallCount: z.number(),
+});
+
+export const WorkflowMetricsSchema = z.object({
+  stages: z.record(z.string(), WorkflowStageMetricSchema),
+  latestRun: WorkflowStageMetricSchema.extend({ stages: z.array(z.string()) }).optional(),
+});
+
 export const FileExportSchema = z.object({
   id: z.string(),
   filename: z.string(),
@@ -70,6 +82,7 @@ export const FileExportSchema = z.object({
   metadata: ExportMetadataSchema.optional(),
   customPrompts: CustomPromptsSchema.optional(),
   dimensions: z.record(z.string(), ExportDimensionSchema).optional(), // Multi-dimension data
+  workflowMetrics: WorkflowMetricsSchema.optional(),
 });
 
 // ============================================================================

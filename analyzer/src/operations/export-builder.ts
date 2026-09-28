@@ -96,6 +96,7 @@ export function buildFileExport(conv: PipelineState): FileExport {
     analysis: conv.analysis || null,
     metadata: conv.metadata,
     customPrompts,
+    workflowMetrics: conv.workflowMetrics,
   };
   if (conv.title) {
     result.title = conv.title;
