@@ -14,8 +14,8 @@
  * into a UI store as stages complete.
  */
 
-import type { PipelineState, Stage } from "./model/types";
-import type { AIConfig } from "./config";
+import type { PipelineState, Stage, WorkflowStageMetric } from "./model/types";
+import type { AICallMetric, AIConfig } from "./config";
 import { ensureDimensions, ensureDimension, getDimensionNames } from "./model/dimensions";
 import { stageLogger } from "./logger";
 import type { StageError } from "./errors";
@@ -65,11 +65,12 @@ async function run<T>(
     if (i.stage === name && i.timing === "pre") await i.fn(ctx);
   }
 
-  const metric = {
+  const metric: WorkflowStageMetric = {
     wallClockMs: 0,
     costUsd: 0,
     costCallCount: 0,
     missingCostCallCount: 0,
+    calls: [],
   };
   ctx.workflowMetrics!.stages[name] = metric;
   ctx.workflowMetrics!.latestRun!.stages.push(name);
@@ -77,6 +78,10 @@ async function run<T>(
   const start = Date.now();
   const result = await fn();
   metric.wallClockMs = Date.now() - start;
+  if (metric.calls!.length > 0) {
+    metric.llmTimeMs = Math.max(...metric.calls!.map((call) => call.endedAt))
+      - Math.min(...metric.calls!.map((call) => call.startedAt));
+  }
   ctx.stepTimings![name] = Math.round(metric.wallClockMs / 1000);
   log.info(`[${ctx.filename}] Completed ${name} in ${ctx.stepTimings![name]}s`);
 
@@ -145,10 +150,11 @@ export async function runPipeline(
   const metricConfig = aiConfig && {
     ...aiConfig,
     stageModels: ctx.stageModels || {},
-    recordCall: (stage: string, metric: { costUsd?: number; model: string }) => {
+    recordCall: (stage: string, metric: AICallMetric) => {
       const stageMetric = ctx.workflowMetrics!.stages[stage];
       if (!stageMetric) return;
       stageMetric.model = metric.model;
+      stageMetric.calls!.push(metric);
       if (metric.costUsd === undefined) {
         stageMetric.missingCostCallCount++;
       } else {

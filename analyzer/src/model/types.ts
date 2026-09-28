@@ -51,9 +51,21 @@ export interface DimensionData {
 // Conversation summary
 // ---------------------------------------------------------------------------
 
+export interface WorkflowCallMetric {
+  model: string;
+  startedAt: number;
+  endedAt: number;
+  durationMs: number;
+  costUsd?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
 export interface WorkflowStageMetric {
   wallClockMs: number;
+  llmTimeMs?: number;
   model?: string;
+  calls?: WorkflowCallMetric[];
   costUsd: number;
   costCallCount: number;
   missingCostCallCount: number;

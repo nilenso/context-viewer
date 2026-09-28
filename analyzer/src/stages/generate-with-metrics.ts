@@ -26,16 +26,27 @@ function getCost(result: unknown): number | undefined {
 
 export async function generateWithMetrics(stage: AIStage, prompt: string, config: AIConfig) {
   const model = getStageModel(config, stage);
+  const startedAt = Date.now();
   try {
     const result = await generateText({
       model: createModel({ ...config, model }),
       prompt,
       providerOptions: getProviderOptions(config),
     });
-    config.recordCall?.(stage, { costUsd: getCost(result), model });
+    const endedAt = Date.now();
+    config.recordCall?.(stage, {
+      model,
+      startedAt,
+      endedAt,
+      durationMs: endedAt - startedAt,
+      costUsd: getCost(result),
+      inputTokens: result.usage?.inputTokens,
+      outputTokens: result.usage?.outputTokens,
+    });
     return result;
   } catch (error) {
-    config.recordCall?.(stage, { model });
+    const endedAt = Date.now();
+    config.recordCall?.(stage, { model, startedAt, endedAt, durationMs: endedAt - startedAt });
     throw error;
   }
 }

@@ -59,9 +59,21 @@ export const ExportDimensionSchema = z.object({
   coloringPrompt: z.string().optional(),
 });
 
+export const WorkflowCallMetricSchema = z.object({
+  model: z.string(),
+  startedAt: z.number(),
+  endedAt: z.number(),
+  durationMs: z.number(),
+  costUsd: z.number().optional(),
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+});
+
 export const WorkflowStageMetricSchema = z.object({
   wallClockMs: z.number(),
+  llmTimeMs: z.number().optional(),
   model: z.string().optional(),
+  calls: z.array(WorkflowCallMetricSchema).optional(),
   costUsd: z.number(),
   costCallCount: z.number(),
   missingCostCallCount: z.number(),

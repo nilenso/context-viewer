@@ -29,7 +29,10 @@ describe("generateWithMetrics", () => {
       recordCall: (stage, metric) => calls.push({ stage, metric }),
     });
 
-    expect(calls).toEqual([{ stage: "segmenting", metric: { costUsd: 0.00123, model: "segment-model" } }]);
+    expect(calls).toMatchObject([{
+      stage: "segmenting",
+      metric: { costUsd: 0.00123, model: "segment-model" },
+    }]);
   });
 
   it("records unknown cost when response omits it", async () => {
@@ -41,6 +44,6 @@ describe("generateWithMetrics", () => {
       recordCall: (_stage, metric) => calls.push(metric),
     });
 
-    expect(calls).toEqual([{ model: "model" }]);
+    expect(calls).toMatchObject([{ model: "model" }]);
   });
 });

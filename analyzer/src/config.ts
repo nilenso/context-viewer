@@ -39,8 +39,13 @@ export interface AnalyzerConfig {
 // ============================================================================
 
 export interface AICallMetric {
-  costUsd?: number;
   model: string;
+  startedAt: number;
+  endedAt: number;
+  durationMs: number;
+  costUsd?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface AIConfig {
